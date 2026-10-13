@@ -4,7 +4,10 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/CrushXStartup.unity
+    guid: ada184613a2e93d44a4773b3fb30eef1
   m_configObjects:
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: d3965facfb94fc24e809d6b3216d1c8c, type: 2}
   m_UseUCBPForAssetBundles: 0
