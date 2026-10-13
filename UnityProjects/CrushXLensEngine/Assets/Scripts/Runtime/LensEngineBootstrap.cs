@@ -35,7 +35,7 @@ namespace CrushX.LensEngine
                 deviceProvider.FaceManager = faceManager;
                 ARCameraManager frontCamera = FindFirstObjectByType<ARCameraManager>();
                 if (frontCamera != null)
-                    frontCamera.requestedFacingDirection = UnityEngine.XR.ARSubsystems.CameraFacingDirection.User;
+                    frontCamera.requestedFacingDirection = UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
                 tracking.SetProvider(deviceProvider);
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
