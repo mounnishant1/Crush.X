@@ -11,7 +11,7 @@ namespace CrushX.LensEngine
         private GUIStyle header, status, button;
         private Texture2D dark;
 
-        private void Start() { engine = FindFirstObjectByType<LensEngineBootstrap>(); }
+        private void Start() { engine = FindFirstObjectByType<LensEngineBootstrap>(); if (GetComponent<CrushXSmartCarousel>() == null) gameObject.AddComponent<CrushXSmartCarousel>(); }
 
         private void Update()
         {
@@ -50,12 +50,10 @@ namespace CrushX.LensEngine
             GUI.matrix = Matrix4x4.Scale(Vector3.one*u);
             float w=Screen.width/u, h=Screen.height/u;
             GUI.Label(new Rect(w*.2f, 20, w*.6f,45), "Crush.X   3D AR", header);
-            if (GUI.Button(new Rect(14,20,78,48), "←", button)) NativeLensLifecycle.ExitToCrushX();
+            if (GUI.Button(new Rect(14,20,78,48), "â†", button)) NativeLensLifecycle.ExitToCrushX();
             GUI.Label(new Rect(20,74,w-40,34), engine.TrackingActive ? "Face tracking active" : "Face tracking unavailable", status);
-            if (GUI.Button(new Rect(16,h-138,82,68), "‹",button)) engine.Step(-1);
-            if (GUI.Button(new Rect(w-98,h-138,82,68), "›",button)) engine.Step(1);
-            if (GUI.Button(new Rect(w/2-120,h-144,96,80), "♡",button)) engine.ToggleFavorite();
-            if (GUI.Button(new Rect(w/2+24,h-144,96,80), "●",button)) CaptureManager.SavePhoto(engine);
+            if (GUI.Button(new Rect(w/2-120,h-144,96,80), "â™¡",button)) engine.ToggleFavorite();
+            if (GUI.Button(new Rect(w/2+24,h-144,96,80), "â—",button)) CaptureManager.SavePhoto(engine);
             var selected=LensCatalog.Find(engine.ActiveId);
             GUI.Label(new Rect(18,h-68,w-36,40),selected.HasValue?selected.Value.DisplayName:"Original",header);
             GUI.matrix=old;

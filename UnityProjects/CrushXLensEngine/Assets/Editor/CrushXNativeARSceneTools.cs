@@ -77,7 +77,15 @@ namespace CrushX.LensEngine.Editor
             Directory.CreateDirectory("Assets/Scenes");
             const string scenePath = "Assets/Scenes/CrushXNativeAR.unity";
             EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(scenePath, true) };
+            var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(
+    EditorBuildSettings.scenes);
+
+if (!scenes.Exists(s => s.path == scenePath))
+{
+    scenes.Add(new EditorBuildSettingsScene(scenePath, false));
+}
+
+EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
             Selection.activeGameObject = engine;
             Debug.Log("Native AR scene created. Enable ARCore in Android XR Plug-in Management and TEST REAL FRONT CAMERA on a supported device.");

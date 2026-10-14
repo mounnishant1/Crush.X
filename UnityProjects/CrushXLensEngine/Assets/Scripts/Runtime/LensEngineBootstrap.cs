@@ -85,14 +85,35 @@ namespace CrushX.LensEngine
             }
         }
 
+        private GameObject premiumLensInstance;
+
         public bool SelectLens(string id)
         {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
             if (effect != null) Destroy(effect.gameObject);
-            var go = new GameObject("Lens-" + id);
-            go.transform.SetParent(effectRoot, false);
-            effect = (LensEffect)go.AddComponent(LensCatalog.ResolveType(id));
-            effect.Build();
+            effect = null;
+
+            if (premiumLensInstance != null)
+                Destroy(premiumLensInstance);
+
+            premiumLensInstance = null;
+
+            GameObject prefab = Resources.Load<GameObject>(
+                "CrushXLenses/" + id);
+
+            if (prefab != null)
+            {
+                premiumLensInstance = Instantiate(
+                    prefab, effectRoot, false);
+            }
+            else
+            {
+                var go = new GameObject("Lens-" + id);
+                go.transform.SetParent(effectRoot, false);
+                effect = (LensEffect)go.AddComponent(
+                    LensCatalog.ResolveType(id));
+                effect.Build();
+            }
             activeId = id;
             startAt = Time.unscaledTime;
             personalization.RecordUsage(id);
@@ -130,8 +151,16 @@ namespace CrushX.LensEngine
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
         }
 
+        private NativeLensUI cachedNativeLensUi;
+
         private void OnGUI()
         {
+            if (cachedNativeLensUi == null)
+                cachedNativeLensUi = FindFirstObjectByType<NativeLensUI>();
+
+            if (cachedNativeLensUi != null &&
+                cachedNativeLensUi.isActiveAndEnabled)
+                return;
             if (!usingMock && FindFirstObjectByType<NativeLensUI>() != null) return;
             // Basic functional debug UI, not a production Snapchat-class screen.
             float uiScale = Mathf.Max(.85f, Mathf.Min(Screen.width / 780f, Screen.height / 1280f));
