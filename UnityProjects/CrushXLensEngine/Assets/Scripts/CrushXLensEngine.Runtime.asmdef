@@ -4,6 +4,8 @@
     "references": [
         "Unity.XR.ARFoundation",
         "Unity.XR.ARSubsystems",
+        "Unity.XR.Management",
+        "Unity.Collections",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],
