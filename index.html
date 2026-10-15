@@ -113,8 +113,16 @@
       to { transform: rotate(360deg); }
     }
 
-    @media (max-width: 700px) {
-      .desktop-nav {
+    #authOverlay, #confirmationModal { overflow-y: auto; }
+    #authOverlay > div, #confirmationModal > div { margin: auto; }
+    input, textarea, .flex-1 { min-width: 0; }
+    main { overflow-wrap: anywhere; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .bottom-nav { bottom: max(12px, env(safe-area-inset-bottom)); }
+    .bottom-nav button { min-width: 0; flex: 1; padding-inline: 3px; }
+    .reel-media { height: min(65dvh, 650px); }
+    @media (max-width: 1199px) {
+      header .desktop-nav {
         display: none;
       }
     }
@@ -139,9 +147,9 @@
         </p>
       </div>
 
-      <div class="mt-6 space-y-3">
+      <form id="authForm" novalidate class="mt-6 space-y-3">
         <input
-          id="usernameInput"
+          aria-label="Username or email" id="usernameInput"
           type="text"
           autocomplete="username"
           placeholder="Username or email"
@@ -149,7 +157,7 @@
         />
 
         <input
-          id="emailInput"
+          aria-label="Email address" id="emailInput"
           type="email"
           autocomplete="email"
           placeholder="Email address"
@@ -157,15 +165,17 @@
         />
 
         <input
-          id="passwordInput"
+          aria-label="Password" id="passwordInput"
           type="password"
           autocomplete="current-password"
           placeholder="Password"
           class="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
         />
-      </div>
+        <input aria-label="Reset code" id="resetCodeInput" class="hidden w-full rounded-2xl border px-4 py-3" placeholder="Reset code" autocomplete="one-time-code" />
+      </form>
 
       <button
+        type="submit" form="authForm"
         id="authButton"
         class="mt-5 w-full rounded-2xl gradient-main px-4 py-3.5 text-sm font-bold text-white"
       >
@@ -182,7 +192,7 @@
         </button>
       </div>
 
-      <div id="authMessage" class="mt-4 hidden rounded-2xl p-3 text-center text-xs font-bold"></div>
+      <div role="status" aria-live="polite" id="authMessage" class="mt-4 hidden rounded-2xl p-3 text-center text-xs font-bold"></div>
     </div>
   </div>
 
@@ -195,7 +205,7 @@
       </p>
 
       <input
-        id="confirmationCode"
+        aria-label="Verification code" id="confirmationCode"
         maxlength="6"
         inputmode="numeric"
         placeholder="Verification code"
@@ -209,6 +219,8 @@
         Verify account
       </button>
 
+      <div id="confirmationMessage" role="status" class="mt-3 text-sm"></div>
+      <button id="cancelConfirmation" class="mt-3 w-full text-sm">Back to login</button>
       <button
         id="resendButton"
         class="mt-4 w-full text-sm font-bold text-pink-600"
@@ -238,13 +250,7 @@
       ClientId: '1fvstb7h8vqbk7qt98bd46aj0'
     };
 
-    /*
-      REQUIRED:
-      Replace this with your API Gateway URL.
-
-      Example:
-      https://abc123.execute-api.us-west-2.amazonaws.com/prod
-    */
+    // Existing API setting retained for audit. No verified publishing contract is present.
     const API_BASE_URL =
       'https://jzym971249.execute-api.us-west-2.amazonaws.com/prod';
 
@@ -253,6 +259,9 @@
     let cognitoPool = null;
     let pendingUser = null;
     let signUpMode = false;
+    let recoveryMode = null;
+    let recoveryUser = null;
+    let previewUrl = null;
 
     const defaultUsers = [
       {
@@ -378,11 +387,14 @@
       return JSON.parse(JSON.stringify(value));
     }
 
+    let memoryState = clone(defaultState);
     function getState() {
-      const saved = localStorage.getItem(STATE_KEY);
+      let saved;
+      try { saved = localStorage.getItem(STATE_KEY); }
+      catch { return clone(memoryState); }
 
       if (!saved) {
-        localStorage.setItem(STATE_KEY, JSON.stringify(defaultState));
+        saveState(clone(defaultState));
         return clone(defaultState);
       }
 
@@ -392,13 +404,15 @@
           ...JSON.parse(saved)
         };
       } catch {
-        localStorage.setItem(STATE_KEY, JSON.stringify(defaultState));
+        saveState(clone(defaultState));
         return clone(defaultState);
       }
     }
 
     function saveState(state) {
-      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      memoryState = clone(state);
+      try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+      catch { /* Browser storage unavailable: keep local actions for this page only. */ }
     }
 
     function currentUser(state) {
@@ -428,10 +442,12 @@
     function showLoader(message) {
       document.getElementById('loaderText').textContent = message;
       document.getElementById('loader').classList.add('show');
+      document.querySelectorAll('#authOverlay button, #confirmationModal button').forEach(b => b.disabled = true);
     }
 
     function hideLoader() {
       document.getElementById('loader').classList.remove('show');
+      document.querySelectorAll('#authOverlay button, #confirmationModal button').forEach(b => b.disabled = false);
     }
 
     function showAuthMessage(message, success = false) {
@@ -462,7 +478,18 @@
     }
 
     function toggleAuthMode() {
+      if (recoveryMode) {
+        recoveryMode = null;
+        recoveryUser = null;
+        signUpMode = true;
+      }
       signUpMode = !signUpMode;
+      document.getElementById('passwordInput').classList.remove('hidden');
+      document.getElementById('resetCodeInput').classList.add('hidden');
+      document.getElementById('resetCodeInput').value = '';
+      document.getElementById('usernameInput').readOnly = false;
+      document.getElementById('passwordInput').placeholder = 'Password';
+      document.getElementById('passwordInput').autocomplete = signUpMode ? 'new-password' : 'current-password';
 
       document.getElementById('authTitle').textContent =
         signUpMode ? 'Create Account' : 'Welcome to Crush.X';
@@ -508,7 +535,7 @@
     }
 
     function signUp() {
-      const username = document.getElementById('usernameInput').value.trim().toLowerCase();
+      const username = document.getElementById('usernameInput').value.trim();
       const email = document.getElementById('emailInput').value.trim().toLowerCase();
       const password = document.getElementById('passwordInput').value;
 
@@ -517,6 +544,14 @@
         return;
       }
 
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAuthMessage('Enter a valid email address.');
+        return;
+      }
+      if (/\s/.test(username)) {
+        showAuthMessage('Username cannot contain spaces.');
+        return;
+      }
       if (!validPassword(password)) {
         showAuthMessage('Password needs 8 characters, uppercase, lowercase, and a number.');
         return;
@@ -547,6 +582,11 @@
               return;
             }
 
+            if (result.userConfirmed) {
+              toggleAuthMode();
+              showAuthMessage('Account created. You can now log in.', true);
+              return;
+            }
             pendingUser = result.user;
             document.getElementById('confirmationModal').classList.remove('hidden');
             document.getElementById('confirmationModal').classList.add('flex');
@@ -604,9 +644,19 @@
 
           onFailure(error) {
             hideLoader();
+            if (error.code === 'UserNotConfirmedException') {
+              pendingUser = cognitoUser;
+              document.getElementById('confirmationModal').classList.remove('hidden');
+              document.getElementById('confirmationModal').classList.add('flex');
+            }
             showAuthMessage(error.message || 'Login failed.');
           },
 
+          newPasswordRequired() { hideLoader(); showAuthMessage('This account requires a new password. Use Forgot password to reset it.'); },
+          customChallenge() { hideLoader(); showAuthMessage('This account requires an unsupported authentication challenge. Contact support.'); },
+          selectMFAType() { hideLoader(); showAuthMessage('MFA selection is not configured in this frontend. Contact support.'); },
+          mfaSetup() { hideLoader(); showAuthMessage('MFA setup is not configured in this frontend. Contact support.'); },
+          totpRequired() { hideLoader(); showAuthMessage('Authenticator MFA is not configured in this frontend. Contact support.'); },
           mfaRequired() {
             hideLoader();
 
@@ -643,14 +693,18 @@
     }
 
     function handleAuthAction() {
+      if (document.getElementById('loader').classList.contains('show')) return;
+      showAuthMessage('');
+      if (recoveryMode === 'forgot') return requestReset();
+      if (recoveryMode === 'reset') return resetPassword();
       signUpMode ? signUp() : signIn();
     }
 
     function confirmAccount() {
       const code = document.getElementById('confirmationCode').value.trim();
 
-      if (!pendingUser || !code) {
-        alert('Enter the verification code.');
+      if (!pendingUser || !/^\d{6}$/.test(code)) {
+        document.getElementById('confirmationMessage').textContent = 'Enter the six-digit verification code.';
         return;
       }
 
@@ -660,15 +714,17 @@
         hideLoader();
 
         if (error) {
-          alert(error.message || 'Verification failed.');
+          document.getElementById('confirmationMessage').textContent = error.message || 'Verification failed.';
           return;
         }
 
         document.getElementById('confirmationModal').classList.add('hidden');
         document.getElementById('confirmationModal').classList.remove('flex');
 
-        alert('Account verified. You can now log in.');
+        pendingUser = null;
+        signUpMode = true;
         toggleAuthMode();
+        showAuthMessage('Account verified. You can now log in.', true);
       });
     }
 
@@ -681,11 +737,11 @@
         hideLoader();
 
         if (error) {
-          alert(error.message || 'Could not resend code.');
+          document.getElementById('confirmationMessage').textContent = error.message || 'Could not resend code.';
           return;
         }
 
-        alert('A new verification code was sent.');
+        document.getElementById('confirmationMessage').textContent = 'A new verification code was sent.';
       });
     }
 
@@ -717,102 +773,35 @@
         getCognitoPool().getCurrentUser()?.signOut();
       } catch {}
 
-      sessionStorage.clear();
+      sessionStorage.removeItem('crushx_access_token');
+      sessionStorage.removeItem('crushx_id_token');
       document.getElementById('authOverlay').style.display = 'flex';
       renderApp();
     }
 
-    async function uploadToS3(file, caption) {
-      const token = sessionStorage.getItem('crushx_access_token');
+    // No verified publishing contract or approved upload destination is present.
+    // Keep this guard even when invoked outside the Create screen.
+    async function uploadToS3(file) {
+      try { validateMedia(file); }
+      catch (error) { alert(error.message); return; }
+      alert('Publishing unavailable: the upload destination and backend contract have not been verified. No file was uploaded.');
+    }
 
-      if (!token) {
-        alert('Please sign in before uploading.');
-        return;
+    function validateMedia(file) {
+      if (!file || !['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'].includes(file.type)) {
+        throw new Error('Choose a JPEG, PNG, WebP, GIF, MP4 or WebM file.');
       }
+      if (!file.size || file.size > 100 * 1024 * 1024) throw new Error('File must be between 1 byte and 100 MB.');
+    }
 
-      if (API_BASE_URL.includes('YOUR_API_ID')) {
-        alert('Replace API_BASE_URL with your API Gateway URL first.');
-        return;
+    function validateUploadResponse(data) {
+      if (!data || typeof data.uploadUrl !== 'string' || typeof data.mediaUrl !== 'string') throw new Error('Upload response requires uploadUrl and mediaUrl.');
+      for (const value of [data.uploadUrl, data.mediaUrl]) {
+        const url = new URL(value);
+        if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Upload and media URLs must use HTTPS without embedded credentials.');
       }
-
-      if (file.size > 100 * 1024 * 1024) {
-        alert('Maximum file size is 100 MB.');
-        return;
-      }
-
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        alert('Only image and video files are supported.');
-        return;
-      }
-
-      try {
-        showLoader('Creating secure upload URL...');
-
-        const urlResponse = await fetch(
-          `${API_BASE_URL}/media/upload-url`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              fileName: file.name,
-              contentType: file.type,
-              fileSize: file.size
-            })
-          }
-        );
-
-        if (!urlResponse.ok) {
-          throw new Error('Could not create the upload URL.');
-        }
-
-        const uploadData = await urlResponse.json();
-
-        if (!uploadData.uploadUrl) {
-          throw new Error('The API did not return uploadUrl.');
-        }
-
-        showLoader('Uploading media to S3...');
-
-        const s3Response = await fetch(uploadData.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type
-          },
-          body: file
-        });
-
-        if (!s3Response.ok) {
-          throw new Error('S3 upload failed.');
-        }
-
-        const state = getState();
-
-        state.reels.unshift({
-          id: `reel_${Date.now()}`,
-          userId: state.currentUserId,
-          source: uploadData.mediaUrl,
-          caption: caption || 'New Crush.X upload ✨',
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          song: 'Original audio',
-          artist: '',
-          createdAt: Date.now()
-        });
-
-        saveState(state);
-        hideLoader();
-        renderApp();
-
-        alert('Media uploaded successfully.');
-      } catch (error) {
-        hideLoader();
-        console.error(error);
-        alert(error.message || 'Upload failed.');
-      }
+      // Shape validation does not authorize a destination; publishing remains blocked.
+      return data;
     }
 
     function renderHome(state) {
@@ -861,11 +850,11 @@
 
                 <div class="mt-3 flex justify-between">
                   <div class="flex gap-4">
-                    <button><i data-lucide="heart" class="h-5 w-5"></i></button>
-                    <button><i data-lucide="message-circle" class="h-5 w-5"></i></button>
-                    <button><i data-lucide="send" class="h-5 w-5"></i></button>
+                    <button aria-label="Like locally" data-like="${post.id}" aria-pressed="${!!post.liked}"><i data-lucide="heart" class="h-5 w-5"></i></button>
+                    <button aria-label="Add comment locally" data-comment-focus="${post.id}"><i data-lucide="message-circle" class="h-5 w-5"></i></button>
+                    <button aria-label="Share" data-share="${post.id}"><i data-lucide="send" class="h-5 w-5"></i></button>
                   </div>
-                  <button><i data-lucide="bookmark" class="h-5 w-5"></i></button>
+                  <button aria-label="Save locally" data-save="${post.id}" aria-pressed="${!!post.saved}"><i data-lucide="bookmark" class="h-5 w-5"></i></button>
                 </div>
 
                 <div class="mt-3 text-sm font-bold">
@@ -896,7 +885,7 @@
                 <div class="mt-3 flex gap-2">
                   <input
                     data-comment-input="${post.id}"
-                    placeholder="Add a comment..."
+                    maxlength="2000" placeholder="Add a local comment..."
                     class="flex-1 rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
                   />
 
@@ -1016,7 +1005,7 @@
 
               <label class="cursor-pointer rounded-2xl gradient-main px-4 py-3 text-xs font-bold text-white">
                 Select file
-                <input id="mediaInput" type="file" accept="image/*,video/*" class="hidden" />
+                <input id="mediaInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm" class="hidden" />
               </label>
             </div>
 
@@ -1033,102 +1022,61 @@
               id="uploadButton"
               class="mt-4 w-full rounded-2xl gradient-main px-4 py-3 text-sm font-bold text-white"
             >
-              Upload securely to S3
+              Check publishing availability
             </button>
 
             <p class="mt-3 text-center text-xs text-slate-500">
-              Private S3 upload using a pre-signed URL.
+              Local preview only. Publishing is unavailable until the backend contract and upload destination are verified. Supported files: JPEG, PNG, WebP, GIF, MP4, WebM; maximum 100 MB.
             </p>
           </section>
         </main>
       `;
     }
 
+    function safeMediaUrl(value) {
+      try { const url = new URL(value); return url.protocol === 'https:' ? escapeHTML(url.href) : ''; }
+      catch { return ''; }
+    }
+
     function renderReels(state) {
-      const reel = state.reels[0];
-      const creator = userById(state, reel.userId);
-
-      return `
-        <main>
-          <section class="mx-auto max-w-md">
-            <div class="relative h-[calc(100vh-150px)] overflow-hidden rounded-[2rem] bg-black">
-              <img src="${reel.source}" class="h-full w-full object-cover" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-
-              <div class="absolute bottom-0 left-0 right-0 p-5 text-white">
-                <div class="mb-3 flex items-center gap-3">
-                  <img src="${creator.avatar}" class="h-11 w-11 rounded-full object-cover ring-2 ring-white" />
-
-                  <div>
-                    <div class="flex items-center gap-1 font-bold">
-                      @${creator.username}
-                      ${creator.verified ? '<i data-lucide="badge-check" class="h-4 w-4 text-blue-400"></i>' : ''}
-                    </div>
-
-                    <div class="text-xs text-white/70">
-                      ${Number(creator.followers).toLocaleString()} followers
-                    </div>
-                  </div>
-
-                  <button class="ml-auto rounded-full bg-pink-500 px-4 py-2 text-xs font-bold">
-                    Follow
-                  </button>
-                </div>
-
-                <div class="text-sm">${formatText(reel.caption)}</div>
-
-                <div class="mt-2 flex items-center gap-2 text-xs text-white/80">
-                  <i data-lucide="music-2" class="h-4 w-4"></i>
-                  ${escapeHTML(reel.song)} · ${escapeHTML(reel.artist)}
-                </div>
-              </div>
-
-              <div class="absolute bottom-28 right-4 flex flex-col gap-4 text-center text-white">
-                <button>
-                  <i data-lucide="heart" class="mx-auto h-7 w-7"></i>
-                  <span class="text-[10px]">${Number(reel.likes).toLocaleString()}</span>
-                </button>
-
-                <button>
-                  <i data-lucide="message-circle" class="mx-auto h-7 w-7"></i>
-                  <span class="text-[10px]">${Number(reel.comments).toLocaleString()}</span>
-                </button>
-
-                <button>
-                  <i data-lucide="send" class="mx-auto h-7 w-7"></i>
-                  <span class="text-[10px]">${Number(reel.shares).toLocaleString()}</span>
-                </button>
-              </div>
+      if (!state.reels.length) return '<main class="glass rounded-[2rem] p-5">No reels yet.</main>';
+      return `<main class="space-y-5">${state.reels.map(reel => {
+        const creator = userById(state, reel.userId) || currentUser(state);
+        const source = safeMediaUrl(reel.source);
+        const video = reel.mediaType === 'video' || reel.contentType?.startsWith('video/') || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(reel.source);
+        const comments = Array.isArray(reel.comments) ? reel.comments : [];
+        return `<article class="glass mx-auto max-w-md overflow-hidden rounded-[2rem]">
+          ${video ? `<video src="${source}" controls playsinline preload="metadata" class="reel-media w-full bg-black object-contain" aria-label="Reel video"></video>` : `<img src="${source}" alt="Reel image" class="reel-media w-full object-cover" />`}
+          <div class="p-4">
+            <div class="flex items-center gap-3"><img src="${safeMediaUrl(creator.avatar)}" alt="" class="h-11 w-11 rounded-full" /><strong>@${escapeHTML(creator.username)}</strong>
+              ${creator.id !== state.currentUserId ? `<button data-follow-user="${escapeHTML(creator.id)}" class="ml-auto rounded-full bg-pink-500 px-3 py-2 text-white">${creator.following ? 'Following' : 'Follow'}</button>` : ''}</div>
+            <p class="mt-3">${formatText(reel.caption)}</p>
+            <p class="text-xs text-slate-500">${escapeHTML(reel.song)} · ${escapeHTML(reel.artist)}</p>
+            <div class="mt-3 flex flex-wrap gap-4">
+              <button data-like="${escapeHTML(reel.id)}" aria-pressed="${!!reel.liked}">${reel.liked ? 'Unlike' : 'Like'} · ${Number(reel.likes).toLocaleString()}</button>
+              <button data-comment-focus="${escapeHTML(reel.id)}">Comments · ${comments.length}</button>
+              <button data-share="${escapeHTML(reel.id)}">Share</button>
             </div>
-          </section>
-        </main>
-      `;
+            <div class="mt-3 space-y-2">${comments.map(c => `<p><strong>@${escapeHTML(c.user)}</strong> ${escapeHTML(c.text)}</p>`).join('')}</div>
+            <div class="mt-3 flex gap-2"><input data-comment-input="${escapeHTML(reel.id)}" maxlength="2000" placeholder="Add a local comment..." class="flex-1 rounded-full border px-3 py-2 dark:bg-slate-800" /><button data-comment-send="${escapeHTML(reel.id)}" class="rounded-full gradient-main px-4 text-white">Send</button></div>
+          </div>
+        </article>`;
+      }).join('')}</main>`;
     }
 
     function renderMessages(state) {
-      return `
-        <main>
-          <section class="glass rounded-[2rem] p-4">
-            <h1 class="text-2xl font-black">Messages</h1>
-
-            <div class="mt-5 space-y-3">
-              ${state.users
-                .filter(user => user.id !== state.currentUserId)
-                .map(user => `
-                  <button class="flex w-full items-center gap-3 rounded-2xl bg-slate-100 p-3 text-left dark:bg-slate-800">
-                    <img src="${user.avatar}" class="h-12 w-12 rounded-full object-cover" />
-                    <div class="flex-1">
-                      <div class="font-bold">@${user.username}</div>
-                      <div class="text-xs text-slate-500">Send a message ✨</div>
-                    </div>
-                    <i data-lucide="chevron-right" class="h-5 w-5 text-slate-400"></i>
-                  </button>
-                `)
-                .join('')}
-            </div>
-          </section>
-        </main>
-      `;
+      const user = userById(state, state.chatUserId);
+      if (user) return `<main class="glass rounded-[2rem] p-5">
+        <button id="messagesBack" class="font-bold text-pink-500">← Back to Messages</button>
+        <h1 class="mt-4 text-2xl font-black">@${escapeHTML(user.username)}</h1>
+        <p class="mt-4">Messaging is unavailable. No chat API or delivery contract is configured.</p>
+        <label class="mt-4 block" for="messageDraft">Local draft — kept only in this browser</label>
+        <textarea id="messageDraft" maxlength="4000" class="mt-2 w-full rounded-2xl border p-3 dark:bg-slate-800" placeholder="Write a draft...">${escapeHTML(state.messageDrafts?.[user.id] || '')}</textarea>
+        <p class="text-sm text-slate-500">Drafts are never sent or delivered.</p>
+      </main>`;
+      return `<main><section class="glass rounded-[2rem] p-4"><h1 class="text-2xl font-black">Messages</h1><p class="mt-2 text-sm text-slate-500">Local drafts only. Message delivery is unavailable.</p>
+        <div class="mt-5 space-y-3">${state.users.filter(u => u.id !== state.currentUserId).map(u => `<button data-chat-user="${escapeHTML(u.id)}" class="flex w-full items-center gap-3 rounded-2xl bg-slate-100 p-3 text-left dark:bg-slate-800"><img src="${safeMediaUrl(u.avatar)}" alt="" class="h-12 w-12 rounded-full" /><span>@${escapeHTML(u.username)}<span class="block text-xs text-slate-500">Open local draft</span></span></button>`).join('')}</div>
+      </section></main>`;
     }
 
     function renderProfile(state) {
@@ -1184,6 +1132,10 @@
     function renderApp() {
       const state = getState();
       const user = currentUser(state);
+      const focused = document.activeElement;
+      const focusId = focused?.id;
+      const selection = focused?.selectionStart;
+      if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
 
       document.body.classList.toggle('dark', state.darkMode);
 
@@ -1233,11 +1185,11 @@
                 </nav>
 
                 <div class="flex items-center gap-2">
-                  <button id="themeButton" class="rounded-full bg-slate-100 p-3 dark:bg-slate-800">
+                  <button aria-label="Toggle theme" id="themeButton" class="rounded-full bg-slate-100 p-3 dark:bg-slate-800">
                     <i data-lucide="${state.darkMode ? 'sun' : 'moon'}" class="h-5 w-5"></i>
                   </button>
 
-                  <button id="profileButton" class="h-11 w-11 overflow-hidden rounded-full ring-2 ring-pink-200">
+                  <button aria-label="Open profile" id="profileButton" class="h-11 w-11 overflow-hidden rounded-full ring-2 ring-pink-200">
                     <img src="${user.avatar}" class="h-full w-full object-cover" />
                   </button>
                 </div>
@@ -1245,10 +1197,12 @@
             </div>
           </header>
 
+          <p class="mb-4 rounded-2xl bg-pink-50 p-3 text-xs text-pink-700">Sample content · Likes, follows, saved items, comments and drafts stay in this browser. They are not synced to a server.</p>
+          <p id="appStatus" role="status" aria-live="polite" class="mb-3 text-sm"></p>
           ${view}
         </div>
 
-        <nav class="bottom-nav glass-strong flex items-center justify-around rounded-[2rem] p-2 md:hidden">
+        <nav class="bottom-nav glass-strong flex items-center justify-around rounded-[2rem] p-2 xl:hidden">
           ${tabs.map(([id, label, icon]) => `
             <button
               data-tab="${id}"
@@ -1266,6 +1220,7 @@
       `;
 
       bindAppEvents();
+      if (focusId === 'searchInput') { const input = document.getElementById(focusId); input?.focus(); if (input) input.setSelectionRange(selection, selection); }
 
       if (window.lucide) {
         window.lucide.createIcons();
@@ -1273,12 +1228,10 @@
     }
 
     function bindAppEvents() {
+      bindRepairEvents();
       document.querySelectorAll('[data-tab]').forEach(button => {
         button.addEventListener('click', () => {
-          const state = getState();
-          state.activeTab = button.dataset.tab;
-          saveState(state);
-          renderApp();
+          navigate(button.dataset.tab);
         });
       });
 
@@ -1290,10 +1243,7 @@
       });
 
       document.getElementById('profileButton')?.addEventListener('click', () => {
-        const state = getState();
-        state.activeTab = 'profile';
-        saveState(state);
-        renderApp();
+        navigate('profile');
       });
 
       document.getElementById('logoutButton')?.addEventListener('click', logout);
@@ -1326,20 +1276,21 @@
       document.querySelectorAll('[data-comment-send]').forEach(button => {
         button.addEventListener('click', () => {
           const postId = button.dataset.commentSend;
-          const input = document.querySelector(`[data-comment-input="${postId}"]`);
+          const input = [...document.querySelectorAll('[data-comment-input]')].find(element => element.dataset.commentInput === postId);
           const text = input?.value.trim();
 
           if (!text) return;
 
           const state = getState();
-          const post = state.posts.find(item => item.id === postId);
+          const post = [...state.posts, ...state.reels].find(item => item.id === postId);
           const user = currentUser(state);
 
           if (!post) return;
 
+          if (!Array.isArray(post.comments)) post.comments = [];
           post.comments.push({
             user: user.username,
-            text
+            text: text.slice(0, 2000)
           });
 
           saveState(state);
@@ -1355,7 +1306,9 @@
 
         if (!file || !preview) return;
 
-        const objectUrl = URL.createObjectURL(file);
+        try { validateMedia(file); } catch (error) { mediaInput.value = ''; preview.classList.add('hidden'); preview.innerHTML = ''; if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = null; alert(error.message); return; }
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        const objectUrl = previewUrl = URL.createObjectURL(file);
 
         preview.classList.remove('hidden');
         preview.innerHTML = file.type.startsWith('video/')
@@ -1376,17 +1329,126 @@
       });
     }
 
-    document.getElementById('authButton').addEventListener('click', handleAuthAction);
+    function beginRecovery() {
+      recoveryMode = 'forgot';
+      signUpMode = false;
+      showAuthMessage('');
+      document.getElementById('authTitle').textContent = 'Reset your password';
+      document.getElementById('authDescription').textContent = 'Enter your username or email to request a reset code.';
+      document.getElementById('authButton').textContent = 'Send reset code';
+      document.getElementById('switchAuthButton').textContent = 'Back to login';
+      document.getElementById('forgotButton').classList.add('hidden');
+      document.getElementById('emailInput').classList.add('hidden');
+      document.getElementById('passwordInput').classList.add('hidden');
+      document.getElementById('passwordInput').value = '';
+    }
+
+    function requestReset() {
+      const username = document.getElementById('usernameInput').value.trim();
+      if (!username) return showAuthMessage('Enter your username or email.');
+      try {
+        const pool = getCognitoPool();
+        recoveryUser = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: pool });
+        showLoader('Requesting reset code...');
+        const ready = () => {
+          hideLoader();
+          recoveryMode = 'reset';
+          document.getElementById('usernameInput').readOnly = true;
+          document.getElementById('authButton').textContent = 'Reset password';
+          document.getElementById('authDescription').textContent = 'Enter the code and a new password. Password needs 8 characters, uppercase, lowercase and a number; Cognito enforces the pool policy.';
+          document.getElementById('resetCodeInput').classList.remove('hidden');
+          document.getElementById('passwordInput').classList.remove('hidden');
+          document.getElementById('passwordInput').autocomplete = 'new-password';
+          document.getElementById('passwordInput').placeholder = 'New password';
+          showAuthMessage('If the account can be recovered, a reset code has been sent.', true);
+          document.getElementById('resetCodeInput').focus();
+        };
+        recoveryUser.forgotPassword({ onSuccess: ready, inputVerificationCode: ready, onFailure(error) { hideLoader(); showAuthMessage(error.message || 'Could not request a reset code.'); } });
+      } catch (error) { hideLoader(); showAuthMessage(error.message); }
+    }
+
+    function resetPassword() {
+      const code = document.getElementById('resetCodeInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      if (!recoveryUser || !/^\d{6}$/.test(code)) return showAuthMessage('Enter the six-digit reset code.');
+      if (!validPassword(password)) return showAuthMessage('Password needs 8 characters, uppercase, lowercase and a number.');
+      showLoader('Resetting password...');
+      try {
+        recoveryUser.confirmPassword(code, password, {
+          onSuccess() { hideLoader(); toggleAuthMode(); document.getElementById('passwordInput').placeholder = 'Password'; showAuthMessage('Password reset. Log in with your new password.', true); },
+          onFailure(error) { hideLoader(); showAuthMessage(error.message || 'Password reset failed.'); }
+        });
+      } catch (error) { hideLoader(); showAuthMessage(error.message); }
+    }
+
+    const validTabs = ['home', 'messages', 'create', 'discover', 'reels', 'profile'];
+    function navigate(tab, chatUserId = null, push = true) {
+      if (!validTabs.includes(tab)) tab = 'home';
+      const state = getState();
+      state.activeTab = tab;
+      state.chatUserId = tab === 'messages' ? chatUserId : null;
+      saveState(state);
+      const hash = `#${tab}${state.chatUserId ? '/' + encodeURIComponent(state.chatUserId) : ''}`;
+      if (push && location.hash !== hash) history.pushState(null, '', hash);
+      renderApp();
+      window.scrollTo(0, 0);
+    }
+    function routeFromLocation() {
+      const [tab, user] = location.hash.slice(1).split('/');
+      let chat = null;
+      try { chat = user ? decodeURIComponent(user) : null; } catch {}
+      navigate(tab || 'home', chat, false);
+    }
+    window.addEventListener('popstate', routeFromLocation);
+    window.addEventListener('hashchange', routeFromLocation);
+
+    function bindRepairEvents() {
+      const status = text => { const element = document.getElementById('appStatus'); if (element) element.textContent = text; };
+      document.querySelectorAll('[data-like], [data-save]').forEach(button => button.addEventListener('click', () => {
+        const state = getState();
+        const item = [...state.posts, ...state.reels].find(p => p.id === (button.dataset.like || button.dataset.save));
+        if (!item) return;
+        if (button.dataset.like) { item.liked = !item.liked; item.likes = Math.max(0, Number(item.likes || 0) + (item.liked ? 1 : -1)); }
+        else item.saved = !item.saved;
+        saveState(state); renderApp(); status('Saved in this browser only.');
+      }));
+      document.querySelectorAll('[data-comment-focus]').forEach(button => button.addEventListener('click', () => {
+        const input = [...document.querySelectorAll('[data-comment-input]')].find(e => e.dataset.commentInput === button.dataset.commentFocus);
+        input?.focus(); input?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }));
+      document.querySelectorAll('[data-comment-input]').forEach(input => input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); [...document.querySelectorAll('[data-comment-send]')].find(b => b.dataset.commentSend === input.dataset.commentInput)?.click(); }
+      }));
+      document.querySelectorAll('[data-share]').forEach(button => button.addEventListener('click', async () => {
+        const state = getState();
+        const item = [...state.posts, ...state.reels].find(p => p.id === button.dataset.share);
+        if (!item) return;
+        // Share the actual media URL; sample items have no public post permalink.
+        const url = safeMediaUrl(item.source || item.image) ? new URL(item.source || item.image).href : '';
+        if (!url) return status('No shareable media URL.');
+        try {
+          if (navigator.share) { await navigator.share({ title: 'Crush.X', text: item.caption, url }); status('Share completed.'); }
+          else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(url); status('Media link copied.'); }
+          else window.prompt('Copy this media link:', url);
+        } catch (error) { if (error.name !== 'AbortError') status('Sharing failed. Please try again.'); }
+      }));
+      document.querySelectorAll('[data-chat-user]').forEach(button => button.addEventListener('click', () => navigate('messages', button.dataset.chatUser)));
+      document.getElementById('messagesBack')?.addEventListener('click', () => navigate('messages'));
+      document.getElementById('messageDraft')?.addEventListener('input', event => {
+        const state = getState(); state.messageDrafts ||= {}; state.messageDrafts[state.chatUserId] = event.target.value.slice(0, 4000); saveState(state);
+      });
+    }
+
+    document.getElementById('cancelConfirmation').addEventListener('click', () => { document.getElementById('confirmationModal').classList.add('hidden'); document.getElementById('confirmationModal').classList.remove('flex'); pendingUser = null; signUpMode = true; toggleAuthMode(); });
+    document.getElementById('authForm').addEventListener('submit', event => { event.preventDefault(); handleAuthAction(); });
     document.getElementById('switchAuthButton').addEventListener('click', toggleAuthMode);
     document.getElementById('confirmButton').addEventListener('click', confirmAccount);
     document.getElementById('resendButton').addEventListener('click', resendCode);
 
-    document.getElementById('forgotButton').addEventListener('click', () => {
-      alert('Connect this button to the Cognito forgot-password flow.');
-    });
+    document.getElementById('forgotButton').addEventListener('click', beginRecovery);
 
     document.addEventListener('DOMContentLoaded', () => {
-      renderApp();
+      routeFromLocation();
       restoreSession();
     });
   </script>
