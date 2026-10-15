@@ -84,17 +84,18 @@ Run:
 
 ```sh
 node /workspace/cloud-onboarding/crushx/smoke.cjs
-node tests/frontend.cjs
+PLAYWRIGHT_MODULE=/workspace/cloud-onboarding/crushx/node_modules/playwright CHROMIUM_EXECUTABLE=/usr/bin/chromium node tests/frontend.cjs
 ```
 
-`tests/frontend.cjs` uses the existing cloud Playwright installation (override with
-`PLAYWRIGHT_MODULE` for another installation), `/usr/bin/chromium`, and verified
+`tests/frontend.cjs` uses the existing cloud Playwright installation (select with
+`PLAYWRIGHT_MODULE` and `CHROMIUM_EXECUTABLE`), or a normal Playwright installation
+and its bundled Chromium, with verified
 TLS curl requests for CSS/icons. Cognito is mocked; all other remote requests are
 blocked except an intercepted in-memory WebM fixture. It covers validation,
 confirmation, credential errors, recovery error/retry/success, local interactions,
 escaped comments, sharing, draft/history navigation, search focus, image/video
 rendering and actual WebM playback, empty reels, preview cleanup, upload guards,
-and layouts at 320/375/768/1024/1280px. It asserts no remote writes or JavaScript
+and layouts at 320/375/768/1024/1199/1200/1279/1280px. It asserts no remote writes or JavaScript
 exceptions. It does not establish live Cognito, native share-sheet, MP4/browser codec,
 real AWS authorization, CORS, backend publishing or Unity/device behavior.
 
@@ -104,3 +105,61 @@ login/register switching, default-state initialization, no JS exceptions;
 TLS verification was preserved. No dependency or lockfile changes were needed.
 Unity tests are unrelated to this source change and cannot run here: no Unity
 Editor executable is installed.
+
+## PR #2 merge-readiness review (15 October 2026)
+
+Additional fixes in the same repair branch:
+
+- Normal login, SMS MFA success and SDK session restoration share `acceptSession`,
+  which checks validity/expiry and stores both access and ID tokens. Failed or
+  partial token writes clear the token pair and leave authentication closed.
+- Earliest access/ID token expiry triggers reauthentication; visibility checks
+  cover background timer throttling. Restoration uses the normal SDK refresh path
+  and clears stale tokens on failure/no user. Callback revisions prevent late
+  restoration from reopening the app after logout or a new auth action. A
+  tab-local logout marker also prevents restoration of credentials recached by a
+  late SDK refresh; a successful explicit login clears the marker.
+- Logout clears password/reset/confirmation state, both frontend tokens and local
+  drafts, invokes SDK local signOut, and preserves unrelated storage. It is not
+  global server-side token revocation or cross-tab logout.
+- SMS MFA validates/cancels the code and handles callback and synchronous errors.
+  Unsupported Cognito challenge modes fail explicitly and release the loader.
+- Recovery masks UserNotFound rather than revealing account existence. Confirmation
+  and resend handle synchronous failures; confirmation no longer forces email-alias
+  transfer from another account. Async auth callbacks are ignored when obsolete.
+- Local state is schema-normalized, bounded and restricted to the fixed sample
+  persona, with safe fallback for corrupted, denied or quota-exhausted storage.
+  Text and attributes are escaped; HTTPS media URLs reject credentials and unsafe
+  schemes. Missing user references and prototype keys are filtered.
+- Profile explicitly says it is sample data, not the authenticated Cognito account;
+  Discover's “You” badge is now “Sample persona.” Persistent notices explain
+  browser sharing and local-only state.
+- Final diff review found and fixed a 1200–1279px duplicate-navigation interval;
+  boundary-width regressions now assert exactly one visible navigation region.
+- Tests are portable using a normal Playwright installation/bundled Chromium or
+  explicit cloud overrides. A minimal read-only GitHub Actions workflow on
+  Ubuntu 24.04/Node 22 installs pinned Playwright 1.58.2 outside the repository,
+  starts a local server and runs the suite. It does not require cloud credentials
+  or run the environment-specific cloud smoke script.
+
+Expanded browser tests pass for normal/MFA token parity; MFA rejection, cancellation,
+malformed code and thrown SDK errors; expired sessions and rejected SDK refresh;
+partial token storage failure; late restore after logout; active token expiration;
+SDK absence; reset rate-limit/unknown-user handling; confirmation/resend transport
+failure and non-forced alias behavior; sample identity separation; malformed and
+prototype-key state; stored profile/comment/caption/search/draft/URL XSS payloads;
+manual malformed hashes, unknown routes, browser history and reload navigation;
+read-denied/quota state fallback; and prior media/layout/local-interaction tests.
+The suite asserts no remote writes or JavaScript exceptions. Real WebM playback
+uses the in-memory fixture, not a remote media request.
+
+Merge readiness: **not yet ready** pending a green hosted frontend CI result and
+recorded isolated staging authentication evidence in
+[STAGING_COGNITO_TESTS.md](STAGING_COGNITO_TESTS.md). Required pool challenge modes,
+password policy, aliases/recovery settings and live SDK refresh behavior are not
+established by mocks. If TOTP, MFA selection/setup, custom challenges or forced new
+password are required, those unsupported paths must be implemented first. Backend
+contracts/authorization remain absent and uploads remain blocked. Third-party CDN
+scripts, browser credential exposure, CSP and cross-tab/session hardening remain
+production limitations. No accounts/passwords, production AWS, deployments, Unity,
+PR #1 or main were changed; PR #2 remains draft and unmerged.

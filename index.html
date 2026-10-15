@@ -121,7 +121,7 @@
     .bottom-nav { bottom: max(12px, env(safe-area-inset-bottom)); }
     .bottom-nav button { min-width: 0; flex: 1; padding-inline: 3px; }
     .reel-media { height: min(65dvh, 650px); }
-    @media (max-width: 1199px) {
+    @media (max-width: 1279px) {
       header .desktop-nav {
         display: none;
       }
@@ -387,32 +387,74 @@
       return JSON.parse(JSON.stringify(value));
     }
 
+    const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const localText = (value, limit = 2000) => typeof value === 'string' ? value.slice(0, limit) : '';
+    const localId = value => typeof value === 'string' && /^[a-zA-Z0-9_.-]{1,128}$/.test(value) && !['__proto__', 'constructor', 'prototype'].includes(value);
+    const localCount = value => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1e12, Number(value))) : 0;
+
+    // Browser state is untrusted sample data, never an authenticated identity.
+    function normalizeState(value) {
+      const raw = isRecord(value) ? value : {};
+      const state = clone(defaultState);
+      const records = (items, fallback) => Array.isArray(items) ? items.filter(isRecord).slice(0, 1000) : clone(fallback);
+      const unique = items => items.filter((item, index) => localId(item.id) && items.findIndex(other => other.id === item.id) === index);
+      state.users = unique(records(raw.users, defaultState.users).map(user => ({
+        id: user.id, username: localText(user.username, 128), fullName: localText(user.fullName, 200),
+        info: localText(user.info), avatar: localText(user.avatar), followers: localCount(user.followers),
+        following: user.following === true, verified: user.verified === true
+      })));
+      if (!state.users.some(user => user.id === 'me')) state.users.unshift(clone(defaultUsers[0]));
+      const userExists = id => state.users.some(user => user.id === id);
+      const comments = value => records(value, []).map(comment => ({ user: localText(comment.user, 128), text: localText(comment.text) }));
+      state.posts = unique(records(raw.posts, defaultState.posts).filter(post => userExists(post.userId)).map(post => ({
+        id: post.id, userId: post.userId, image: localText(post.image), location: localText(post.location, 200),
+        caption: localText(post.caption), likes: localCount(post.likes), shares: localCount(post.shares),
+        liked: post.liked === true, saved: post.saved === true, comments: comments(post.comments)
+      })));
+      state.reels = unique(records(raw.reels, defaultState.reels).filter(reel => userExists(reel.userId)).map(reel => ({
+        id: reel.id, userId: reel.userId, source: localText(reel.source), caption: localText(reel.caption),
+        contentType: localText(reel.contentType, 100), mediaType: localText(reel.mediaType, 100),
+        likes: localCount(reel.likes), shares: localCount(reel.shares), liked: reel.liked === true,
+        comments: comments(reel.comments), song: localText(reel.song, 200), artist: localText(reel.artist, 200)
+      })));
+      state.stories = unique(records(raw.stories, defaultState.stories).filter(story => userExists(story.userId)).map(story => ({
+        id: story.id, userId: story.userId, image: localText(story.image), expiresAt: Number.isFinite(Number(story.expiresAt)) ? Math.max(0, Number(story.expiresAt)) : 0
+      })));
+      state.darkMode = raw.darkMode === true;
+      state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile'].includes(raw.activeTab) ? raw.activeTab : 'home';
+      state.searchQuery = localText(raw.searchQuery, 200);
+      state.currentUserId = 'me'; // Fixed sample persona; never a Cognito subject.
+      state.chatUserId = localId(raw.chatUserId) && raw.chatUserId !== 'me' && userExists(raw.chatUserId) ? raw.chatUserId : null;
+      state.messageDrafts = {};
+      if (isRecord(raw.messageDrafts)) {
+        for (const user of state.users) {
+          if (user.id !== 'me' && Object.hasOwn(raw.messageDrafts, user.id)) state.messageDrafts[user.id] = localText(raw.messageDrafts[user.id], 4000);
+        }
+      }
+      return state;
+    }
+
     let memoryState = clone(defaultState);
+    let storageUnavailable = false;
     function getState() {
+      if (storageUnavailable) return clone(memoryState);
       let saved;
       try { saved = localStorage.getItem(STATE_KEY); }
-      catch { return clone(memoryState); }
-
-      if (!saved) {
-        saveState(clone(defaultState));
-        return clone(defaultState);
-      }
-
+      catch { storageUnavailable = true; return clone(memoryState); }
       try {
-        return {
-          ...clone(defaultState),
-          ...JSON.parse(saved)
-        };
+        memoryState = normalizeState(saved ? JSON.parse(saved) : memoryState);
       } catch {
-        saveState(clone(defaultState));
-        return clone(defaultState);
+        memoryState = clone(defaultState);
+        try { localStorage.removeItem(STATE_KEY); }
+        catch { storageUnavailable = true; }
       }
+      return clone(memoryState);
     }
 
     function saveState(state) {
-      memoryState = clone(state);
-      try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
-      catch { /* Browser storage unavailable: keep local actions for this page only. */ }
+      memoryState = normalizeState(state);
+      try { localStorage.setItem(STATE_KEY, JSON.stringify(memoryState)); }
+      catch { storageUnavailable = true; }
     }
 
     function currentUser(state) {
@@ -478,6 +520,7 @@
     }
 
     function toggleAuthMode() {
+      authRevision++;
       if (recoveryMode) {
         recoveryMode = null;
         recoveryUser = null;
@@ -535,6 +578,7 @@
     }
 
     function signUp() {
+      const revision = authRevision;
       const username = document.getElementById('usernameInput').value.trim();
       const email = document.getElementById('emailInput').value.trim().toLowerCase();
       const password = document.getElementById('passwordInput').value;
@@ -575,6 +619,7 @@
           attributes,
           null,
           (error, result) => {
+            if (revision !== authRevision) return;
             hideLoader();
 
             if (error) {
@@ -582,12 +627,16 @@
               return;
             }
 
-            if (result.userConfirmed) {
+            if (result?.userConfirmed) {
               toggleAuthMode();
               showAuthMessage('Account created. You can now log in.', true);
               return;
             }
+            if (!result?.user) { showAuthMessage('Sign-up did not return a user. Please try again.'); return; }
             pendingUser = result.user;
+            document.getElementById('confirmationCode').value = '';
+            document.getElementById('confirmationMessage').textContent = '';
+            document.getElementById('passwordInput').value = '';
             document.getElementById('confirmationModal').classList.remove('hidden');
             document.getElementById('confirmationModal').classList.add('flex');
           }
@@ -598,102 +647,143 @@
       }
     }
 
+    let authenticatedUser = null;
+    let sessionDeadline = 0;
+    let sessionTimer = null;
+    let authRevision = 0;
+
+    function clearAuthTokens() {
+      clearTimeout(sessionTimer);
+      sessionTimer = null;
+      sessionDeadline = 0;
+      try {
+        sessionStorage.removeItem('crushx_access_token');
+        sessionStorage.removeItem('crushx_id_token');
+      } catch { /* Authentication remains closed if storage is denied. */ }
+    }
+
+    function resetAuthFields() {
+      pendingUser = null;
+      recoveryUser = null;
+      recoveryMode = null;
+      signUpMode = true;
+      toggleAuthMode();
+      document.getElementById('confirmationCode').value = '';
+      document.getElementById('confirmationMessage').textContent = '';
+      document.getElementById('confirmationModal').classList.add('hidden');
+      document.getElementById('confirmationModal').classList.remove('flex');
+    }
+
+    function closeSession(message = '') {
+      authRevision++; // Ignore callbacks belonging to a previous session or login.
+      const user = authenticatedUser;
+      authenticatedUser = null;
+      clearAuthTokens();
+      try { user?.signOut(); } catch {}
+      hideLoader();
+      resetAuthFields();
+      document.getElementById('authOverlay').style.display = 'flex';
+      showAuthMessage(message);
+    }
+
+    // Normal login, SMS MFA and SDK restoration all store the same token pair.
+    // SDK validity is a frontend gate; backend authorization must verify JWTs.
+    function acceptSession(session, user, revision) {
+      if (revision !== authRevision) return;
+      try {
+        if (!session?.isValid()) throw new Error('Session expired. Please log in again.');
+        const access = session.getAccessToken(), id = session.getIdToken();
+        const expiry = Math.min(access.getExpiration(), id.getExpiration()) * 1000;
+        if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error('Session expired. Please log in again.');
+        clearAuthTokens();
+        sessionStorage.setItem('crushx_access_token', access.getJwtToken());
+        sessionStorage.setItem('crushx_id_token', id.getJwtToken());
+        sessionStorage.removeItem('crushx_logged_out');
+        authenticatedUser = user;
+        sessionDeadline = expiry;
+        sessionTimer = setTimeout(checkSessionExpiration, Math.min(expiry - Date.now(), 2147483647));
+        hideLoader();
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('authOverlay').style.display = 'none';
+        renderApp();
+      } catch (error) {
+        try { user?.signOut(); } catch {}
+        closeSession(error.message || 'Could not restore authentication.');
+      }
+    }
+
+    function checkSessionExpiration() {
+      if (!authenticatedUser) return;
+      if (Date.now() >= sessionDeadline) {
+        // No backend writes are enabled. Require login when the accepted session
+        // expires; restoration on reload uses Cognito's normal refresh flow.
+        closeSession('Session expired. Please log in again.');
+        renderApp();
+      } else {
+        clearTimeout(sessionTimer);
+        sessionTimer = setTimeout(checkSessionExpiration, Math.min(sessionDeadline - Date.now(), 2147483647));
+      }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkSessionExpiration();
+    });
+
     function signIn() {
       const username = document.getElementById('usernameInput').value.trim();
       const password = document.getElementById('passwordInput').value;
-
-      if (!username || !password) {
-        showAuthMessage('Please enter your username/email and password.');
-        return;
-      }
-
+      if (!username || !password) return showAuthMessage('Please enter your username/email and password.');
+      const revision = ++authRevision;
+      clearAuthTokens();
       showLoader('Signing you in...');
-
       try {
         const pool = getCognitoPool();
-
-        const details =
-          new AmazonCognitoIdentity.AuthenticationDetails({
-            Username: username,
-            Password: password
-          });
-
-        const cognitoUser =
-          new AmazonCognitoIdentity.CognitoUser({
-            Username: username,
-            Pool: pool
-          });
-
-        cognitoUser.authenticateUser(details, {
-          onSuccess(session) {
-            hideLoader();
-
-            sessionStorage.setItem(
-              'crushx_access_token',
-              session.getAccessToken().getJwtToken()
-            );
-
-            sessionStorage.setItem(
-              'crushx_id_token',
-              session.getIdToken().getJwtToken()
-            );
-
-            document.getElementById('authOverlay').style.display = 'none';
-            renderApp();
-          },
-
-          onFailure(error) {
-            hideLoader();
-            if (error.code === 'UserNotConfirmedException') {
-              pendingUser = cognitoUser;
-              document.getElementById('confirmationModal').classList.remove('hidden');
-              document.getElementById('confirmationModal').classList.add('flex');
-            }
-            showAuthMessage(error.message || 'Login failed.');
-          },
-
-          newPasswordRequired() { hideLoader(); showAuthMessage('This account requires a new password. Use Forgot password to reset it.'); },
-          customChallenge() { hideLoader(); showAuthMessage('This account requires an unsupported authentication challenge. Contact support.'); },
-          selectMFAType() { hideLoader(); showAuthMessage('MFA selection is not configured in this frontend. Contact support.'); },
-          mfaSetup() { hideLoader(); showAuthMessage('MFA setup is not configured in this frontend. Contact support.'); },
-          totpRequired() { hideLoader(); showAuthMessage('Authenticator MFA is not configured in this frontend. Contact support.'); },
+        const details = new AmazonCognitoIdentity.AuthenticationDetails({ Username: username, Password: password });
+        const user = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: pool });
+        const fail = error => {
+          if (revision !== authRevision) return;
+          clearAuthTokens();
+          hideLoader();
+          if (error.code === 'UserNotConfirmedException') {
+            pendingUser = user;
+            document.getElementById('confirmationCode').value = '';
+            document.getElementById('confirmationMessage').textContent = '';
+            document.getElementById('confirmationModal').classList.remove('hidden');
+            document.getElementById('confirmationModal').classList.add('flex');
+          }
+          showAuthMessage(error.code === 'NotAuthorizedException' || error.code === 'UserNotFoundException'
+            ? 'Incorrect username or password.' : error.message || 'Login failed.');
+        };
+        user.authenticateUser(details, {
+          onSuccess: session => acceptSession(session, user, revision),
+          onFailure: fail,
+          newPasswordRequired: () => fail({ message: 'This account requires a new password. Contact support to complete the required challenge.' }),
+          customChallenge: () => fail({ message: 'This account requires an unsupported authentication challenge. Contact support.' }),
+          selectMFAType: () => fail({ message: 'MFA selection is not configured in this frontend. Contact support.' }),
+          mfaSetup: () => fail({ message: 'MFA setup is not configured in this frontend. Contact support.' }),
+          totpRequired: () => fail({ message: 'Authenticator MFA is not configured in this frontend. Contact support.' }),
           mfaRequired() {
+            if (revision !== authRevision) return;
             hideLoader();
-
-            const code = prompt('Enter your MFA code:');
-
-            if (!code) return;
-
+            const code = prompt('Enter your six-digit SMS MFA code:');
+            if (code === null) return fail({ message: 'MFA cancelled. Please log in again.' });
+            if (!/^\d{6}$/.test(code.trim())) return fail({ message: 'Enter the six-digit MFA code. Please log in again.' });
             showLoader('Verifying MFA...');
-
-            cognitoUser.sendMFACode(code, {
-              onSuccess(session) {
-                hideLoader();
-
-                sessionStorage.setItem(
-                  'crushx_access_token',
-                  session.getAccessToken().getJwtToken()
-                );
-
-                document.getElementById('authOverlay').style.display = 'none';
-                renderApp();
-              },
-
-              onFailure(error) {
-                hideLoader();
-                showAuthMessage(error.message || 'MFA verification failed.');
-              }
-            });
+            try {
+              user.sendMFACode(code.trim(), {
+                onSuccess: session => acceptSession(session, user, revision),
+                onFailure: fail
+              }, 'SMS_MFA');
+            } catch (error) { fail(error); }
           }
         });
       } catch (error) {
-        hideLoader();
-        showAuthMessage(error.message);
+        if (revision === authRevision) { clearAuthTokens(); hideLoader(); showAuthMessage(error.message || 'Login failed.'); }
       }
     }
 
     function handleAuthAction() {
       if (document.getElementById('loader').classList.contains('show')) return;
+      authRevision++; // Invalidate any outstanding restoration before another auth action.
       showAuthMessage('');
       if (recoveryMode === 'forgot') return requestReset();
       if (recoveryMode === 'reset') return resetPassword();
@@ -702,81 +792,72 @@
 
     function confirmAccount() {
       const code = document.getElementById('confirmationCode').value.trim();
-
+      const message = document.getElementById('confirmationMessage');
       if (!pendingUser || !/^\d{6}$/.test(code)) {
-        document.getElementById('confirmationMessage').textContent = 'Enter the six-digit verification code.';
+        message.textContent = 'Enter the six-digit verification code.';
         return;
       }
-
+      const revision = authRevision;
       showLoader('Confirming account...');
-
-      pendingUser.confirmRegistration(code, true, error => {
-        hideLoader();
-
-        if (error) {
-          document.getElementById('confirmationMessage').textContent = error.message || 'Verification failed.';
-          return;
-        }
-
-        document.getElementById('confirmationModal').classList.add('hidden');
-        document.getElementById('confirmationModal').classList.remove('flex');
-
-        pendingUser = null;
-        signUpMode = true;
-        toggleAuthMode();
-        showAuthMessage('Account verified. You can now log in.', true);
-      });
+      try {
+        // Never silently transfer an email alias from another account.
+        pendingUser.confirmRegistration(code, false, error => {
+          if (revision !== authRevision) return;
+          hideLoader();
+          if (error) { message.textContent = error.message || 'Verification failed.'; return; }
+          resetAuthFields();
+          showAuthMessage('Account verified. You can now log in.', true);
+        });
+      } catch (error) { hideLoader(); message.textContent = error.message || 'Verification failed.'; }
     }
 
     function resendCode() {
       if (!pendingUser) return;
-
+      const revision = authRevision;
+      const message = document.getElementById('confirmationMessage');
       showLoader('Resending verification code...');
-
-      pendingUser.resendConfirmationCode(error => {
-        hideLoader();
-
-        if (error) {
-          document.getElementById('confirmationMessage').textContent = error.message || 'Could not resend code.';
-          return;
-        }
-
-        document.getElementById('confirmationMessage').textContent = 'A new verification code was sent.';
-      });
+      try {
+        pendingUser.resendConfirmationCode(error => {
+          if (revision !== authRevision) return;
+          hideLoader();
+          message.textContent = error ? error.message || 'Could not resend code.' : 'A new verification code was sent.';
+        });
+      } catch (error) { hideLoader(); message.textContent = error.message || 'Could not resend code.'; }
     }
 
     function restoreSession() {
+      const revision = ++authRevision;
+      clearAuthTokens();
       try {
-        const pool = getCognitoPool();
-        const user = pool.getCurrentUser();
-
-        if (!user) return;
-
+        // A late SDK refresh can recache credentials after signOut. Explicit
+        // logout still prevents automatic restoration in this tab on reload.
+        if (sessionStorage.getItem('crushx_logged_out') === '1') { closeSession(); return; }
+        const user = getCognitoPool().getCurrentUser();
+        if (!user) { closeSession(); return; }
         user.getSession((error, session) => {
-          if (error || !session || !session.isValid()) return;
-
-          sessionStorage.setItem(
-            'crushx_access_token',
-            session.getAccessToken().getJwtToken()
-          );
-
-          document.getElementById('authOverlay').style.display = 'none';
-          renderApp();
+          if (revision !== authRevision) return;
+          if (error || !session?.isValid()) {
+            try { user.signOut(); } catch {}
+            closeSession('Session expired. Please log in again.');
+            return;
+          }
+          acceptSession(session, user, revision);
         });
       } catch {
-        // The login screen remains visible.
+        closeSession('Could not restore authentication. Please log in again.');
       }
     }
 
     function logout() {
-      try {
-        getCognitoPool().getCurrentUser()?.signOut();
-      } catch {}
-
-      sessionStorage.removeItem('crushx_access_token');
-      sessionStorage.removeItem('crushx_id_token');
-      document.getElementById('authOverlay').style.display = 'flex';
-      renderApp();
+      try { sessionStorage.setItem('crushx_logged_out', '1'); } catch {}
+      const user = authenticatedUser;
+      closeSession();
+      try { if (!user) getCognitoPool().getCurrentUser()?.signOut(); } catch {}
+      const state = getState();
+      state.messageDrafts = {};
+      state.chatUserId = null;
+      saveState(state);
+      navigate('home');
     }
 
     // No verified publishing contract or approved upload destination is present.
@@ -791,7 +872,7 @@
       if (!file || !['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'].includes(file.type)) {
         throw new Error('Choose a JPEG, PNG, WebP, GIF, MP4 or WebM file.');
       }
-      if (!file.size || file.size > 100 * 1024 * 1024) throw new Error('File must be between 1 byte and 100 MB.');
+      if (!Number.isFinite(file.size) || file.size <= 0 || file.size > 100 * 1024 * 1024) throw new Error('File must be between 1 byte and 100 MB.');
     }
 
     function validateUploadResponse(data) {
@@ -817,10 +898,10 @@
                   return `
                     <div class="min-w-[76px] text-center">
                       <div class="story-ring rounded-full">
-                        <img src="${user.avatar}" class="h-16 w-16 rounded-full border-2 border-white object-cover" />
+                        <img src="${safeMediaUrl(user.avatar)}" class="h-16 w-16 rounded-full border-2 border-white object-cover" />
                       </div>
                       <div class="mt-2 truncate text-[10px] font-bold text-slate-500">
-                        ${user.username.slice(0, 9)}
+                        ${escapeHTML(user.username.slice(0, 9))}
                       </div>
                     </div>
                   `;
@@ -835,26 +916,26 @@
             return `
               <article class="glass rounded-[2rem] p-3 sm:p-4">
                 <div class="mb-3 flex items-center gap-3">
-                  <img src="${author.avatar}" class="h-11 w-11 rounded-full object-cover ring-2 ring-pink-200" />
+                  <img src="${safeMediaUrl(author.avatar)}" class="h-11 w-11 rounded-full object-cover ring-2 ring-pink-200" />
 
                   <div>
                     <div class="flex items-center gap-1 font-bold">
-                      @${author.username}
+                      @${escapeHTML(author.username)}
                       ${author.verified ? '<i data-lucide="badge-check" class="h-4 w-4 text-blue-500"></i>' : ''}
                     </div>
-                    <div class="text-xs text-slate-500">${post.location}</div>
+                    <div class="text-xs text-slate-500">${escapeHTML(post.location)}</div>
                   </div>
                 </div>
 
-                <img src="${post.image}" class="h-[420px] w-full rounded-[1.7rem] object-cover" />
+                <img src="${safeMediaUrl(post.image)}" class="h-[420px] w-full rounded-[1.7rem] object-cover" />
 
                 <div class="mt-3 flex justify-between">
                   <div class="flex gap-4">
-                    <button aria-label="Like locally" data-like="${post.id}" aria-pressed="${!!post.liked}"><i data-lucide="heart" class="h-5 w-5"></i></button>
-                    <button aria-label="Add comment locally" data-comment-focus="${post.id}"><i data-lucide="message-circle" class="h-5 w-5"></i></button>
-                    <button aria-label="Share" data-share="${post.id}"><i data-lucide="send" class="h-5 w-5"></i></button>
+                    <button aria-label="Like locally" data-like="${escapeHTML(post.id)}" aria-pressed="${!!post.liked}"><i data-lucide="heart" class="h-5 w-5"></i></button>
+                    <button aria-label="Add comment locally" data-comment-focus="${escapeHTML(post.id)}"><i data-lucide="message-circle" class="h-5 w-5"></i></button>
+                    <button aria-label="Share" data-share="${escapeHTML(post.id)}"><i data-lucide="send" class="h-5 w-5"></i></button>
                   </div>
-                  <button aria-label="Save locally" data-save="${post.id}" aria-pressed="${!!post.saved}"><i data-lucide="bookmark" class="h-5 w-5"></i></button>
+                  <button aria-label="Save locally" data-save="${escapeHTML(post.id)}" aria-pressed="${!!post.saved}"><i data-lucide="bookmark" class="h-5 w-5"></i></button>
                 </div>
 
                 <div class="mt-3 text-sm font-bold">
@@ -865,7 +946,7 @@
                 </div>
 
                 <div class="mt-2 text-sm">
-                  <strong>@${author.username}</strong>
+                  <strong>@${escapeHTML(author.username)}</strong>
                   <span class="text-slate-600 dark:text-slate-300">
                     ${formatText(post.caption)}
                   </span>
@@ -884,13 +965,13 @@
 
                 <div class="mt-3 flex gap-2">
                   <input
-                    data-comment-input="${post.id}"
+                    data-comment-input="${escapeHTML(post.id)}"
                     maxlength="2000" placeholder="Add a local comment..."
                     class="flex-1 rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
                   />
 
                   <button
-                    data-comment-send="${post.id}"
+                    data-comment-send="${escapeHTML(post.id)}"
                     class="rounded-full gradient-main px-4 py-2 text-sm font-bold text-white"
                   >
                     Send
@@ -944,7 +1025,7 @@
             <div class="mt-4 space-y-3">
               ${filteredUsers.length ? filteredUsers.map(user => `
                 <article class="flex items-center gap-3 rounded-[1.5rem] border border-slate-100 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                  <img src="${user.avatar}" class="h-14 w-14 rounded-full object-cover ring-2 ring-pink-200" />
+                  <img src="${safeMediaUrl(user.avatar)}" class="h-14 w-14 rounded-full object-cover ring-2 ring-pink-200" />
 
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1 font-bold">
@@ -967,10 +1048,10 @@
 
                   ${
                     user.id === state.currentUserId
-                      ? '<span class="rounded-full bg-pink-50 px-3 py-2 text-xs font-bold text-pink-600">You</span>'
+                      ? '<span class="rounded-full bg-pink-50 px-3 py-2 text-xs font-bold text-pink-600">Sample persona</span>'
                       : `
                         <button
-                          data-follow-user="${user.id}"
+                          data-follow-user="${escapeHTML(user.id)}"
                           class="${user.following ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' : 'gradient-main text-white'} rounded-full px-3 py-2 text-xs font-bold"
                         >
                           ${user.following ? 'Following' : 'Follow'}
@@ -1034,7 +1115,7 @@
     }
 
     function safeMediaUrl(value) {
-      try { const url = new URL(value); return url.protocol === 'https:' ? escapeHTML(url.href) : ''; }
+      try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? escapeHTML(url.href) : ''; }
       catch { return ''; }
     }
 
@@ -1085,18 +1166,19 @@
       return `
         <main>
           <section class="glass rounded-[2rem] p-5">
+            <h1 class="mb-4 text-xl font-black">Sample profile — not your Cognito account</h1>
             <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <img src="${user.avatar}" class="h-24 w-24 rounded-full object-cover ring-4 ring-pink-200" />
+              <img src="${safeMediaUrl(user.avatar)}" class="h-24 w-24 rounded-full object-cover ring-4 ring-pink-200" />
 
               <div class="flex-1">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div class="flex items-center gap-1 text-2xl font-black">
-                      @${user.username}
+                      @${escapeHTML(user.username)}
                       ${user.verified ? '<i data-lucide="badge-check" class="h-5 w-5 text-blue-500"></i>' : ''}
                     </div>
 
-                    <div class="text-sm text-slate-500">${user.fullName}</div>
+                    <div class="text-sm text-slate-500">${escapeHTML(user.fullName)}</div>
                   </div>
 
                   <button id="logoutButton" class="rounded-full bg-red-500 px-4 py-2 text-xs font-bold text-white">
@@ -1189,15 +1271,15 @@
                     <i data-lucide="${state.darkMode ? 'sun' : 'moon'}" class="h-5 w-5"></i>
                   </button>
 
-                  <button aria-label="Open profile" id="profileButton" class="h-11 w-11 overflow-hidden rounded-full ring-2 ring-pink-200">
-                    <img src="${user.avatar}" class="h-full w-full object-cover" />
+                  <button aria-label="Open sample profile" id="profileButton" class="h-11 w-11 overflow-hidden rounded-full ring-2 ring-pink-200">
+                    <img src="${safeMediaUrl(user.avatar)}" class="h-full w-full object-cover" />
                   </button>
                 </div>
               </div>
             </div>
           </header>
 
-          <p class="mb-4 rounded-2xl bg-pink-50 p-3 text-xs text-pink-700">Sample content · Likes, follows, saved items, comments and drafts stay in this browser. They are not synced to a server.</p>
+          <p class="mb-4 rounded-2xl bg-pink-50 p-3 text-xs text-pink-700">Sample content and sample persona · Not linked to your Cognito account. Likes, follows, saved items, comments and drafts stay in this browser and may be seen by others using it. Drafts are cleared on logout. No server sync.</p>
           <p id="appStatus" role="status" aria-live="polite" class="mb-3 text-sm"></p>
           ${view}
         </div>
@@ -1304,7 +1386,8 @@
       mediaInput?.addEventListener('change', () => {
         const file = mediaInput.files?.[0];
 
-        if (!file || !preview) return;
+        if (!preview) return;
+        if (!file) { if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = null; preview.innerHTML = ''; preview.classList.add('hidden'); return; }
 
         try { validateMedia(file); } catch (error) { mediaInput.value = ''; preview.classList.add('hidden'); preview.innerHTML = ''; if (previewUrl) URL.revokeObjectURL(previewUrl); previewUrl = null; alert(error.message); return; }
         if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -1330,6 +1413,7 @@
     }
 
     function beginRecovery() {
+      authRevision++;
       recoveryMode = 'forgot';
       signUpMode = false;
       showAuthMessage('');
@@ -1344,6 +1428,7 @@
     }
 
     function requestReset() {
+      const revision = authRevision;
       const username = document.getElementById('usernameInput').value.trim();
       if (!username) return showAuthMessage('Enter your username or email.');
       try {
@@ -1351,6 +1436,7 @@
         recoveryUser = new AmazonCognitoIdentity.CognitoUser({ Username: username, Pool: pool });
         showLoader('Requesting reset code...');
         const ready = () => {
+          if (revision !== authRevision) return;
           hideLoader();
           recoveryMode = 'reset';
           document.getElementById('usernameInput').readOnly = true;
@@ -1363,11 +1449,12 @@
           showAuthMessage('If the account can be recovered, a reset code has been sent.', true);
           document.getElementById('resetCodeInput').focus();
         };
-        recoveryUser.forgotPassword({ onSuccess: ready, inputVerificationCode: ready, onFailure(error) { hideLoader(); showAuthMessage(error.message || 'Could not request a reset code.'); } });
+        recoveryUser.forgotPassword({ onSuccess: ready, inputVerificationCode: ready, onFailure(error) { if (revision !== authRevision) return; if (error.code === 'UserNotFoundException') { ready(); return; } hideLoader(); showAuthMessage(error.message || 'Could not request a reset code.'); } });
       } catch (error) { hideLoader(); showAuthMessage(error.message); }
     }
 
     function resetPassword() {
+      const revision = authRevision;
       const code = document.getElementById('resetCodeInput').value.trim();
       const password = document.getElementById('passwordInput').value;
       if (!recoveryUser || !/^\d{6}$/.test(code)) return showAuthMessage('Enter the six-digit reset code.');
@@ -1375,8 +1462,8 @@
       showLoader('Resetting password...');
       try {
         recoveryUser.confirmPassword(code, password, {
-          onSuccess() { hideLoader(); toggleAuthMode(); document.getElementById('passwordInput').placeholder = 'Password'; showAuthMessage('Password reset. Log in with your new password.', true); },
-          onFailure(error) { hideLoader(); showAuthMessage(error.message || 'Password reset failed.'); }
+          onSuccess() { if (revision !== authRevision) return; hideLoader(); try { getCognitoPool().getCurrentUser()?.signOut(); } catch {} clearAuthTokens(); toggleAuthMode(); document.getElementById('passwordInput').placeholder = 'Password'; showAuthMessage('Password reset. Log in with your new password.', true); },
+          onFailure(error) { if (revision !== authRevision) return; hideLoader(); showAuthMessage(error.message || 'Password reset failed.'); }
         });
       } catch (error) { hideLoader(); showAuthMessage(error.message); }
     }
@@ -1386,7 +1473,7 @@
       if (!validTabs.includes(tab)) tab = 'home';
       const state = getState();
       state.activeTab = tab;
-      state.chatUserId = tab === 'messages' ? chatUserId : null;
+      state.chatUserId = tab === 'messages' && chatUserId !== 'me' && userById(state, chatUserId) ? chatUserId : null;
       saveState(state);
       const hash = `#${tab}${state.chatUserId ? '/' + encodeURIComponent(state.chatUserId) : ''}`;
       if (push && location.hash !== hash) history.pushState(null, '', hash);
