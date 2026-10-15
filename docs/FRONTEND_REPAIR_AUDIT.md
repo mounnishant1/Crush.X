@@ -153,8 +153,14 @@ read-denied/quota state fallback; and prior media/layout/local-interaction tests
 The suite asserts no remote writes or JavaScript exceptions. Real WebM playback
 uses the in-memory fixture, not a remote media request.
 
-Merge readiness: **not yet ready** pending a green hosted frontend CI result and
-recorded isolated staging authentication evidence in
+Hosted GitHub Actions passed both PR and push runs for tested source `31a9287`:
+[PR run](https://github.com/mounnishant1/Crush.X/actions/runs/38666546644),
+[push run](https://github.com/mounnishant1/Crush.X/actions/runs/38666546101).
+The supported runner completed browser installation, server startup and regressions.
+Docs changes are included in workflow paths so the final review commit is checked.
+
+Merge readiness: **not yet ready** pending recorded isolated staging authentication
+evidence in
 [STAGING_COGNITO_TESTS.md](STAGING_COGNITO_TESTS.md). Required pool challenge modes,
 password policy, aliases/recovery settings and live SDK refresh behavior are not
 established by mocks. If TOTP, MFA selection/setup, custom challenges or forced new

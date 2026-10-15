@@ -5,12 +5,14 @@ on:
     paths:
       - 'index.html'
       - 'tests/**'
+      - 'docs/**'
       - '.github/workflows/frontend.yml'
   push:
     branches: ['repair/p0-frontend', 'main']
     paths:
       - 'index.html'
       - 'tests/**'
+      - 'docs/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
 
