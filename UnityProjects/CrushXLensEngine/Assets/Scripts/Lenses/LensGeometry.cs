@@ -9,12 +9,13 @@ namespace CrushX.LensEngine
         private static readonly Dictionary<string, Material> cache = new Dictionary<string, Material>();
         public static Material MakeMaterial(Color color, float metallic = 0, float smoothness = .45f)
         {
-            string key = ColorUtility.ToHtmlStringRGBA(color) + ":" + metallic.ToString("F2") + ":" + smoothness.ToString("F2");
-            if (cache.TryGetValue(key, out Material reused) && reused != null) return reused;
             Shader shader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null
                 ? Shader.Find("Standard") : Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null || !shader.isSupported) throw new System.InvalidOperationException("No supported lens shader is available");
+            string key = shader.GetInstanceID() + ":" + ColorUtility.ToHtmlStringRGBA(color) + ":" + metallic.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ":" + smoothness.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            if (cache.TryGetValue(key, out Material reused) && reused != null) return reused;
             Material mat = new Material(shader);
             mat.color = color;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
@@ -22,6 +23,17 @@ namespace CrushX.LensEngine
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
             cache[key] = mat;
             return mat;
+        }
+
+        public static void ReleaseMaterials()
+        {
+            foreach (Material material in cache.Values)
+                if (material != null)
+                {
+                    if (Application.isPlaying) Object.Destroy(material);
+                    else Object.DestroyImmediate(material);
+                }
+            cache.Clear();
         }
 
         public static Transform Add(Transform parent, string name, PrimitiveType kind, Vector3 pos, Vector3 scale, Color color, Vector3? rotation = null)
@@ -40,6 +52,7 @@ namespace CrushX.LensEngine
 
         public static Transform Ring(Transform parent, string name, Vector3 pos, float radius, float thickness, Color color, int segments = 40)
         {
+            segments = Mathf.Clamp(segments, 3, LensQualitySettings.RingSegments);
             // XY plane ring; local z points out of face. Solid 3D torus approximation.
             GameObject obj = new GameObject(name);
             obj.transform.SetParent(parent, false);

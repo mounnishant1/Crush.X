@@ -111,8 +111,10 @@ class UnitySourceTests(unittest.TestCase):
         fox=source('CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs')
         installer=source('CrushX/ImportedLenses/FoxMask/Scripts/Editor/FoxMaskInstaller.cs')
         for code in (fox,installer):self.assertIn('GraphicsSettings.currentRenderPipeline == null',code)
-        self.assertIn('new Material(source)',fox)
-        self.assertIn('compatibleMaterials.Clear()',fox)
+        conversions=source('Scripts/Lenses/CompatibleLensMaterials.cs')
+        self.assertIn('new Material(source)',conversions)
+        self.assertIn('compatibleMaterials.Dispose()',fox)
+        self.assertIn('Resources.Load<Material>("CrushXLenses/FoxMaskBuiltIn")',fox)
 
     def test_single_swipe_owner_and_canceled_touch_handling(self):
         ui=source('Scripts/Runtime/NativeLensUI.cs');swipe=source('Scripts/Runtime/CrushXCameraSwipe.cs')
@@ -158,7 +160,7 @@ class UnitySourceTests(unittest.TestCase):
 
     def test_fox_clears_instances_if_face_subsystem_stops(self):
         fox=source('CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs')
-        self.assertRegex(fox,r'!faceManager.subsystem.running\)\s*\{\s*ClearInstances\(\);')
+        self.assertRegex(fox,r'!faceManager.subsystem.running\)\s*\{\s*ClearInstances\("[^"\n]+"\);')
         self.assertIn('TrackingState.Tracking',fox)
         provider=source('Scripts/Tracking/ARFoundationFaceProvider.cs')
         self.assertIn('FaceManager.subsystem.running',provider)

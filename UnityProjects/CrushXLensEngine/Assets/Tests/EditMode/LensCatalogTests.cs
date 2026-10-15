@@ -7,11 +7,17 @@ namespace CrushX.LensEngine.Tests
     public class LensCatalogTests
     {
         private readonly Dictionary<string, int?> savedPreferences = new Dictionary<string, int?>();
+        private bool hadRecent;
+        private string savedRecent;
 
         [SetUp]
         public void PreserveUserPreferences()
         {
             savedPreferences.Clear();
+            string consentKey = "crushx.lens.v02.remember";
+            savedPreferences[consentKey] = PlayerPrefs.HasKey(consentKey) ? (int?)PlayerPrefs.GetInt(consentKey) : null;
+            hadRecent = PlayerPrefs.HasKey("crushx.lens.v02.recent");
+            savedRecent = PlayerPrefs.GetString("crushx.lens.v02.recent", string.Empty);
             foreach (LensManifest lens in LensCatalog.All)
                 foreach (string kind in new[] { "fav.", "usage." })
                 {
@@ -23,6 +29,8 @@ namespace CrushX.LensEngine.Tests
         [TearDown]
         public void RestoreUserPreferences()
         {
+            if (hadRecent) PlayerPrefs.SetString("crushx.lens.v02.recent", savedRecent);
+            else PlayerPrefs.DeleteKey("crushx.lens.v02.recent");
             foreach (var item in savedPreferences)
                 if (item.Value.HasValue) PlayerPrefs.SetInt(item.Key, item.Value.Value);
                 else PlayerPrefs.DeleteKey(item.Key);
@@ -92,6 +100,28 @@ namespace CrushX.LensEngine.Tests
         public void UnknownLensId_IsRejected()
         {
             Assert.Throws<System.ArgumentException>(() => LensCatalog.ResolveType("unlisted-lens"));
+        }
+
+        [Test]
+        public void UsageHistory_IsOptInAndDisablingItPreservesFavorites()
+        {
+            var preferences = new LensPersonalization();
+            preferences.Reset();
+            preferences.SetUsageEnabled(false);
+            preferences.RecordUsage("puppy");
+            Assert.AreEqual(0, preferences.UsageCount("puppy"));
+            Assert.AreEqual(0, preferences.RecentIds().Count);
+            preferences.SetUsageEnabled(true);
+            preferences.RecordUsage("puppy");
+            preferences.RecordUsage("fox");
+            preferences.RecordUsage("puppy");
+            preferences.ToggleFavorite("puppy");
+            Assert.AreEqual(2, preferences.UsageCount("puppy"));
+            CollectionAssert.AreEqual(new[] { "puppy", "fox" }, preferences.RecentIds());
+            preferences.SetUsageEnabled(false);
+            Assert.AreEqual(0, preferences.UsageCount("puppy"));
+            Assert.AreEqual(0, preferences.RecentIds().Count);
+            Assert.IsTrue(preferences.IsFavorite("puppy"));
         }
     }
 }

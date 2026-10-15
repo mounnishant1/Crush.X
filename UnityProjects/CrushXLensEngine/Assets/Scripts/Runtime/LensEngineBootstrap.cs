@@ -21,6 +21,18 @@ namespace CrushX.LensEngine
         private string notice = "";
         private float noticeUntil;
         private GameObject demoFace;
+        private ARTrackingDiagnostics diagnostics;
+        private readonly List<string> recentLensIds = new List<string>();
+
+        public event Action<string, LensRuntimeState> LensStateChanged;
+        public LensRuntimeState State { get; private set; }
+        public string LastLensError { get; private set; }
+        public string TrackingStatus { get { return diagnostics != null ? diagnostics.CurrentMessage : TrackingActive ? "Face tracking active" : "Initializing face tracking"; } }
+        public bool IsFavorite(string id) { return personalization != null && personalization.IsFavorite(id); }
+        public bool PersonalizationEnabled { get { return personalization != null && personalization.UsageEnabled; } }
+        public IReadOnlyList<string> RecentLensIds { get { return recentLensIds; } }
+        public TrackingCapabilities ProviderCapabilities { get { return tracking != null && tracking.ProviderComponent is ITrackingCapabilitiesProvider capabilities ? capabilities.Capabilities : TrackingCapabilities.None; } }
+        public bool ProviderCapabilitiesKnown { get { return tracking != null && tracking.ProviderComponent is ITrackingCapabilitiesProvider capabilities && capabilities.CapabilitiesKnown; } }
 
         public IReadOnlyList<LensManifest> RankedLenses { get { return ranking; } }
         public string Notice { get { return Time.unscaledTime < noticeUntil ? notice : string.Empty; } }
@@ -29,7 +41,12 @@ namespace CrushX.LensEngine
 
         private void Awake()
         {
+            diagnostics = GetComponent<ARTrackingDiagnostics>();
+            if (diagnostics == null) diagnostics = gameObject.AddComponent<ARTrackingDiagnostics>();
+            if (GetComponent<LensWorkflowBridge>() == null) gameObject.AddComponent<LensWorkflowBridge>();
+            if (GetComponent<LensPerformanceMonitor>() == null) gameObject.AddComponent<LensPerformanceMonitor>();
             personalization = new LensPersonalization();
+            recentLensIds.AddRange(personalization.RecentIds());
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
             ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
@@ -92,10 +109,40 @@ namespace CrushX.LensEngine
 
         private GameObject premiumLensInstance;
 
+        public void SetPersonalizationEnabled(bool enabled)
+        {
+            personalization.SetUsageEnabled(enabled);
+            recentLensIds.Clear();
+            recentLensIds.AddRange(personalization.RecentIds());
+            // Keep the current session's browse order stable; new ranking applies next session.
+        }
+
+        private void SetState(LensRuntimeState state)
+        {
+            if (State == state) return;
+            State = state;
+            LensStateChanged?.Invoke(activeId, State);
+        }
+
+        public LensCompatibilityResult Compatibility(LensManifest lens)
+        {
+            return LensCompatibility.Evaluate(lens, ProviderCapabilitiesKnown, ProviderCapabilities);
+        }
+
         public bool SelectLens(string id)
         {
+            id = LensCompatibility.NormalizeId(id);
             LensManifest? manifest = LensCatalog.Find(id);
-            if (!manifest.HasValue) { Say("Lens not found"); return false; }
+            if (!manifest.HasValue) { LastLensError = "Lens not found"; Say(LastLensError); return false; }
+            if (activeId == id) return true;
+            LensCompatibilityResult compatibility = Compatibility(manifest.Value);
+            if (!compatibility.CanSelect)
+            {
+                LastLensError = compatibility.Message;
+                ARTrackingDiagnostics.RecordLensSelection(id, false, LastLensError);
+                Say(LastLensError);
+                return false;
+            }
             var sceneLenses = new List<ISceneLens>();
             bool sceneLensAvailable = false;
             foreach (MonoBehaviour component in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
@@ -109,41 +156,66 @@ namespace CrushX.LensEngine
             // Reject before destroying the active lens. Imported lenses never fall back to fake tracking.
             if (manifest.Value.SceneProvided && !sceneLensAvailable)
             {
-                Say("This lens needs its configured AR scene and prefab");
+                LastLensError = "This lens needs its configured AR scene and prefab";
+                ARTrackingDiagnostics.RecordLensSelection(id, false, LastLensError);
+                Say(LastLensError);
                 return false;
             }
-            foreach (ISceneLens sceneLens in sceneLenses) sceneLens.SelectLens(id);
-            if (effect != null) Destroy(effect.gameObject);
-            effect = null;
-
-            if (premiumLensInstance != null)
-                Destroy(premiumLensInstance);
-
-            premiumLensInstance = null;
-
-            GameObject prefab = PreferResourcePrefabs ? Resources.Load<GameObject>(
-                "CrushXLenses/" + id) : null;
-
-            if (manifest.Value.SceneProvided)
+            LensEffect candidateEffect = null;
+            GameObject candidate = null;
+            LensRuntimeState previousState = State;
+            SetState(LensRuntimeState.Loading);
+            try
             {
-                // The scene controller attaches imported geometry to real ARFace trackables.
+                GameObject prefab = PreferResourcePrefabs ? Resources.Load<GameObject>("CrushXLenses/" + id) : null;
+                if (!manifest.Value.SceneProvided)
+                {
+                    candidate = prefab != null ? Instantiate(prefab, effectRoot, false) : new GameObject("Lens-" + id);
+                    candidate.SetActive(false);
+                    candidate.transform.SetParent(effectRoot, false);
+                    if (prefab == null)
+                    {
+                        candidateEffect = (LensEffect)candidate.AddComponent(LensCatalog.ResolveType(id));
+                        candidateEffect.Build();
+                    }
+                }
+                ARTrackingDiagnostics.RecordLensSelection(id, true, compatibility.Message);
+                foreach (ISceneLens sceneLens in sceneLenses) sceneLens.SelectLens(id);
             }
-            else if (prefab != null)
+            catch (Exception error)
             {
-                premiumLensInstance = Instantiate(
-                    prefab, effectRoot, false);
+                if (candidate != null) { candidate.SetActive(false); Destroy(candidate); }
+                foreach (ISceneLens sceneLens in sceneLenses)
+                {
+                    try { sceneLens.SelectLens(activeId ?? string.Empty); }
+                    catch (Exception rollbackError) { Debug.LogException(rollbackError); }
+                }
+                LastLensError = "Lens could not load; previous lens retained";
+                ARTrackingDiagnostics.RecordLensSelection(activeId ?? string.Empty, true, "Selection rollback");
+                ARTrackingDiagnostics.RecordLensSelection(id, false, error.GetType().Name);
+                SetState(previousState);
+                Say(LastLensError);
+                Debug.LogException(error);
+                return false;
             }
-            else
+            if (effect != null)
             {
-                var go = new GameObject("Lens-" + id);
-                go.transform.SetParent(effectRoot, false);
-                effect = (LensEffect)go.AddComponent(
-                    LensCatalog.ResolveType(id));
-                effect.Build();
+                effect.OnDeselected();
+                effect.gameObject.SetActive(false);
+                Destroy(effect.gameObject);
             }
+            if (premiumLensInstance != null) { premiumLensInstance.SetActive(false); Destroy(premiumLensInstance); }
+            effect = candidateEffect;
+            premiumLensInstance = candidateEffect == null ? candidate : null;
             activeId = id;
+            if (candidate != null) candidate.SetActive(true);
+            if (effect != null) effect.OnSelected();
             startAt = Time.unscaledTime;
+            LastLensError = string.Empty;
             personalization.RecordUsage(id);
+            recentLensIds.Clear();
+            recentLensIds.AddRange(personalization.RecentIds());
+            SetState(TrackingActive ? LensRuntimeState.Active : LensRuntimeState.WaitingForTracking);
             // Apply usage-based ordering next session, not in the middle of a swipe sequence.
             return true;
         }
@@ -171,6 +243,7 @@ namespace CrushX.LensEngine
         public void ResetRanking()
         {
             personalization.Reset(); ranking = personalization.Ranked(); Say("Local ranking reset");
+            recentLensIds.Clear();
         }
         public void Say(string message) { notice = message; noticeUntil = Time.unscaledTime + 3; }
 
@@ -178,11 +251,25 @@ namespace CrushX.LensEngine
         {
             bool showing = TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
+            if (!string.IsNullOrEmpty(activeId))
+                SetState(diagnostics != null && (diagnostics.CurrentOutcome == ARDiagnosticOutcome.LensPrefabMissing || diagnostics.CurrentOutcome == ARDiagnosticOutcome.LensRendererUnavailable)
+                    ? LensRuntimeState.Unavailable : showing ? LensRuntimeState.Active : LensRuntimeState.WaitingForTracking);
             if (!showing) return;
             FaceSample face = tracking.Current;
             effectRoot.position = face.Position;
             effectRoot.rotation = face.Rotation;
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && effectRoot != null) effectRoot.gameObject.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (effect != null) effect.OnDeselected();
+            LensGeometry.ReleaseMaterials();
         }
 
         private NativeLensUI cachedNativeLensUi;

@@ -25,16 +25,23 @@ namespace CrushX.ImportedLenses
         public bool IsAvailable { get { ResolveManager(); return isActiveAndEnabled && foxMaskPrefab != null && faceManager != null && faceManager.isActiveAndEnabled; } }
         private bool selectionSet;
         private bool isSelected;
-        private readonly Dictionary<Material, Material> compatibleMaterials = new Dictionary<Material, Material>();
+        private readonly CompatibleLensMaterials compatibleMaterials = new CompatibleLensMaterials();
         private bool warnedNoManager;
-        private readonly Dictionary<TrackableId, GameObject> instances =
-            new Dictionary<TrackableId, GameObject>();
-        private readonly HashSet<TrackableId> current = new HashSet<TrackableId>();
-        private readonly List<TrackableId> toRemove = new List<TrackableId>();
+        private TrackedFaceAttachments<TrackableId> attachments;
+        private GameObject instancePrefab;
+        private Material builtInShaderReference;
+        private Shader compatibleShader;
+        private bool shaderReferenceLoaded;
+        private bool applicationPaused;
+        private ARDiagnosticOutcome? lastOutcome;
+        private float nextRendererSnapshot;
+        public int InstanceCount { get { return attachments == null ? 0 : attachments.Count; } }
 
         private void Awake()
         {
             if (!selectionSet) isSelected = enabledOnStart;
+            attachments = new TrackedFaceAttachments<TrackableId>(CreateInstance);
+            attachments.Removing += OnRemovingInstance;
             ResolveManager();
         }
 
@@ -55,7 +62,14 @@ namespace CrushX.ImportedLenses
             bool newSelection = string.Equals(selectedLensId, LensId, StringComparison.OrdinalIgnoreCase);
             if (newSelection == isSelected) return;
             isSelected = newSelection;
-            if (!isSelected) ClearInstances();
+            lastOutcome = null;
+            if (isSelected)
+                ARTrackingDiagnostics.RecordLensSelection(LensId, IsAvailable, "Fox controller selected; face acquisition is checked independently");
+            else
+            {
+                ARTrackingDiagnostics.RecordFoxEvent("deselected", null, null, "nextLens=" + selectedLensId);
+                ClearInstances("lens deselected");
+            }
         }
 
         public void EnableFoxMask(string ignored) { SelectLens(LensId); }
@@ -63,90 +77,147 @@ namespace CrushX.ImportedLenses
 
         private void Update()
         {
-            if (!isSelected || foxMaskPrefab == null)
+            if (!isSelected)
             {
-                if (instances.Count > 0) ClearInstances();
+                if (InstanceCount > 0) ClearInstances("lens deselected");
                 return;
+            }
+            if (applicationPaused) return;
+            if (foxMaskPrefab == null)
+            {
+                ClearInstances("prefab missing");
+                ReportOutcome(ARDiagnosticOutcome.LensPrefabMissing, "Fox Mask prefab is not assigned");
+                return;
+            }
+            if (instancePrefab != foxMaskPrefab)
+            {
+                ClearInstances("prefab changed");
+                instancePrefab = foxMaskPrefab;
             }
             if (faceManager == null) ResolveManager();
             if (faceManager == null || !faceManager.isActiveAndEnabled || faceManager.subsystem == null || !faceManager.subsystem.running)
             {
-                ClearInstances();
+                ClearInstances("face manager or subsystem unavailable");
+                ReportOutcome(faceManager == null ? ARDiagnosticOutcome.ManagerMissing :
+                    !faceManager.isActiveAndEnabled ? ARDiagnosticOutcome.ManagerDisabled :
+                    faceManager.subsystem == null ? ARDiagnosticOutcome.SubsystemMissing : ARDiagnosticOutcome.SubsystemStopped,
+                    "Fox is waiting for a running ARFaceManager subsystem");
                 return;
             }
 
-            current.Clear();
+            attachments.BeginFrame();
+            int faces = 0, tracked = 0;
             foreach (ARFace face in faceManager.trackables)
             {
+                faces++;
                 if (face == null || face.trackingState != TrackingState.Tracking) continue;
-                current.Add(face.trackableId);
-                if (!instances.TryGetValue(face.trackableId, out GameObject instance) || instance == null)
-                {
-                    instance = Instantiate(foxMaskPrefab, face.transform, false);
-                    instance.name = "CrushX_FoxMask_Tracked";
-                    ApplyCompatibleMaterials(instance);
-                    instance.transform.localPosition = Vector3.zero;
-                    instance.transform.localRotation = Quaternion.identity;
-                    instances[face.trackableId] = instance;
-                }
-                else if (instance.transform.parent != face.transform)
-                {
-                    instance.transform.SetParent(face.transform, false);
-                }
+                tracked++;
+                GameObject instance = attachments.Bind(face.trackableId, face.transform, out bool created, out bool rebound);
+                if (created) ARTrackingDiagnostics.RecordFoxEvent("created-and-bound", face, instance);
+                else if (rebound) ARTrackingDiagnostics.RecordFoxEvent("rebound", face, instance);
             }
+            attachments.EndFrame();
 
-            toRemove.Clear();
-            foreach (KeyValuePair<TrackableId, GameObject> item in instances)
-                if (!current.Contains(item.Key)) toRemove.Add(item.Key);
-
-            foreach (TrackableId id in toRemove)
+            if (tracked == 0)
             {
-                if (instances.TryGetValue(id, out GameObject orphan) && orphan != null)
-                    Destroy(orphan);
-                instances.Remove(id);
+                ReportOutcome(faces == 0 ? ARDiagnosticOutcome.NoFacesDetected : ARDiagnosticOutcome.FacesNotTracking,
+                    faces == 0 ? "Face subsystem running; no faces detected" : "Faces exist, but none is Tracking");
+                return;
             }
+            // isVisible is an observation from a previous render and is not a tracking failure.
+            // Expensive hierarchy/material inspection is bounded; never scan renderers every frame.
+            if (lastOutcome == null || Time.unscaledTime >= nextRendererSnapshot)
+                InspectInstances();
+        }
+
+        private GameObject CreateInstance(Transform parent)
+        {
+            GameObject instance = Instantiate(foxMaskPrefab, parent, false);
+            instance.name = "CrushX_FoxMask_Tracked";
+            ApplyCompatibleMaterials(instance);
+            nextRendererSnapshot = 0;
+            return instance;
+        }
+
+        private void OnRemovingInstance(TrackableId id, GameObject instance, string reason)
+        {
+            ARTrackingDiagnostics.RecordFoxEvent("removed", instance.GetComponentInParent<ARFace>(), instance,
+                "trackable=" + id + "; reason=" + reason);
+        }
+
+        private void ReportOutcome(ARDiagnosticOutcome outcome, string detail)
+        {
+            if (lastOutcome == outcome) return;
+            lastOutcome = outcome;
+            ARTrackingDiagnostics.RecordLensStatus(LensId, outcome, detail);
+        }
+
+        private void InspectInstances()
+        {
+            nextRendererSnapshot = Time.unscaledTime + 5f;
+            bool renderable = false;
+            Camera camera = Camera.main;
+            foreach (KeyValuePair<TrackableId, GameObject> item in attachments.Instances)
+            {
+                GameObject instance = item.Value;
+                if (instance == null) continue;
+                foreach (Renderer renderer in instance.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.forceRenderingOff) continue;
+                    if (camera != null && (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0) continue;
+                    MeshFilter filter = renderer.GetComponent<MeshFilter>();
+                    if (renderer is MeshRenderer && (filter == null || filter.sharedMesh == null || filter.sharedMesh.vertexCount == 0)) continue;
+                    foreach (Material material in renderer.sharedMaterials)
+                        if (material != null && compatibleShader != null && material.shader == compatibleShader && material.shader.isSupported) renderable = true;
+                }
+                ARTrackingDiagnostics.RecordFoxEvent("renderer-snapshot", instance.GetComponentInParent<ARFace>(), instance);
+            }
+            ReportOutcome(renderable ? ARDiagnosticOutcome.Tracking : ARDiagnosticOutcome.LensRendererUnavailable,
+                renderable ? "Tracked Fox attachment has an active renderer with a supported shader; visibility still requires device verification" :
+                    "Tracked face exists, but no active Fox renderer with a supported shader is available to the camera");
         }
 
         private void ApplyCompatibleMaterials(GameObject instance)
         {
             // The imported material uses URP, while this project currently selects Built-in.
-            Shader shader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null
-                ? Shader.Find("Standard") : Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) return;
-            foreach (Renderer renderer in instance.GetComponentsInChildren<Renderer>(true))
+            bool builtIn = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null;
+            if (builtIn && !shaderReferenceLoaded)
             {
-                Material[] materials = renderer.sharedMaterials;
-                for (int i = 0; i < materials.Length; i++)
-                {
-                    Material source = materials[i];
-                    if (source == null || source.shader == shader) continue;
-                    if (!compatibleMaterials.TryGetValue(source, out Material copy))
-                    {
-                        Texture texture = source.HasProperty("_BaseMap") ? source.GetTexture("_BaseMap") : source.mainTexture;
-                        copy = new Material(source) { shader = shader };
-                        if (copy.HasProperty("_BaseMap")) copy.SetTexture("_BaseMap", texture);
-                        if (copy.HasProperty("_MainTex")) copy.SetTexture("_MainTex", texture);
-                        compatibleMaterials[source] = copy;
-                    }
-                    materials[i] = copy;
-                }
-                renderer.sharedMaterials = materials;
+                shaderReferenceLoaded = true;
+                // A Resources material keeps Standard and its needed variants in Android builds.
+                // Shader.Find alone can succeed in the Editor while the player strips the shader.
+                builtInShaderReference = Resources.Load<Material>("CrushXLenses/FoxMaskBuiltIn");
             }
+            Shader shader = builtIn && builtInShaderReference != null ? builtInShaderReference.shader :
+                Shader.Find(builtIn ? "Standard" : "Universal Render Pipeline/Lit");
+            compatibleShader = shader;
+            if (shader == null || !shader.isSupported)
+            {
+                ARTrackingDiagnostics.RecordFoxEvent("compatible-shader-unavailable", instance.GetComponentInParent<ARFace>(), instance,
+                    "pipeline=" + (builtIn ? "Built-in" : "SRP") + "; expected=" + (builtIn ? "Standard" : "Universal Render Pipeline/Lit"));
+                return;
+            }
+            compatibleMaterials.Apply(instance, shader);
         }
 
-        private void ClearInstances()
+        private void ClearInstances(string reason)
         {
-            foreach (GameObject go in instances.Values)
-                if (go != null) Destroy(go);
-            instances.Clear();
+            if (attachments != null) attachments.Clear(reason);
         }
 
-        private void OnDisable() { ClearInstances(); }
+        private void OnApplicationPause(bool paused)
+        {
+            applicationPaused = paused;
+            lastOutcome = null;
+            nextRendererSnapshot = 0;
+            ARTrackingDiagnostics.RecordFoxEvent(paused ? "application-paused" : "application-resumed", null, null);
+            if (paused) ClearInstances("application paused");
+        }
+        private void OnDisable() { ClearInstances("controller disabled"); lastOutcome = null; }
         private void OnDestroy()
         {
-            ClearInstances();
-            foreach (Material material in compatibleMaterials.Values) if (material != null) Destroy(material);
-            compatibleMaterials.Clear();
+            ClearInstances("controller destroyed");
+            compatibleMaterials.Dispose();
         }
     }
 }

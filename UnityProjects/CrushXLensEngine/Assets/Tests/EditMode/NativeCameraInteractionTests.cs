@@ -1,0 +1,61 @@
+using System;
+using NUnit.Framework;
+using UnityEngine;
+
+namespace CrushX.LensEngine.Tests
+{
+    public sealed class NativeCameraInteractionTests
+    {
+        [TestCase(-2, 1, 0)]
+        [TestCase(-2, 2, 0)]
+        [TestCase(-1, 2, 1)]
+        [TestCase(int.MinValue, 3, 1)]
+        [TestCase(5, 0, -1)]
+        public void CircularIndex_HandlesSmallListsAndOverflow(int index, int count, int expected)
+        { Assert.AreEqual(expected, CrushXSmartCarousel.WrappedIndex(index, count)); }
+
+        [Test]
+        public void SafeArea_DrawingAndTouchCoordinatesAgree()
+        {
+            var layout = NativeCameraLayout.Create(1440, 3200, new Rect(0, 100, 1440, 3000));
+            Rect shutter = layout.Shutter;
+            Vector2 pixel = layout.Origin + shutter.center * layout.Scale;
+            Vector2 gui = layout.ToGui(new Vector2(pixel.x, 3200 - pixel.y), 3200);
+            Assert.That(gui.x, Is.EqualTo(shutter.center.x).Within(.001f));
+            Assert.That(gui.y, Is.EqualTo(shutter.center.y).Within(.001f));
+            Assert.That(layout.Origin.y, Is.EqualTo(100f));
+            Assert.IsFalse(layout.CameraGesture(false).Overlaps(layout.Carousel));
+            Assert.IsFalse(layout.Favorite.Overlaps(layout.Shutter));
+        }
+
+        [Test]
+        public void Filtering_UsesOnlyExistingFavoritesAndDeduplicatedRecentIds()
+        {
+            var favorites = CrushXSmartCarousel.BuildResults(LensCatalog.All, LensBrowseFilter.Favorites, "", id => id == "fox", null);
+            Assert.AreEqual(1, favorites.Count);
+            Assert.AreEqual("fox", favorites[0].Id);
+            var recents = CrushXSmartCarousel.BuildResults(LensCatalog.All, LensBrowseFilter.Recent, "", null,
+                new[] { "missing", "puppy", "puppy", "fox" });
+            Assert.AreEqual(2, recents.Count);
+            Assert.AreEqual("puppy", recents[0].Id);
+            Assert.AreEqual("fox", recents[1].Id);
+        }
+
+        [Test]
+        public void Search_IsCaseInsensitiveAndDoesNotMutateBrowseOrder()
+        {
+            string first = LensCatalog.All[0].Id;
+            var matches = CrushXSmartCarousel.BuildResults(LensCatalog.All, LensBrowseFilter.All, "FOX MASK", null, null);
+            Assert.AreEqual(1, matches.Count);
+            Assert.AreEqual("fox-mask-3d", matches[0].Id);
+            Assert.AreEqual(first, LensCatalog.All[0].Id);
+        }
+
+        [Test]
+        public void DragIsNotTap_AndVerticalMotionIsNotSwipe()
+        {
+            Assert.IsFalse(CrushXCameraSwipe.IsTap(Vector2.zero, new Vector2(100, 0), 1));
+            Assert.AreEqual(0, CrushXCameraSwipe.SwipeStep(Vector2.zero, new Vector2(90, 200), 440));
+        }
+    }
+}

@@ -6,6 +6,8 @@ namespace CrushX.LensEngine
     {
         public abstract string LensId { get; }
         public abstract void Build();
+        public virtual void OnSelected() { }
+        public virtual void OnDeselected() { }
         public virtual void Animate(FaceSample face, float elapsedSeconds) { }
         protected virtual void OnDestroy()
         {
