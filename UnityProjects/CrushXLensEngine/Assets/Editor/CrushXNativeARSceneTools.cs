@@ -74,8 +74,16 @@ namespace CrushX.LensEngine.Editor
             var engine = new GameObject("CrushX Native 3D AR Runtime");
             engine.AddComponent<LensEngineBootstrap>();
             new GameObject("CrushX Native Lens UI").AddComponent<NativeLensUI>();
-            Directory.CreateDirectory("Assets/Scenes");
-            const string scenePath = "Assets/Scenes/CrushXNativeAR.unity";
+            GameObject foxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/CrushX/ImportedLenses/FoxMask/FoxMask_AR.prefab");
+            if (foxPrefab != null)
+            {
+                var bridge = new GameObject("CrushX_LensBridge").AddComponent<CrushX.ImportedLenses.FoxMaskARLens>();
+                bridge.faceManager = faceManager;
+                bridge.foxMaskPrefab = foxPrefab;
+                bridge.enabledOnStart = false;
+            }
+            Directory.CreateDirectory("Assets/SCENES");
+            const string scenePath = "Assets/SCENES/CrushXNativeAR.unity";
             EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scenePath);
             var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(
     EditorBuildSettings.scenes);

@@ -17,7 +17,8 @@ namespace CrushX.LensEngine
             new LensManifest("robo-helmet", "Robo Helmet", LensCategory.SciFi, true),
             new LensManifest("celestial-halo", "Celestial Halo", LensCategory.Aesthetic, false),
             new LensManifest("neon-mask", "Neon Glow Mask", LensCategory.SciFi, false),
-            new LensManifest("dragon", "Dragon Breath", LensCategory.Fantasy, true)
+            new LensManifest("dragon", "Dragon Breath", LensCategory.Fantasy, true),
+            new LensManifest("fox-mask-3d", "Fox Mask 3D", LensCategory.Animals, false, true)
         };
         public static IReadOnlyList<LensManifest> All { get { return all; } }
 
@@ -25,6 +26,7 @@ namespace CrushX.LensEngine
         {
             switch (id)
             {
+                case "fox-mask-3d": throw new InvalidOperationException("Fox Mask 3D requires an available scene lens controller.");
                 case "cat-ears": return typeof(CatEarsLens);
                 case "puppy": return typeof(PuppyLens);
                 case "cyber-visor": return typeof(CyberVisorLens);

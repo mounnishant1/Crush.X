@@ -25,10 +25,13 @@ namespace CrushX.LensEngine.Editor
             camera.fieldOfView = 56;
             var engine = new GameObject("CrushX Lens Engine (Mock)");
             engine.AddComponent<LensEngineBootstrap>();
-            string folder = "Assets/Scenes";
+            string folder = "Assets/SCENES";
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
             EditorSceneManager.SaveScene(scene, folder + "/CrushXMockDemo.unity");
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(folder + "/CrushXMockDemo.unity", true) };
+            var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            string scenePath = folder + "/CrushXMockDemo.unity";
+            if (!scenes.Exists(s => s.path == scenePath)) scenes.Add(new EditorBuildSettingsScene(scenePath, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
             Selection.activeGameObject = engine;
             Debug.Log("CrushX MOCK demo created. Press Play. On Android, create a separate AR scene using XR Origin (AR) + AR Face Manager.");
         }

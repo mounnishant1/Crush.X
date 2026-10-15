@@ -1,32 +1,34 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace CrushX.LensEngine
 {
     /// <summary>Full-screen native scene controls: swipe horizontally to browse; buttons work without WebView.</summary>
+    [RequireComponent(typeof(CrushXCameraSwipe))]
     public sealed class NativeLensUI : MonoBehaviour
     {
         private LensEngineBootstrap engine;
-        private Vector2 pointerDown;
-        private bool touching;
         private GUIStyle header, status, button;
         private Texture2D dark;
 
-        private void Start() { engine = FindFirstObjectByType<LensEngineBootstrap>(); if (GetComponent<CrushXSmartCarousel>() == null) gameObject.AddComponent<CrushXSmartCarousel>(); }
+        private void Start()
+        {
+            engine = FindFirstObjectByType<LensEngineBootstrap>();
+            // RequireComponent does not retrofit already serialized scene components.
+            if (GetComponent<CrushXCameraSwipe>() == null) gameObject.AddComponent<CrushXCameraSwipe>();
+            if (GetComponent<CrushXSmartCarousel>() == null) gameObject.AddComponent<CrushXSmartCarousel>();
+        }
 
         private void Update()
         {
             if (engine == null) return;
-            if (Input.GetKeyDown(KeyCode.Escape)) { NativeLensLifecycle.ExitToCrushX(); return; }
-            if (Input.touchCount != 1) { touching = false; return; }
-            Touch t = Input.GetTouch(0);
-            if (t.phase == TouchPhase.Began) { pointerDown = t.position; touching = true; }
-            if (touching && t.phase == TouchPhase.Ended)
-            {
-                Vector2 delta = t.position - pointerDown;
-                if (Mathf.Abs(delta.x) > Screen.width * .16f && Mathf.Abs(delta.y) < Mathf.Abs(delta.x) * .7f)
-                    engine.Step(delta.x < 0 ? 1 : -1);
-                touching = false;
-            }
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) NativeLensLifecycle.ExitToCrushX();
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape)) NativeLensLifecycle.ExitToCrushX();
+#endif
         }
 
         private void EnsureStyles()
@@ -50,10 +52,11 @@ namespace CrushX.LensEngine
             GUI.matrix = Matrix4x4.Scale(Vector3.one*u);
             float w=Screen.width/u, h=Screen.height/u;
             GUI.Label(new Rect(w*.2f, 20, w*.6f,45), "Crush.X   3D AR", header);
-            if (GUI.Button(new Rect(14,20,78,48), "â†", button)) NativeLensLifecycle.ExitToCrushX();
+            if (GUI.Button(new Rect(14,20,78,48), "Back", button)) NativeLensLifecycle.ExitToCrushX();
             GUI.Label(new Rect(20,74,w-40,34), engine.TrackingActive ? "Face tracking active" : "Face tracking unavailable", status);
-            if (GUI.Button(new Rect(w/2-120,h-144,96,80), "â™¡",button)) engine.ToggleFavorite();
-            if (GUI.Button(new Rect(w/2+24,h-144,96,80), "â—",button)) CaptureManager.SavePhoto(engine);
+            if (GUI.Button(new Rect(w/2-120,h-144,96,80), "Favorite",button)) engine.ToggleFavorite();
+            if (GUI.Button(new Rect(w/2+24,h-144,96,80), "Photo",button)) CaptureManager.SavePhoto(engine);
+            if (!string.IsNullOrEmpty(engine.Notice)) GUI.Label(new Rect(20,h-310,w-40,40), engine.Notice, status);
             var selected=LensCatalog.Find(engine.ActiveId);
             GUI.Label(new Rect(18,h-68,w-36,40),selected.HasValue?selected.Value.DisplayName:"Original",header);
             GUI.matrix=old;

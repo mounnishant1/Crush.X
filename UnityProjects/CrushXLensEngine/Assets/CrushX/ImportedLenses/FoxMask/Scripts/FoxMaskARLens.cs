@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
+using CrushX.LensEngine;
 
 namespace CrushX.ImportedLenses
 {
@@ -13,14 +14,18 @@ namespace CrushX.ImportedLenses
     /// SelectLens with another lens id disables it.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class FoxMaskARLens : MonoBehaviour
+    public sealed class FoxMaskARLens : MonoBehaviour, ISceneLens
     {
         public const string LensId = "fox-mask-3d";
         public ARFaceManager faceManager;
         public GameObject foxMaskPrefab;
-        public bool enabledOnStart = true; // test preview; turn off after connecting existing lens picker
+        public bool enabledOnStart = false; // the shared lens picker controls selection
 
+        string ISceneLens.LensId { get { return LensId; } }
+        public bool IsAvailable { get { ResolveManager(); return isActiveAndEnabled && foxMaskPrefab != null && faceManager != null && faceManager.isActiveAndEnabled; } }
+        private bool selectionSet;
         private bool isSelected;
+        private readonly Dictionary<Material, Material> compatibleMaterials = new Dictionary<Material, Material>();
         private bool warnedNoManager;
         private readonly Dictionary<TrackableId, GameObject> instances =
             new Dictionary<TrackableId, GameObject>();
@@ -29,7 +34,7 @@ namespace CrushX.ImportedLenses
 
         private void Awake()
         {
-            isSelected = enabledOnStart;
+            if (!selectionSet) isSelected = enabledOnStart;
             ResolveManager();
         }
 
@@ -46,6 +51,7 @@ namespace CrushX.ImportedLenses
 
         public void SelectLens(string selectedLensId)
         {
+            selectionSet = true;
             bool newSelection = string.Equals(selectedLensId, LensId, StringComparison.OrdinalIgnoreCase);
             if (newSelection == isSelected) return;
             isSelected = newSelection;
@@ -63,7 +69,11 @@ namespace CrushX.ImportedLenses
                 return;
             }
             if (faceManager == null) ResolveManager();
-            if (faceManager == null || !faceManager.isActiveAndEnabled) return;
+            if (faceManager == null || !faceManager.isActiveAndEnabled || faceManager.subsystem == null || !faceManager.subsystem.running)
+            {
+                ClearInstances();
+                return;
+            }
 
             current.Clear();
             foreach (ARFace face in faceManager.trackables)
@@ -74,6 +84,7 @@ namespace CrushX.ImportedLenses
                 {
                     instance = Instantiate(foxMaskPrefab, face.transform, false);
                     instance.name = "CrushX_FoxMask_Tracked";
+                    ApplyCompatibleMaterials(instance);
                     instance.transform.localPosition = Vector3.zero;
                     instance.transform.localRotation = Quaternion.identity;
                     instances[face.trackableId] = instance;
@@ -96,6 +107,33 @@ namespace CrushX.ImportedLenses
             }
         }
 
+        private void ApplyCompatibleMaterials(GameObject instance)
+        {
+            // The imported material uses URP, while this project currently selects Built-in.
+            Shader shader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null
+                ? Shader.Find("Standard") : Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) return;
+            foreach (Renderer renderer in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] materials = renderer.sharedMaterials;
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Material source = materials[i];
+                    if (source == null || source.shader == shader) continue;
+                    if (!compatibleMaterials.TryGetValue(source, out Material copy))
+                    {
+                        Texture texture = source.HasProperty("_BaseMap") ? source.GetTexture("_BaseMap") : source.mainTexture;
+                        copy = new Material(source) { shader = shader };
+                        if (copy.HasProperty("_BaseMap")) copy.SetTexture("_BaseMap", texture);
+                        if (copy.HasProperty("_MainTex")) copy.SetTexture("_MainTex", texture);
+                        compatibleMaterials[source] = copy;
+                    }
+                    materials[i] = copy;
+                }
+                renderer.sharedMaterials = materials;
+            }
+        }
+
         private void ClearInstances()
         {
             foreach (GameObject go in instances.Values)
@@ -104,6 +142,11 @@ namespace CrushX.ImportedLenses
         }
 
         private void OnDisable() { ClearInstances(); }
-        private void OnDestroy() { ClearInstances(); }
+        private void OnDestroy()
+        {
+            ClearInstances();
+            foreach (Material material in compatibleMaterials.Values) if (material != null) Destroy(material);
+            compatibleMaterials.Clear();
+        }
     }
 }

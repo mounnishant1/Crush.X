@@ -21,6 +21,14 @@ namespace CrushX.LensEngine
         string ProviderName { get; }
     }
 
+    // Scene-provided lenses can live outside the runtime assembly (e.g. imported assets).
+    public interface ISceneLens
+    {
+        string LensId { get; }
+        bool IsAvailable { get; }
+        void SelectLens(string id);
+    }
+
     public interface ILensEffect
     {
         string LensId { get; }
@@ -38,14 +46,16 @@ namespace CrushX.LensEngine
         public LensCategory Category;
         public bool UsesExpressions;
         public string QualityTier;
+        public bool SceneProvided;
 
-        public LensManifest(string id, string name, LensCategory category, bool expressions)
+        public LensManifest(string id, string name, LensCategory category, bool expressions, bool sceneProvided = false)
         {
             Id = id;
             DisplayName = name;
             Category = category;
             UsesExpressions = expressions;
-            QualityTier = "Procedural 3D prototype";
+            SceneProvided = sceneProvided;
+            QualityTier = sceneProvided ? "Imported AR scene lens" : "Procedural 3D prototype";
         }
     }
 }

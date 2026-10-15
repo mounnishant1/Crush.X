@@ -17,13 +17,12 @@ namespace CrushX.LensEngine
         {
             if (engine == null) return;
 
-            var lenses = preferences.Ranked();
-            if (lenses.Count == 0) return;
+            var lenses = engine.RankedLenses;
+            if (lenses == null || lenses.Count == 0) return;
 
-            int center = lenses.FindIndex(
-                lens => lens.Id == engine.ActiveId);
-
-            if (center < 0) center = 0;
+            int center = 0;
+            for (int i = 0; i < lenses.Count; i++)
+                if (lenses[i].Id == engine.ActiveId) { center = i; break; }
 
             Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.backgroundColor;

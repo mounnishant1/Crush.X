@@ -8,6 +8,8 @@ namespace CrushX.LensEngine
     // Minimal demonstrator. Real native release should substitute a Canvas UI and configured XR scene.
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
+        // Keep imported resource prototypes available without replacing animated procedural lenses by default.
+        public bool PreferResourcePrefabs;
         private FaceTrackingManager tracking;
         private LensEffect effect;
         private Transform effectRoot;
@@ -20,6 +22,8 @@ namespace CrushX.LensEngine
         private float noticeUntil;
         private GameObject demoFace;
 
+        public IReadOnlyList<LensManifest> RankedLenses { get { return ranking; } }
+        public string Notice { get { return Time.unscaledTime < noticeUntil ? notice : string.Empty; } }
         public string ActiveId { get { return activeId; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
 
@@ -67,7 +71,8 @@ namespace CrushX.LensEngine
             effectRoot.SetParent(transform, false);
             if (usingMock) CreateDemoFace();
             ranking = personalization.Ranked();
-            SelectLens(ranking[0].Id);
+            foreach (LensManifest lens in ranking)
+                if (SelectLens(lens.Id)) break;
         }
 
         private void CreateDemoFace()
@@ -89,7 +94,25 @@ namespace CrushX.LensEngine
 
         public bool SelectLens(string id)
         {
-            if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
+            LensManifest? manifest = LensCatalog.Find(id);
+            if (!manifest.HasValue) { Say("Lens not found"); return false; }
+            var sceneLenses = new List<ISceneLens>();
+            bool sceneLensAvailable = false;
+            foreach (MonoBehaviour component in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
+            {
+                if (component is ISceneLens sceneLens)
+                {
+                    sceneLenses.Add(sceneLens);
+                    if (sceneLens.LensId == id && sceneLens.IsAvailable) sceneLensAvailable = true;
+                }
+            }
+            // Reject before destroying the active lens. Imported lenses never fall back to fake tracking.
+            if (manifest.Value.SceneProvided && !sceneLensAvailable)
+            {
+                Say("This lens needs its configured AR scene and prefab");
+                return false;
+            }
+            foreach (ISceneLens sceneLens in sceneLenses) sceneLens.SelectLens(id);
             if (effect != null) Destroy(effect.gameObject);
             effect = null;
 
@@ -98,10 +121,14 @@ namespace CrushX.LensEngine
 
             premiumLensInstance = null;
 
-            GameObject prefab = Resources.Load<GameObject>(
-                "CrushXLenses/" + id);
+            GameObject prefab = PreferResourcePrefabs ? Resources.Load<GameObject>(
+                "CrushXLenses/" + id) : null;
 
-            if (prefab != null)
+            if (manifest.Value.SceneProvided)
+            {
+                // The scene controller attaches imported geometry to real ARFace trackables.
+            }
+            else if (prefab != null)
             {
                 premiumLensInstance = Instantiate(
                     prefab, effectRoot, false);
@@ -117,16 +144,23 @@ namespace CrushX.LensEngine
             activeId = id;
             startAt = Time.unscaledTime;
             personalization.RecordUsage(id);
-            ranking = personalization.Ranked();
+            // Apply usage-based ordering next session, not in the middle of a swipe sequence.
             return true;
         }
 
         public void Step(int amount)
         {
-            // Use current ordering; recompute only after selection to avoid unexpected mid-step jumping.
+            // Share a stable browse order with the carousel; explicit favorite/reset actions can re-rank.
             int index = ranking.FindIndex(l => l.Id == activeId);
             if (index < 0) index = 0;
-            SelectLens(ranking[(index + amount + ranking.Count) % ranking.Count].Id);
+            if (ranking.Count == 0 || amount == 0) return;
+            int direction = amount < 0 ? -1 : 1;
+            int next = (int)((((long)index + amount) % ranking.Count + ranking.Count) % ranking.Count);
+            for (int attempt = 0; attempt < ranking.Count; attempt++)
+            {
+                if (SelectLens(ranking[next].Id)) return;
+                next = (next + direction + ranking.Count) % ranking.Count;
+            }
         }
         public void ToggleFavorite()
         {
