@@ -568,12 +568,18 @@
       showAuthMessage('');
     }
 
+    // Cognito-supported ASCII special characters; whitespace/non-ASCII symbols
+    // alone do not satisfy this frontend requirement. Server policy is authoritative.
+    const COGNITO_SPECIAL_CHARACTERS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+    const PASSWORD_REQUIREMENTS = 'Password needs at least 8 characters, uppercase, lowercase, a number and a supported special character (for example !, @ or #).';
+
     function validPassword(password) {
       return (
         password.length >= 8 &&
         /[A-Z]/.test(password) &&
         /[a-z]/.test(password) &&
-        /\d/.test(password)
+        /\d/.test(password) &&
+        Array.from(COGNITO_SPECIAL_CHARACTERS).some(character => password.includes(character))
       );
     }
 
@@ -597,7 +603,7 @@
         return;
       }
       if (!validPassword(password)) {
-        showAuthMessage('Password needs 8 characters, uppercase, lowercase, and a number.');
+        showAuthMessage(PASSWORD_REQUIREMENTS);
         return;
       }
 
@@ -1441,7 +1447,7 @@
           recoveryMode = 'reset';
           document.getElementById('usernameInput').readOnly = true;
           document.getElementById('authButton').textContent = 'Reset password';
-          document.getElementById('authDescription').textContent = 'Enter the code and a new password. Password needs 8 characters, uppercase, lowercase and a number; Cognito enforces the pool policy.';
+          document.getElementById('authDescription').textContent = 'Enter the code and a new password. ' + PASSWORD_REQUIREMENTS + ' Cognito enforces the pool policy.';
           document.getElementById('resetCodeInput').classList.remove('hidden');
           document.getElementById('passwordInput').classList.remove('hidden');
           document.getElementById('passwordInput').autocomplete = 'new-password';
@@ -1458,7 +1464,7 @@
       const code = document.getElementById('resetCodeInput').value.trim();
       const password = document.getElementById('passwordInput').value;
       if (!recoveryUser || !/^\d{6}$/.test(code)) return showAuthMessage('Enter the six-digit reset code.');
-      if (!validPassword(password)) return showAuthMessage('Password needs 8 characters, uppercase, lowercase and a number.');
+      if (!validPassword(password)) return showAuthMessage(PASSWORD_REQUIREMENTS);
       showLoader('Resetting password...');
       try {
         recoveryUser.confirmPassword(code, password, {

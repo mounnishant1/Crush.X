@@ -33,12 +33,12 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       window.prompt = () => mockAuth.mfaCode;
       window.AmazonCognitoIdentity = {
         CognitoUserPool: class { getCurrentUser() { return mockAuth.currentUser ? new AmazonCognitoIdentity.CognitoUser({Username:'real-user'}) : null; } signUp(username, password, attributes, ignored, callback) { calls.push(['signUp', username]); callback(null, { user: new AmazonCognitoIdentity.CognitoUser({Username: username}), userConfirmed: false }); } },
-        CognitoUserAttribute: class {}, AuthenticationDetails: class {},
+        CognitoUserAttribute: class {}, AuthenticationDetails: class { constructor(options) { Object.assign(this,options); } },
         CognitoUser: class {
           constructor(options) { this.username = options.Username; }
           forgotPassword(callbacks) { calls.push(['forgot', this.username]); if(mockAuth.forgotError) callbacks.onFailure(mockAuth.forgotError); else callbacks.inputVerificationCode({}); }
           confirmPassword(code, password, callbacks) { calls.push(['reset', code, password]); if (failReset) callbacks.onFailure({message: 'Code expired'}); else callbacks.onSuccess(); }
-          authenticateUser(details, callbacks) { calls.push(['login']); if(mockAuth.loginMode==='success') callbacks.onSuccess(mockSession()); else if(mockAuth.loginMode==='mfa') callbacks.mfaRequired(); else callbacks.onFailure({message: 'Incorrect credentials'}); }
+          authenticateUser(details, callbacks) { calls.push(['login',this.username,details.Username]); if(mockAuth.loginMode==='success') callbacks.onSuccess(mockSession()); else if(mockAuth.loginMode==='mfa') callbacks.mfaRequired(); else callbacks.onFailure({message: 'Incorrect credentials'}); }
           sendMFACode(code, callbacks, type) { calls.push(['mfa',code,type]); if(mockAuth.mfaThrows) throw Error('MFA transport failed'); if(mockAuth.mfaFailure) callbacks.onFailure({message:'MFA rejected'}); else callbacks.onSuccess(mockSession()); }
           getSession(callback) { if(mockAuth.deferRestore) {window.deferredRestore=callback;return;} callback(mockAuth.restoreFailure?Error('Refresh rejected'):null,mockSession()); }
           signOut() { calls.push(['signOut']);mockAuth.currentUser=false; }
@@ -50,17 +50,29 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     });
     page.on('dialog', dialog => dialog.dismiss());
     await page.goto('http://127.0.0.1:8000', {waitUntil:'networkidle'});
+    for (const [password, expected] of [
+      ['Password123', false], ['Password123!', true], ['Pa1!', false],
+      ['password123!', false], ['PASSWORD123!', false], ['Password!!!', false],
+      ['Password123💖', false]
+    ]) assert.equal(await page.evaluate(password=>validPassword(password), password), expected, `Password policy: ${password}`);
+    assert.equal(await page.evaluate(()=>Array.from(COGNITO_SPECIAL_CHARACTERS).every(character=>validPassword('Password123'+character))), true);
     await page.locator('#authButton').click();
     assert.match(await page.locator('#authMessage').textContent(), /enter your username/i);
     await page.locator('#switchAuthButton').click();
     await page.locator('#usernameInput').fill('testuser');
     await page.locator('#emailInput').fill('invalid');
-    await page.locator('#passwordInput').fill('Password1');
+    await page.locator('#passwordInput').fill('Password123!');
     await page.locator('#authButton').click();
     assert.match(await page.locator('#authMessage').textContent(), /valid email/);
     assert.equal(await page.evaluate(() => calls.length), 0);
     await page.locator('#emailInput').fill('test@example.com');
+    await page.locator('#passwordInput').fill('Password123');
     await page.locator('#authButton').click();
+    assert.match(await page.locator('#authMessage').textContent(), /special character/);
+    assert.equal(await page.evaluate(()=>calls.some(c=>c[0]==='signUp')), false);
+    await page.locator('#passwordInput').fill('Password123!');
+    await page.locator('#authButton').click();
+    assert.equal(await page.evaluate(()=>calls.some(c=>c[0]==='signUp')), true);
     await page.locator('#confirmButton').click();
     assert.match(await page.locator('#confirmationMessage').textContent(), /six-digit/);
     await page.locator('#confirmationCode').fill('123456');
@@ -76,7 +88,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.evaluate(()=>calls.filter(c=>c[0]==='confirm').every(c=>c[2]===false)), true);
     assert.equal((await page.locator('#authButton').textContent()).trim(), 'Login');
     await page.locator('#usernameInput').fill('testuser');
-    await page.locator('#passwordInput').fill('wrong');
+    await page.locator('#passwordInput').fill('WrongPassword123!');
     await page.locator('#passwordInput').press('Enter');
     assert.match(await page.locator('#authMessage').textContent(), /Incorrect credentials/);
     await page.locator('#forgotButton').click();
@@ -88,7 +100,11 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('#passwordInput').fill('weak');
     await page.locator('#authButton').click();
     assert.match(await page.locator('#authMessage').textContent(), /8 characters/);
-    await page.locator('#passwordInput').fill('NewPassword1');
+    await page.locator('#passwordInput').fill('Password123');
+    await page.locator('#authButton').click();
+    assert.match(await page.locator('#authMessage').textContent(), /special character/);
+    assert.equal(await page.evaluate(()=>calls.some(c=>c[0]==='reset')), false);
+    await page.locator('#passwordInput').fill('NewPassword123!');
     await page.locator('#authButton').click();
     assert.match(await page.locator('#authMessage').textContent(), /Code expired/);
     assert.equal(await page.locator('#loader').evaluate(e => e.classList.contains('show')), false);
@@ -161,15 +177,22 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.match(await page.locator('main').textContent(), /No reels/);
     // Authentication lifecycle is tested with SDK mocks only; no real accounts.
     await page.evaluate(() => { localStorage.removeItem(STATE_KEY); memoryState = clone(defaultState); logout(); });
-    const login = async (mode = 'success') => {
+    const login = async (mode = 'success', identity = 'actual-staging-user') => {
       await page.evaluate(mode => { mockAuth.loginMode = mode; }, mode);
-      await page.locator('#usernameInput').fill('actual-staging-user');
-      await page.locator('#passwordInput').fill('Password1');
+      await page.locator('#usernameInput').fill(identity);
+      await page.locator('#passwordInput').fill('Password123!');
       await page.locator('#authButton').click();
     };
     const tokenPair = () => page.evaluate(() => [sessionStorage.getItem('crushx_access_token'), sessionStorage.getItem('crushx_id_token')]);
     await login();
     assert.deepEqual(await tokenPair(), ['mock-access', 'mock-id']);
+    for (const identity of ['CaseSensitive.User', 'Mixed.Email+tag@example.com', '+15555550123']) {
+      await page.evaluate(()=>logout());
+      await login('success', identity);
+      assert.deepEqual(await page.evaluate(()=>calls.filter(c=>c[0]==='login').at(-1)), ['login',identity,identity]);
+    }
+    assert.equal(await page.evaluate(()=>calls.some(c=>c[0]==='mfa')), false); // Verified pool has MFA OFF.
+
     await page.evaluate(() => navigate('profile'));
     assert.match(await page.locator('main').textContent(), /Sample profile — not your Cognito account/);
     assert.equal(await page.locator('main').textContent().then(text => text.includes('actual-staging-user')), false);
@@ -304,6 +327,6 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.evaluate(()=>{Storage.prototype.setItem=originalSetItem;storageUnavailable=false;saveState(clone(defaultState));});
 
     assert.deepEqual(remoteWrites, []); assert.deepEqual(errors, []);
-    console.log('PASS: auth validation/recovery/error retry, local interactions/share, reels, drafts/history, mobile layouts, media restrictions, upload guard, MFA/token/expiration/restoration/logout, storage corruption/denial and persisted XSS; no remote writes or JS exceptions.');
+    console.log('PASS: verified password policy and unchanged username/email/phone alias forwarding, auth validation/recovery/error retry, local interactions/share, reels, drafts/history, mobile layouts, media restrictions, upload guard, MFA/token/expiration/restoration/logout, storage corruption/denial and persisted XSS; no remote writes or JS exceptions.');
   } finally { await browser.close(); }
 })().catch(error => {console.error(error);process.exitCode=1;});

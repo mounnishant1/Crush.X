@@ -11,8 +11,8 @@ dependency declarations, lockfiles, AWS resources, or main branch changes.
   handles both already-confirmed and confirmation-required results. Login errors
   and unsupported Cognito challenges release the loader. Submit works with Enter.
 - Account confirmation has inline errors and a back action. Unconfirmed login can
-  reopen confirmation. Password rules retain the existing minimum frontend rules;
-  the actual Cognito pool policy remains authoritative.
+  reopen confirmation. Password rules now match the user-verified minimum of 8 characters with uppercase,
+  lowercase, number and a supported special character; Cognito remains authoritative.
 - Reels render every item, support native video controls/inline playback through
   media type or video extension, preserve images, and handle an empty collection.
   Media controls and social actions occupy separate regions.
@@ -38,7 +38,7 @@ dependency declarations, lockfiles, AWS resources, or main branch changes.
 
 | Area | Evidence in this checkout | Status |
 | --- | --- | --- |
-| Cognito | User pool `us-west-2_PAT0udHTx`, client `1fvstb7h8vqbk7qt98bd46aj0`; SDK 6.3.12 | Real SDK wiring; pool configuration and real-account flows unverified |
+| Cognito | User pool `us-west-2_PAT0udHTx`, client `1fvstb7h8vqbk7qt98bd46aj0`; SDK 6.3.12 | Real SDK wiring; password/MFA/alias/token settings verified by user; real-account flows unverified |
 | API | `https://jzym971249.execute-api.us-west-2.amazonaws.com/prod` | Configured string only; no OpenAPI schema, handlers, infrastructure, or deployment source |
 | Upload | Previously presumed POST `/media/upload-url` returning `uploadUrl`/`mediaUrl`, then PUT and local reel insertion | Contract, bucket/key destination, signed headers, authorization, CORS and publish completion unverified; upload path now blocked |
 | Posts/reels | Seeded arrays/localStorage | No list/create/update/delete API contracts |
@@ -161,11 +161,25 @@ Docs changes are included in workflow paths so the final review commit is checke
 
 Merge readiness: **not yet ready** pending recorded isolated staging authentication
 evidence in
-[STAGING_COGNITO_TESTS.md](STAGING_COGNITO_TESTS.md). Required pool challenge modes,
-password policy, aliases/recovery settings and live SDK refresh behavior are not
-established by mocks. If TOTP, MFA selection/setup, custom challenges or forced new
-password are required, those unsupported paths must be implemented first. Backend
+[STAGING_COGNITO_TESTS.md](STAGING_COGNITO_TESTS.md). The user has since verified the existing pool password policy, MFA OFF, email/phone
+aliases, 60-minute access/ID tokens, 5-day refresh token and existence-error protection.
+This does not approve that pool for staging. Live alias login, recovery delivery and
+SDK refresh behavior still require isolated staging evidence. Custom challenges or
+forced-new-password paths must be implemented if actually required for intended
+accounts; MFA modes are not blockers for this verified MFA-OFF configuration. Backend
 contracts/authorization remain absent and uploads remain blocked. Third-party CDN
 scripts, browser credential exposure, CSP and cross-tab/session hardening remain
 production limitations. No accounts/passwords, production AWS, deployments, Unity,
 PR #1 or main were changed; PR #2 remains draft and unmerged.
+
+## Cognito policy compatibility fix
+
+User-verified settings are recorded in the staging checklist as existing-pool facts,
+not staging authorization. Registration/reset now require a supported ASCII special
+character and share updated validation messages. Tests explicitly reject
+`Password123`, accept `Password123!`, reject each missing requirement, and exercise
+both forms before any mocked SDK call. Positive auth/reset test passwords comply
+with the verified policy. Identifier-forwarding tests preserve username, email and
+phone alias spelling/case without changing identities. MFA is unchanged and remains
+OFF; existing mock challenge coverage does not enable it or create new screens.
+No user creation, password changes, AWS settings changes, uploads, merge or deploy.
