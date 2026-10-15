@@ -38,19 +38,27 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
-        public void Catalog_PreservesTenProceduralEffectsAndAddsFoxMask()
+        public void Catalog_PreservesOriginalEffectsAndAddsThreeImplementedFilters()
         {
-            Assert.AreEqual(11, LensCatalog.All.Count);
-            int procedural = 0;
+            Assert.AreEqual(14, LensCatalog.All.Count);
+            int procedural = 0, colorFilters = 0;
             var ids = new HashSet<string>();
             foreach (LensManifest lens in LensCatalog.All)
             {
                 Assert.IsTrue(ids.Add(lens.Id));
                 if (lens.SceneProvided) continue;
-                procedural++;
+                if (lens.Implementation == LensImplementation.ProceduralPrototype) procedural++;
+                if (lens.Implementation == LensImplementation.ColorFilter)
+                {
+                    colorFilters++;
+                    Assert.IsTrue(typeof(ColorFilterLens).IsAssignableFrom(LensCatalog.ResolveType(lens.Id)));
+                    Assert.AreEqual(TrackingCapabilities.None, lens.RequiredCapabilities);
+                    Assert.AreEqual(LensVerification.NotTested, lens.Verification);
+                }
                 Assert.IsTrue(typeof(LensEffect).IsAssignableFrom(LensCatalog.ResolveType(lens.Id)));
             }
             Assert.AreEqual(10, procedural);
+            Assert.AreEqual(3, colorFilters);
             Assert.IsTrue(LensCatalog.Find("fox-mask-3d").Value.SceneProvided);
         }
 
@@ -59,7 +67,7 @@ namespace CrushX.LensEngine.Tests
         {
             foreach (LensManifest lens in LensCatalog.All)
             {
-                if (lens.SceneProvided) continue;
+                if (lens.Implementation != LensImplementation.ProceduralPrototype) continue;
                 var go = new GameObject("LensTest");
                 var effect = (LensEffect)go.AddComponent(LensCatalog.ResolveType(lens.Id));
                 effect.Build();

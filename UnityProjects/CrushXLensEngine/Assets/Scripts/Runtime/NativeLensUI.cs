@@ -15,7 +15,7 @@ namespace CrushX.LensEngine
         private NativeMediaCapture capture;
         private GUIStyle header, status, button, small, input;
         private Texture2D dark, shutter;
-        private bool searchVisible, microphone, shutterHeld, videoStarted;
+        private bool searchVisible, microphone, shutterHeld, videoStarted, awaitingMicrophone;
         private float shutterPressedAt, captureAt = -1;
         private int timerSeconds;
 
@@ -53,6 +53,11 @@ namespace CrushX.LensEngine
         private void Update()
         {
             if (engine == null) return;
+            if (awaitingMicrophone && capture != null && !capture.WaitingForMicrophonePermission)
+            {
+                microphone = capture.MicrophoneGranted;
+                awaitingMicrophone = false;
+            }
             bool back = false;
 #if ENABLE_INPUT_SYSTEM
             back = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
@@ -90,8 +95,9 @@ namespace CrushX.LensEngine
             shutterHeld = false;
             if (videoStarted)
             {
-                // Also cancels a pending microphone permission/encoder initialization.
-                if (canceled) capture.Retry();
+                // Auto-stop can finish the clip before this gesture is released. An OS
+                // cancellation must not discard a completed preview or interrupt finalization.
+                if (canceled && (capture.CurrentState == MediaCaptureState.Preparing || capture.CurrentState == MediaCaptureState.Recording)) capture.Retry();
                 else capture.StopVideo();
                 videoStarted = false;
                 return;
@@ -120,6 +126,12 @@ namespace CrushX.LensEngine
         }
 
         private void OnDisable() { captureAt = -1; EndShutter(true); }
+        private void OnApplicationFocus(bool focused)
+        {
+            if (focused) return;
+            captureAt = -1;
+            if (capture == null || !capture.WaitingForMicrophonePermission) EndShutter(true);
+        }
 
         private void EnsureStyles()
         {
@@ -221,7 +233,16 @@ namespace CrushX.LensEngine
             if (capture.SupportsVideo && !BlocksCameraGestures)
             {
                 Rect micRect = new Rect(layout.Width - 140, 112, 122, 38);
-                microphone = GUI.Toggle(micRect, microphone, microphone ? "Mic on" : "Mic off", button);
+                bool nextMicrophone = GUI.Toggle(micRect, microphone, microphone ? "Mic on" : "Mic off", button);
+                if (nextMicrophone != microphone)
+                {
+                    microphone = nextMicrophone;
+                    if (microphone && !capture.MicrophoneGranted)
+                    {
+                        capture.RequestMicrophoneAccess();
+                        awaitingMicrophone = true;
+                    }
+                }
             }
         }
 
@@ -236,11 +257,13 @@ namespace CrushX.LensEngine
         private void DrawPreview(NativeCameraLayout layout)
         {
             GUI.DrawTexture(layout.Bounds, dark);
-            GUI.Label(new Rect(12, 12, layout.Width - 24, 44), "Preview", header);
+            GUI.Label(new Rect(12, 12, 132, 44), "Preview", header);
             Rect preview = new Rect(12, 64, layout.Width - 24, layout.Height - 190);
-            if (capture.PreviewTexture != null) GUI.DrawTexture(preview, capture.PreviewTexture, ScaleMode.ScaleToFit);
+            if (capture.DisplayPreviewTexture != null) GUI.DrawTexture(preview, capture.DisplayPreviewTexture, ScaleMode.ScaleToFit);
             else GUI.Label(preview, "Video draft ready. Save to keep the MP4.", status);
             GUI.Label(new Rect(12, layout.Height - 120, layout.Width - 24, 32), capture.StatusMessage, small);
+            if (capture.PreviewPlaybackReady && GUI.Button(new Rect(layout.Width * .5f - 60, 14, 120, 36), capture.PreviewPlaying ? "Pause" : "Play", button))
+                capture.TogglePreviewPlayback();
             if (GUI.Button(new Rect(16, layout.Height - 80, layout.Width * .5f - 24, 56), "Retry", button)) capture.Retry();
             if (GUI.Button(new Rect(layout.Width * .5f + 8, layout.Height - 80, layout.Width * .5f - 24, 56), "Save", button)) capture.SavePreview();
         }

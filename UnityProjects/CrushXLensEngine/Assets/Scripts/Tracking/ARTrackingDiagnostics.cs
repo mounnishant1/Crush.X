@@ -211,7 +211,11 @@ namespace CrushX.LensEngine
 
         private void RefreshOutcome()
         {
-            CurrentOutcome = CurrentTrackingOutcome == ARDiagnosticOutcome.Tracking && lensFailure.HasValue ? lensFailure.Value : CurrentTrackingOutcome;
+            LensManifest? manifest = LensCatalog.Find(selectedLens);
+            bool requiresFace = !manifest.HasValue || (manifest.Value.RequiredCapabilities &
+                (TrackingCapabilities.FacePose | TrackingCapabilities.FaceMesh | TrackingCapabilities.Expressions)) != 0;
+            CurrentOutcome = ARDiagnosticClassifier.WithLensFailure(CurrentTrackingOutcome, lensFailure, requiresFace,
+                LastObservation.CameraRunning && LastObservation.Permission == ARPermissionObservation.Granted);
         }
 
         // Permission owners may report their existing callback here. This service never requests permissions.
@@ -225,7 +229,7 @@ namespace CrushX.LensEngine
         {
             if (Instance != null && available)
             {
-                if (Instance.selectedLens != lensId) Instance.lensFailure = null;
+                Instance.lensFailure = null;
                 Instance.selectedLens = lensId ?? string.Empty;
                 Instance.RefreshOutcome();
             }
@@ -240,6 +244,19 @@ namespace CrushX.LensEngine
                 Instance.RefreshOutcome();
             }
             LogEvent("lensStatus", lensId + " " + outcome + " " + detail);
+        }
+
+        public static void RecordLensRollback(string activeLensId, bool restored)
+        {
+            if (Instance != null)
+            {
+                // Restore the identity even when restoring its rendering failed. A rejected
+                // candidate must not remain the selected lens in diagnostic snapshots.
+                Instance.selectedLens = activeLensId ?? string.Empty;
+                Instance.lensFailure = restored ? (ARDiagnosticOutcome?)null : ARDiagnosticOutcome.LensRendererUnavailable;
+                Instance.RefreshOutcome();
+            }
+            LogEvent("lensRollback", (activeLensId ?? "none") + " restored=" + restored);
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]

@@ -2,7 +2,9 @@
 
 15 October 2026. Branch: `codex/crushx-final-lens-engine`.
 
-This is an implemented **development candidate**, not a production-ready release. The OnePlus
+This is an implemented **development candidate**, not a production-ready release.
+The latest continuation is local only; PR #4 remains at `0843da3`. No further Git push or
+APK installation is authorized for this round. See [LOCAL-CONTINUATION.md](LOCAL-CONTINUATION.md). The OnePlus
 back-camera/face-tracking failure has **not** been reproduced or assigned an exact native failure
 reason in this environment. Physical acceptance remains blocked. No production AWS, API, auth,
 database, upload, store deployment, merge, or user-content publication was performed.
@@ -36,7 +38,8 @@ database, upload, store deployment, merge, or user-content publication was perfo
 | `8d170687468b06c26dd113498ef3200d2a49eba5` | Fox attachment/material ownership, safe-area UI/gestures, lens capabilities, explicit local workflows and tests |
 | `dbd3ede1e10f3330b4251f67a3990285d9ac0bec` | Conservative verification metadata, permission focus recovery and local usage queries |
 
-The following documentation commit records this report and the complete changed-file inventory.
+The prior documentation commit `0843da3` recorded the first report. The current local continuation
+adds capture/permission/focus fixes, video playback, three camera filters and Windows handoff tooling.
 Use `git log 446459f..HEAD` for the exact final branch history.
 See [CHANGED-FILES.md](CHANGED-FILES.md) for every added/modified file.
 
@@ -90,14 +93,14 @@ configuration before deciding whether to remove an unused fallback or change cho
 
 ## Lens inventory and limits
 
-There are **11 catalog entries**, not 160 completed lenses:
+There are **14 catalog entries**, not 160 completed lenses:
 
 | Kind | Count | Evidence and limitations |
 | --- | --- | --- |
 | Procedural 3D prototypes | 10 | Animated Cat, Playful Puppy, Cyber Visor, Fox Spirit, Holographic Crown, Butterfly Wings, Robo Helmet, Celestial Halo, Neon Glow Mask, Dragon Breath. Real geometry/animation source exists; Android rendering/alignment is not verified. |
 | Imported 3D face asset | 1 | Fox Mask 3D. Existing OBJ/material/texture/prefab references retained. Source OBJ has 49,980 vertices and 60,827 faces; actual imported subobjects and rendered triangle cost require Unity. |
 | Native lenses verified on this physical device in this work | 0 | No device was accessible. |
-| Native color filters implemented/verified | 0 / 0 | No placeholder filters were counted. |
+| Native color filters implemented/verified | 3 / 0 | Warm Cinema, Noir Film and Neon Duotone use an actual Built-in fullscreen shader; Unity shader compilation and physical rendering remain unverified. |
 | Reliable expression/hand providers | 0 / 0 | ARCore face pose/mesh capability is distinct from expressions or hands. |
 | Authored thumbnail assets | 1 | Existing Fox thumbnail; procedural preview thumbnails remain missing. |
 | Additional finished premium lenses | 0 | The remaining catalog target requires real assets/effects and independent validation. |
@@ -120,7 +123,9 @@ recording duration to 30 seconds, output to at most 1280 pixels on either side a
 encoder. It handles microphone denial with silent video, initialization/finalization timeouts,
 cancellation/interruption and resource cleanup. MediaExtractor checks tracks/dimensions/readable
 samples/positive duration and rejects large audio/video duration differences. This is not proof of
-decoded playback, lip sync or correct selfie orientation. Video preview is a poster, not playback.
+decoded playback, lip sync or correct selfie orientation. The local continuation adds VideoPlayer
+playback with pause/play and optional audio; a rendered poster remains the fallback on decode failure.
+No actual video playback was executed in this environment.
 SRP capture explicitly reports unsupported until a validated renderer feature exists.
 
 `LensWorkflowBridge` accepts validated local search/recommend/select/most-used/draft commands and
@@ -143,16 +148,16 @@ Camera switching and flash controls remain unimplemented rather than exposing in
 
 | Check | Status | Evidence |
 | --- | --- | --- |
-| Python source/asset suite | PASS | 15 cases; 43 C# files parsed under six define configurations (including Android development and Android-target Editor), asset/GUID/build-scene/dependency checks. No Unity type resolution or compilation. |
+| Python source/asset suite | PASS | 15 cases; 46 C# files parsed under six define configurations (including Android development and Android-target Editor), asset/GUID/build-scene/dependency checks. No Unity type resolution or compilation. |
 | Python evidence/guard/timeout suite | PASS | 17 cases with subprocess/device mocks; verifies no default device writes, exact package/build checks, raw error retention and finite capture. |
 | Java compilation | PASS | ECJ Java 8 target against Android API34 classes. Three explicit YUV color-format deprecation warnings remain. Not an APK/Gradle build. |
 | Pure JVM RGBA/YUV tests | PASS | 8 conversion/chroma/row-orientation cases; no Android codec executed. |
 | Patch whitespace and metadata | PASS | Complete diff whitespace check and asset meta/GUID checks. Existing asset metadata and model/prefab bytes preserved. |
-| Unity import/typecheck/EditMode | BLOCKED | Editor/license/toolchain unavailable; 57 EditMode cases defined, none executed. |
+| Unity import/typecheck/EditMode | BLOCKED | Editor/license/toolchain unavailable; 81 EditMode cases defined, none executed. |
 | Unity PlayMode | BLOCKED | 2 coroutine lifecycle cases defined, none executed. |
 | Windows PowerShell runner | NOT TESTED | Target Windows/F: environment unavailable. |
 | Android Gradle/APK/merged manifest | BLOCKED | Unity Android Build Support/SDK unavailable. No APK path or installed build exists from this work. |
-| OnePlus camera/tracking/Fox/input/lifecycle | BLOCKED | No authorized device/ADB connection; exact hardware model ID, OxygenOS and installed AR service/build details unknown. |
+| OnePlus camera/tracking/Fox/input/lifecycle | BLOCKED | No connected device/ADB; exact hardware model ID, OxygenOS and installed AR service/build details unknown. |
 | Real captured PNG/MP4, ffprobe/playback/audio | BLOCKED | No camera/native runtime output exists to inspect. ffprobe presence does not establish media success. |
 | Sustained FPS/memory/thermal | BLOCKED | No real player/device run or profiler measurement. |
 
@@ -167,9 +172,9 @@ No Unity or physical acceptance result has been converted into PASS.
 | Actual front-camera AR initialization | BLOCKED | Reproduce and correlate selected configuration/native errors on OnePlus. |
 | Fox attachment/material lifecycle | PARTIAL | Source repaired; Unity/device visibility, alignment, scale and occlusion unverified. |
 | Carousel/search/favorites/recent/timer | PARTIAL | Source implemented; Unity/input/safe-area device tests pending. |
-| Modular catalog/capability/lifecycle system | PARTIAL | 11 existing effects; missing previews/content and native verification. |
+| Modular catalog/capability/lifecycle system | PARTIAL | 14 implemented entries; missing previews/content and native verification. |
 | Photo pipeline | PARTIAL | Implemented; real file/orientation/mirroring acceptance pending. |
-| Video/microphone pipeline | PARTIAL | Java compile/conversion checks passed; codecs/playback/sync/performance pending; poster preview only. |
+| Video/microphone pipeline | PARTIAL | Java compile/conversion checks passed; codecs/playback/sync/performance pending; local playback source implemented, not executed. |
 | Camera switching/flash/music | PARTIAL | No validated provider/host implementation supplied. |
 | Social composers | PARTIAL | Local drafts and host interface implemented; actual host integrations absent. |
 | AURA-X lens controls | PARTIAL | Local command surface/vocabulary implemented; real AURA-X adapter absent. |

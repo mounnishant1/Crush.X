@@ -2,7 +2,9 @@
 
 Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 
-87 files: 69 added, 18 modified, 0 deleted. New Unity assets include stable metadata.
+This inventory includes the local continuation beyond remote PR #4 at `0843da3`. No further push was performed.
+
+100 files: 79 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
 
 | Change | File |
 | --- | --- |
@@ -25,6 +27,8 @@ Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 | A | `UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture/CrushXMediaRecorder.java` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture/CrushXMediaRecorder.java.meta` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Resources/CrushXLenses/CameraColorGrade.shader` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Resources/CrushXLenses/CameraColorGrade.shader.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Resources/CrushXLenses/FoxMaskBuiltIn.mat` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Resources/CrushXLenses/FoxMaskBuiltIn.mat.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Bridge/LensNaturalLanguage.cs` |
@@ -35,10 +39,14 @@ Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/CaptureManager.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaCaptureResult.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaCaptureResult.cs.meta` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaPreviewPlayer.cs` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaPreviewPlayer.cs.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/NativeMediaCapture.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/NativeMediaCapture.cs.meta` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Core/ILensEngine.cs` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/CrushXLensEngine.Runtime.asmdef` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/ColorFilterLens.cs` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/ColorFilterLens.cs.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/CompatibleLensMaterials.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/CompatibleLensMaterials.cs.meta` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/LensEffects.cs` |
@@ -47,6 +55,7 @@ Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/TrackedFaceAttachments.cs.meta` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraSwipe.cs` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXSmartCarousel.cs` |
+| M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensCatalog.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensCompatibility.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensCompatibility.cs.meta` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensEngineBootstrap.cs` |
@@ -66,6 +75,8 @@ Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 | M | `UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/FaceTrackingManager.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs.meta` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ColorFilterTests.cs` |
+| A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ColorFilterTests.cs.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CompatibleLensMaterialsTests.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CompatibleLensMaterialsTests.cs.meta` |
 | M | `UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensCatalogTests.cs` |
@@ -84,12 +95,16 @@ Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/PlayMode/CrushXLensEngine.PlayMode.asmdef.meta` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/PlayMode/TrackingLifecyclePlayModeTests.cs` |
 | A | `UnityProjects/CrushXLensEngine/Assets/Tests/PlayMode/TrackingLifecyclePlayModeTests.cs.meta` |
+| M | `UnityProjects/CrushXLensEngine/Packages/manifest.json` |
+| M | `UnityProjects/CrushXLensEngine/Packages/packages-lock.json` |
 | A | `docs/ANDROID-VERIFICATION.md` |
 | A | `docs/CHANGED-FILES.md` |
 | A | `docs/FINAL-LENS-ENGINE-STATUS.md` |
+| A | `docs/LOCAL-CONTINUATION.md` |
 | A | `tests/native_media/CrushXMediaRecorderTests.java` |
 | A | `tests/test_android_evidence.py` |
 | M | `tests/test_unity_source.py` |
 | A | `tools/check_android_media_java.py` |
+| A | `tools/collect_android_evidence.ps1` |
 | A | `tools/collect_android_evidence.py` |
 | A | `tools/run_unity_checks.ps1` |

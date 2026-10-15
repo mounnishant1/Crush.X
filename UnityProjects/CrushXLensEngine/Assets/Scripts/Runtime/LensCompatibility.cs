@@ -23,6 +23,8 @@ namespace CrushX.LensEngine
         public static LensCompatibilityResult Evaluate(LensManifest lens, bool capabilitiesKnown,
             TrackingCapabilities supported)
         {
+            if (lens.RequiredCapabilities == TrackingCapabilities.None && lens.OptionalCapabilities == TrackingCapabilities.None)
+                return new LensCompatibilityResult(true, false, TrackingCapabilities.None, TrackingCapabilities.None, string.Empty);
             if (!capabilitiesKnown)
                 return new LensCompatibilityResult(true, true, TrackingCapabilities.None,
                     TrackingCapabilities.None, "Waiting for tracking capabilities");

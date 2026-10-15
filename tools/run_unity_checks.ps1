@@ -1,8 +1,8 @@
 param(
     [string]$Repository = (Split-Path -Parent $PSScriptRoot),
     [string]$Unity = 'F:\6000.0.30f1\Editor\Unity.exe',
-    [string]$CacheRoot = 'F:\CrushX-Caches',
-    [string]$Artifacts = 'F:\CrushX-Artifacts',
+    [string]$CacheRoot = 'F:\CrushX-Temp\Caches',
+    [string]$Artifacts = 'F:\CrushX-Temp\UnityRuns',
     [switch]$BuildAndroid,
     [switch]$RunPlayMode,
     [int]$TimeoutMinutes = 45,
@@ -11,6 +11,10 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($TimeoutMinutes -lt 1 -or $TimeoutMinutes -gt 180) { throw 'TimeoutMinutes must be 1..180.' }
 if (!(Test-Path -LiteralPath $Unity -PathType Leaf)) { throw "Unity executable unavailable: $Unity" }
+$editorVersion = (Get-Item -LiteralPath $Unity).VersionInfo.ProductVersion
+if ($editorVersion -notmatch '(?<![0-9])6000\.0\.30f1(?![a-zA-Z0-9])') {
+    throw "Selected Unity executable reports '$editorVersion'; expected 6000.0.30f1. Verify the installed Editor before opening this project."
+}
 $Repository = (Resolve-Path -LiteralPath $Repository).Path
 $project = Join-Path $Repository 'UnityProjects\CrushXLensEngine'
 if (!(Test-Path -LiteralPath (Join-Path $project 'ProjectSettings\ProjectVersion.txt'))) { throw 'Unity project not found.' }
@@ -23,7 +27,7 @@ foreach ($path in @($CacheRoot, $Artifacts)) {
     if ($root -and !(Test-Path -LiteralPath $root)) { throw "Configured output drive unavailable: $root" }
     New-Item -ItemType Directory -Force -Path $path | Out-Null
 }
-$runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+$runId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfffZ') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
 $output = Join-Path $Artifacts $runId
 New-Item -ItemType Directory -Path $output | Out-Null
 $environmentNames = @('TEMP', 'TMP', 'GRADLE_USER_HOME', 'UPM_CACHE_ROOT', 'UNITY_GI_CACHE_FOLDER', 'JAVA_TOOL_OPTIONS')

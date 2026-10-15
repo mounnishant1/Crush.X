@@ -1,135 +1,194 @@
-# Android development evidence and OnePlus acceptance
+# Windows and OnePlus verification handoff
 
-These tools prepare reproducible evidence. Host checks, Unity compilation, a successful APK build,
-an ARSession state, and a `Tracking` log are separate observations. None verifies a visible,
-correctly aligned Fox Mask without a physical-device test. Do not interpret
-`NotTrackingReason.Unsupported` as unsupported device hardware.
+15 October 2026. Windows 11 HP ZBook repository: `F:\CrushX-Git\Crush.X`.
+Unity project: `F:\CrushX-Git\Crush.X\UnityProjects\CrushXLensEngine`.
+Artifacts and caches below use `F:\CrushX-Temp`.
 
-## Current prerequisite limits
+No Windows remote runtime is connected. This Linux session has no Unity Editor, Android SDK,
+ADB, Windows drive or phone. None of the following Windows commands has been executed here.
+The latest continuation is local source work, **not pushed to PR #4**. Transfer/review that source
+before expecting these new scripts/features on Windows. The existing PR at `0843da3` does not
+contain this continuation. Do not run a build on an unidentified checkout.
 
-The engineering environment has no Unity 6000.0.30f1 Editor, Android SDK, ADB, attached phone,
-or Windows F: drive. Unity/Android/device execution is **BLOCKED** here. The PowerShell runner
-and Unity build entry have not been executed in their target environment. Host Python tests
-verify evidence parsing and install guards only. The OnePlus 9 Pro is an ARCore-supported model;
-the actual phone's OS, AR service, selected camera and subsystem initialization still need capture.
+These instructions compile/test/build and collect read-only evidence. They do not install an APK,
+clear logs/app data, delete files, force-stop apps, grant permissions, push Git, or deploy anything.
+Open the already installed application manually for reproduction. Testing a newly built APK on
+OnePlus requires separate installation authorization; an old installed APK cannot verify new repairs.
 
-## Windows Unity checks and development APK
+## 1. Identify the Windows source and installed Editor
 
-From the repository, with Unity closed and Android Build Support/SDK/NDK/JDK installed:
-
-```powershell
-pwsh -File tools/run_unity_checks.ps1 -BuildAndroid
-```
-
-The default Editor is `F:\6000.0.30f1\Editor\Unity.exe`. Override `-Repository`, `-Unity`,
-`-CacheRoot`, and `-Artifacts` if needed. TEMP/TMP, Gradle, UPM and GI cache overrides live
-under `F:\CrushX-Caches`; timestamped APKs, reports and logs use `F:\CrushX-Artifacts`.
-The script restores process environment values. It does not relocate an existing Unity Library
-or global Editor caches. Keep the repository/project itself on F: for project Library/Temp.
-It fails if the configured drive is missing instead of falling back to C:.
-
-Stages are import/compile, nonempty passing EditMode suite, optional `-RunPlayMode`, then
-optional development APK build. Each Unity process has a finite timeout (default 45 minutes).
-No install, automatic app launch, deployment or publishing occurs. Keep Unity/Gradle logs for
-diagnosis. No build can succeed without a valid local Unity license and Android toolchain.
-
-The batch entry is `CrushX.LensEngine.Editor.CrushXAndroidBuild.DevelopmentApk`. It requires
-Android to be selected, an enabled native scene, and an exact source SHA. It accepts only
-`in.crushx.lens.pr3test[.suffix]` or `in.crushx.lens.devtest[.suffix]`. Existing APK/evidence
-paths are preserved. APKs use development mode/default development signing.
-
-`<apk>.build-info.json` records build ID, full commit, dirty-worktree flag, package, Unity and
-package versions, UTC timestamp and development status. The identical JSON is packaged as
-`Resources/CrushXBuildInfo.json` and inspectable raw `StreamingAssets/CrushXBuildInfo.json`;
-previous source resource bytes/meta and temporary PlayerSettings
-are restored in `finally`. A sidecar is written even if building fails: inspect the build summary
-and APK existence before treating it as a build artifact. The dirty flag means the SHA is a base
-revision, not a claim that the worktree equals that revision. Commit or archive the reviewed diff
-with the evidence to reproduce a dirty-source build.
-
-## Read-only device capture
-
-Use Python **3.10+** and Android platform-tools. Authorize the USB debugging prompt normally.
-Determine the actual serial and model; do not infer a OnePlus model identifier from its marketing name:
+Run in Windows PowerShell 5.1 or newer. Close the Unity Editor for this project before batch runs.
+The Editor path below is a candidate; its existence and version must be verified.
 
 ```powershell
-adb devices -l
-adb -s SERIAL shell getprop ro.product.model
-python tools/collect_android_evidence.py --serial SERIAL --seconds 60 --output F:\CrushX-Artifacts\device-run-001
+$ErrorActionPreference = 'Stop'
+$repo = 'F:\CrushX-Git\Crush.X'
+$project = Join-Path $repo 'UnityProjects\CrushXLensEngine'
+$unity = 'F:\6000.0.30f1\Editor\Unity.exe'
+if (!(Test-Path -LiteralPath $unity -PathType Leaf)) {
+    throw 'Set $unity to the installed Unity 6000.0.30f1 Editor executable.'
+}
+Get-Content -LiteralPath (Join-Path $project 'ProjectSettings\ProjectVersion.txt')
+(Get-Item -LiteralPath $unity).VersionInfo | Select-Object ProductVersion, FileVersion
+& git -C $repo status --short
+if ($LASTEXITCODE -ne 0) { throw 'Git source inspection failed.' }
+& git -C $repo log -1 --format='%H %s'
+if ($LASTEXITCODE -ne 0) { throw 'Git revision inspection failed.' }
 ```
 
-The output directory must not already exist. With `--serial` omitted, read-only capture requires
-exactly one authorized device. Reproduce launch → permission → Fox selection → head movement →
-face loss/reacquisition → carousel → background/resume during the finite capture window.
-The collector never clears logs/data, grants permissions, restarts AR services, force-stops apps,
-uninstalls apps, or modifies production infrastructure. Default capture does not install or launch.
+Verify the reviewed branch/source, including local changes. The runner checks both the project
+version and executable ProductVersion for `6000.0.30f1`, and stops before opening a mismatched
+Editor. If Windows metadata does not expose that exact version, record the metadata and resolve
+the installed Editor identity first; do not disable the guard merely to make a build proceed.
+A licensed Editor with Android Build Support, SDK, NDK and JDK is required. No installer is invoked.
 
-It records full, unfiltered Logcat before/during reproduction; device/Android build; Google Play
-Services for AR package; installed app package/version; resolved launcher activity; camera
-permission/app-op; memory and graphics snapshots. It pulls the selected app's base APK read-only,
-hashes it and inspects its merged manifest when SDK `aapt2`, `aapt`, or `apkanalyzer` is available.
-Pass `--manifest-tool` explicitly if needed. Missing/unsupported probe commands remain recorded
-with exit code/stderr; they are not converted into passing results. Unsupported manifest inspection
-does not invalidate captured Logcat. `gfxinfo` snapshots are observations, not Unity GPU/FPS proof.
-
-For offline APK evidence, add `--apk PATH_TO_APK`; actual manifest inspection is required.
-An installed/supplied hash comparison is recorded when both artifacts are available. The project
-uses Unity 6's configured Android entry mode; trust the merged manifest and resolved installed
-activity rather than assuming `UnityPlayerActivity`.
-
-Full device logs can contain private data. Evidence and pulled APKs belong in a local ignored
-work/build directory. Review and redact before sharing; do not commit them. The JSON parser
-preserves exact native error observations and leaves root cause **NOT ESTABLISHED** until
-correlated with the reproduction and runtime states.
-
-## Optional guarded test installation
-
-Only use the verified development test package. This is the only device-write operation:
+## 2. Compile, test, and build an isolated development APK
 
 ```powershell
-python tools/collect_android_evidence.py --serial SERIAL --expected-model EXACT_MODEL `
-  --install --apk F:\CrushX-Artifacts\RUN\CrushX-pr3test.apk `
-  --build-info F:\CrushX-Artifacts\RUN\CrushX-pr3test.apk.build-info.json `
-  --package in.crushx.lens.pr3test --seconds 60 --output F:\CrushX-Artifacts\device-run-002
+powershell.exe -NoProfile -File (Join-Path $repo 'tools\run_unity_checks.ps1') `
+    -Repository $repo -Unity $unity `
+    -CacheRoot 'F:\CrushX-Temp\Caches' `
+    -Artifacts 'F:\CrushX-Temp\UnityRuns' `
+    -RunPlayMode -BuildAndroid -Package 'in.crushx.lens.pr3test'
+if ($LASTEXITCODE -ne 0) { throw 'Unity stages failed; inspect the recorded log/XML files.' }
 ```
 
-The guard requires explicit authorized serial, exact current model, actual APK manifest package,
-isolated test package, full SHA/build ID and development sidecar. It also compares the full packaged
-raw build JSON (or inspects legacy Unity asset bytes), preventing an unrelated sidecar from
-authorizing install even with compressed Unity data.
-It fails closed if identity cannot be inspected. It runs only `adb -s SERIAL install -r APK`;
-no downgrade, uninstall, clearing or permission grant flags. A failed install is preserved in evidence.
-Manually open the test app after install. No production-package APK is permitted.
+For compilation and EditMode only, omit `-RunPlayMode -BuildAndroid`. Stages are import/compile,
+a nonempty passing EditMode suite, optional PlayMode, and optional development APK build. Each
+Unity process has a finite timeout (45 minutes by default). The runner creates a unique evidence
+folder and restores process environment values. TEMP/TMP, Gradle, UPM and GI overrides use F:.
+Project Library/Temp remain within the F: project; this does not relocate all global Editor caches.
+Headless graphics-dependent tests can be skipped: inspect the XML skipped count, and run those
+material/shader tests in a graphics-capable Editor before recording them as passing.
 
-Existing capture can be analyzed without a phone:
+The APK entry is `CrushX.LensEngine.Editor.CrushXAndroidBuild.DevelopmentApk`. Only isolated
+`in.crushx.lens.pr3test[.suffix]` or `in.crushx.lens.devtest[.suffix]` IDs are accepted. Existing APK
+paths are not overwritten. The builder restores temporary PlayerSettings and generated build-info
+resources. A sidecar may exist after a failed build: verify the build summary and APK separately.
 
 ```powershell
-python tools/collect_android_evidence.py --parse-log F:\CrushX-Artifacts\device-run-001\logcat-live.txt
-python -m unittest discover -s tests -v
+Get-ChildItem -LiteralPath 'F:\CrushX-Temp\UnityRuns' -Filter 'CrushX-pr3test.apk' -Recurse -File |
+    Select-Object FullName, Length, LastWriteTimeUtc
+# Select the exact successful run; never assume the newest APK is the reviewed build.
+$apk = Read-Host 'Paste the exact successfully built APK path'
+Get-FileHash -Algorithm SHA256 -LiteralPath $apk
+Get-Content -LiteralPath ($apk + '.build-info.json') -Raw
 ```
 
-## Focused physical acceptance record
+The sidecar and packaged `StreamingAssets/CrushXBuildInfo.json` identify build ID, full base SHA,
+dirty flag, package, Unity/package versions and UTC time. A dirty flag means the SHA alone does not
+identify the source: preserve the reviewed diff/new files too. APK build success does not establish
+an installed build, front camera, face tracking, visible mask or usable media.
 
-Use only **PASS**, **FAIL**, **BLOCKED**, **NOT TESTED**, or **PARTIAL**. Start unperformed rows as
-NOT TESTED. Record device serial/model (keep private), OxygenOS/Android, AR service version,
-APK SHA256, package/version/build ID/commit, exact reproduction steps and time span.
+## 3. Identify ADB, the physical device, and the installed app
 
-| Check | Required independent evidence |
+The wrapper discovers ADB from PATH, `ANDROID_SDK_ROOT`, `ANDROID_HOME` or the common local SDK.
+This manual discovery also checks the selected Editor's bundled SDK, without assuming it exists.
+
+```powershell
+$adbCommand = Get-Command adb -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+$adb = if ($adbCommand) { $adbCommand.Source } else { $null }
+if (!$adb) {
+    $sdkRoots = @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME)
+    if ($env:LOCALAPPDATA) { $sdkRoots += Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+    foreach ($sdk in $sdkRoots) {
+        if (!$sdk) { continue }
+        $candidate = Join-Path $sdk 'platform-tools\adb.exe'
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $adb = $candidate; break }
+    }
+}
+if (!$adb) {
+    $candidate = Join-Path (Split-Path -Parent $unity) 'Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe'
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $adb = $candidate }
+}
+if (!$adb) { throw 'Set $adb to the installed platform-tools\adb.exe.' }
+& $adb devices -l
+if ($LASTEXITCODE -ne 0) { throw 'ADB enumeration failed.' }
+$serial = Read-Host 'Enter the actual authorized OnePlus device serial from the device list'
+& $adb -s $serial shell getprop ro.product.model
+& $adb -s $serial shell getprop ro.build.display.id
+& $adb -s $serial shell am get-current-user
+& $adb -s $serial shell pm list packages | Select-String -Pattern 'crush'
+$package = Read-Host 'Enter the exact installed Crush.X package ID to inspect'
+```
+
+Confirm the selected device is the OnePlus 9 Pro. Do not infer its hardware ID from the marketing
+name. The currently installed app may have a different ID than the newly built test package.
+A package-list filter returning nothing does not establish absence; inspect the app's known package
+identity. No command above launches, installs, removes, or changes the app.
+
+## 4. Collect full, finite, read-only evidence
+
+Python 3.10+ and Android platform-tools are required. The wrapper validates Python and accepts
+an explicit `-Python` executable override. It also discovers aapt2/aapt/apkanalyzer where available.
+
+```powershell
+powershell.exe -NoProfile -File (Join-Path $repo 'tools\collect_android_evidence.ps1') `
+    -Repository $repo -Adb $adb -Serial $serial -Package $package `
+    -Seconds 60 -Artifacts 'F:\CrushX-Temp\DeviceEvidence'
+if ($LASTEXITCODE -ne 0) { throw 'Collection failed; inspect the recorded evidence and errors.' }
+```
+
+Wait for **“Capturing 60s of full Logcat”** before manually reproducing launch → camera permission
+→ Fox Mask selection → head movement → face loss/reacquisition → carousel → background/resume.
+The collector saves a pre-run full Logcat snapshot, then full unfiltered live Logcat. It never clears
+logs. It records actual device/OS/AR-service versions, installed package, resolved launch activity,
+permission/app-op, memory/gfx observations, and pulls/hashes the installed base APK read-only.
+Merged-manifest inspection is recorded when a manifest tool is available. Failed probes remain
+failures; missing tools do not turn into passing checks. The camera permission probe uses the
+observed foreground Android user, without a user-0 fallback. For work/managed profiles, corroborate
+package per-user states and the actual app process user before attributing a grant failure.
+
+If manifest inspection is needed for a separately built APK, rerun with `-Apk $apk` and the confirmed
+`-ManifestTool 'EXACT\PATH\aapt2.exe'`. This records supplied/installed hashes and their comparison.
+A supplied APK requires manifest inspection; omit `-Apk` for the first capture when that tool is not
+available. Unity 6's configured Android entry mode is not proof of an installed launcher: use the
+actual merged manifest and resolved activity. Do not assume `UnityPlayerActivity`.
+
+The collector writes `evidence.json`, `logcat-before.txt`, `logcat-live.txt` and
+`logcat-analysis.json`. Keep raw evidence local and review private content before sharing.
+The parser preserves exact native errors and leaves root cause **NOT ESTABLISHED**. A log saying
+`Tracking`, or `NotTrackingReason.Unsupported`, does not establish a visible mask or unsupported
+hardware. ARCore front-camera world tracking can remain paused while Augmented Faces track.
+
+## 5. Attribute the failure before changing AR configuration
+
+Correlate one reproduced interval with the exact installed build ID/hash and raw native error lines.
+Check in order:
+
+1. Manifest CAMERA declaration, runtime grant/app-op, foreground/profile user, AR service version.
+2. Active ARCore loader; session/camera/face subsystem IDs, present/running state and native errors.
+3. Requested **and actual** User camera, selected/supported configurations and graphics API.
+4. Face count, trackable IDs and per-face tracking state independently of world-session tracking.
+5. Selected Fox ID, prefab/material, one instance bound to the tracked `ARFace.transform`, active
+   hierarchy, renderers, shader support, culling/layer, transforms and visibly aligned geometry.
+
+AR Foundation has no generic `XRFaceSubsystem.failureReason`; use the actual ARCore configure/
+resume error from full Logcat. A supported-device listing is not a runtime initialization test.
+Do not change session tracking mode, autofocus, chooser, camera pipeline or graphics API list based
+only on the old generic status label. The smallest AR behavior fix must follow the observed failure.
+
+## 6. Focused physical acceptance gates
+
+Record each gate separately with build ID/hash, device/OS/AR-service versions, reproduction and
+actual result. These gates are all **NOT RUN** for the new source in this session.
+
+| Gate | Required observation |
 | --- | --- |
-| Correct build/launch | Installed APK hash matches supplied APK; runtime metadata and resolved launch activity match. |
-| Permission | Fresh appropriate test installation prompts; denial gives useful state; grant/reopen recovers. Do not clear valuable data. |
-| Actual selfie camera | Requested and current facing direction `User`, selected/supported configuration; visually confirm selfie preview. |
-| XR initialization | Active ARCore loader, camera/face subsystem IDs and running flags; correlate session/native errors. |
-| Face acquisition | Face count and trackable ID enter `Tracking`; no dependence on world positional tracking success. |
-| Fox rendering | Exactly one visible mask for each tracked face; correct parent, activation, renderer and supported shaders. |
-| Alignment | Face/head rotation, scale and orientation verified visually on the actual device. |
-| Loss/reacquisition | Hide/remove on loss, recover without duplicate/stale masks; matching lifecycle logs. |
-| Ring/input | Controls remain visible without a face; tap and swipe once per gesture; Fox ↔ procedural switches correctly. |
-| Lifecycle | Background/resume and camera exit/reentry repeatedly recover without camera contention/leaks. |
-| Photos | Inspect saved actual rendered output, dimensions, orientation and selfie mirroring. |
-| Video/audio | Inspect nonempty playable MP4 with rendered effects and authorized synchronized audio; denial/interruption handled. |
-| Stability/performance | Explain native critical errors; record sustained device frame time/FPS, memory and thermal observations. |
+| Startup and permissions | Cold/warm launch, grant/deny camera, actionable status, no crash; actual front camera confirmed. |
+| Face initialization | ARCore loader and running face subsystem; exact native errors retained if initialization fails. World-session Tracking is not a face gate. |
+| Fox visibility/binding | Exactly one moving, correctly aligned Fox per tracked face; no stale duplicate; verify renderer/material, scale, head rotation and culling. |
+| Loss/recovery | Cover/remove face and reacquire; background/resume, lock/unlock and re-enter camera without stale anchors or frozen preview. |
+| Existing carousel | Persistent visible carousel, taps and swipes, small lists, absent active item in search/favorites/recent; vertical drag does not select. |
+| Timer/focus | 3/10-second countdown; notification/focus loss cancels countdown; no delayed capture after return. |
+| Microphone preflight | Mic-on requests permission before shutter; grant/deny/don't-ask-again; no recording starts from permission callback; silent video still works. |
+| Video completion | Release and 30-second auto-stop; stale touch cancellation/focus loss after completed Preview preserves the draft. |
+| Media preview/save | Real photo and decoded MP4; play/pause/audio, Retry and explicit Save; recoverable save error preserves draft/playback; next capture has no stale error. |
+| Color filters | Warm Cinema, Noir Film and Neon Duotone visibly distinct with no face in view; no old-filter contamination after switching to Fox/procedural lens; captured media includes grade. |
+| Failure/rollback | Missing/unsupported shader rejects selection and preserves current lens; a failed restoration reports failure rather than claiming retention. |
+| Output integrity | Inspect actual PNG/MP4 dimensions, orientation/mirroring, readable frames, durations/audio tracks and A/V sync. No overlay UI baked into media. |
+| Performance | Record sustained real FPS/frame-time/memory/GC/battery/thermal behavior and recovery; probes alone are not measured acceptance. |
 
-Google ARCore front-camera sessions do not provide ordinary world-camera tracking. A paused world
-camera is not sufficient proof of failed Augmented Faces. Inspect actual face `TrackingState` and
-native errors. Never add an ordinary world anchor to compensate for absent face tracking.
+After separately authorized installation of the reviewed test build, repeat these gates against that
+exact installed artifact. Preserve the existing working camera/carousel as independent regression
+gates. No success claim or release should precede that execution.

@@ -27,6 +27,13 @@ namespace CrushX.LensEngine
 
     public static class ARDiagnosticClassifier
     {
+        public static ARDiagnosticOutcome WithLensFailure(ARDiagnosticOutcome tracking, ARDiagnosticOutcome? failure,
+            bool requiresFace, bool cameraReady)
+        {
+            return failure.HasValue && (tracking == ARDiagnosticOutcome.Tracking || (!requiresFace && cameraReady))
+                ? failure.Value : tracking;
+        }
+
         public static ARDiagnosticOutcome Classify(ARDiagnosticObservation value)
         {
             if (!value.ManagerPresent) return ARDiagnosticOutcome.ManagerMissing;

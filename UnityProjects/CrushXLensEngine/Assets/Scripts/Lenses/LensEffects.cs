@@ -9,14 +9,22 @@ namespace CrushX.LensEngine
         public virtual void OnSelected() { }
         public virtual void OnDeselected() { }
         public virtual void Animate(FaceSample face, float elapsedSeconds) { }
-        protected virtual void OnDestroy()
+        private bool resourcesReleased;
+        public void ReleaseResources()
         {
+            if (resourcesReleased) return;
+            resourcesReleased = true;
             foreach (MeshFilter filter in GetComponentsInChildren<MeshFilter>(true))
             {
                 Mesh mesh = filter.sharedMesh;
-                if (mesh != null && (mesh.name.EndsWith("-torus") || mesh.name.EndsWith("-mesh"))) Destroy(mesh);
+                if (mesh != null && (mesh.name.EndsWith("-torus") || mesh.name.EndsWith("-mesh")))
+                {
+                    if (Application.isPlaying) Destroy(mesh);
+                    else DestroyImmediate(mesh);
+                }
             }
         }
+        protected virtual void OnDestroy() { ReleaseResources(); }
 
         protected Transform Piece(string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color, Vector3? rotation = null)
         { return LensGeometry.Add(transform, name, type, position, scale, color, rotation); }

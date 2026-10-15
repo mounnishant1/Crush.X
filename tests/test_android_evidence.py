@@ -107,6 +107,8 @@ class ArtifactAndTimeoutTests(unittest.TestCase):
                 stdout = "List of devices attached\ntest-serial device\n"
             elif "ro.product.model" in command:
                 stdout = "LE2123\n"
+            elif "get-current-user" in command:
+                stdout = "10\n"
             return {"exitCode": 0, "stdout": stdout, "stderr": ""}
 
         def fake_capture(command, path, seconds):
@@ -133,6 +135,8 @@ class ArtifactAndTimeoutTests(unittest.TestCase):
             if "logcat" in command:
                 self.assertNotIn("-c", command)
         self.assertTrue(any("resolve-activity" in command for command in commands))
+        permission_command = next(command for command in commands if "check-permission" in command)
+        self.assertEqual(permission_command[-1], "10", "Camera permission must use the observed Android user, not assume owner 0")
 
     def test_build_identity_must_be_in_the_apk_not_merely_a_sidecar(self):
         info = {"commitSha": "a" * 40, "buildId": "build-identity-001"}

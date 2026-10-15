@@ -101,7 +101,7 @@ namespace CrushX.LensEngine
         private int CenterIndex()
         {
             for (int i = 0; i < visible.Count; i++) if (visible[i].Id == engine.ActiveId) return i;
-            return 0;
+            return -1;
         }
 
         public void BeginDrag() { dragging = true; dragOffset = 0; }
@@ -112,7 +112,7 @@ namespace CrushX.LensEngine
         {
             if (!EnsureEngine() || visible.Count == 0 || amount == 0) return false;
             int direction = amount < 0 ? -1 : 1;
-            int index = WrappedIndex(CenterIndex() + direction, visible.Count);
+            int index = NextResultIndex(CenterIndex(), direction, visible.Count);
             CancelDrag();
             for (int attempt = 0; attempt < visible.Count; attempt++)
             {
@@ -122,12 +122,19 @@ namespace CrushX.LensEngine
             return false;
         }
 
+        public static int NextResultIndex(int current, int direction, int count)
+        {
+            if (count <= 0) return -1;
+            if (current < 0) return direction < 0 ? count - 1 : 0;
+            return WrappedIndex(current + (direction < 0 ? -1 : 1), count);
+        }
+
         public bool Tap(Vector2 logicalPosition)
         {
             if (!EnsureEngine() || visible.Count == 0) return false;
             Rect bounds = NativeCameraLayout.Current.Carousel;
             int slots = Mathf.Min(5, visible.Count);
-            int center = CenterIndex();
+            int center = Mathf.Max(0, CenterIndex());
             for (int slot = 0; slot < slots; slot++)
                 if (CardRect(bounds, slot, slots).Contains(logicalPosition))
                 {
@@ -181,7 +188,7 @@ namespace CrushX.LensEngine
             }
             else
             {
-                int center = CenterIndex();
+                int center = Mathf.Max(0, CenterIndex());
                 int slots = Mathf.Min(5, visible.Count);
                 GUI.BeginGroup(bounds);
                 Rect localBounds = new Rect(0, 0, bounds.width, bounds.height);

@@ -4,6 +4,15 @@ namespace CrushX.LensEngine.Tests
 {
     public class ARDiagnosticClassifierTests
     {
+        [TestCase(false, true, ARDiagnosticOutcome.LensRendererUnavailable)]
+        [TestCase(false, false, ARDiagnosticOutcome.NoFacesDetected)]
+        [TestCase(true, true, ARDiagnosticOutcome.NoFacesDetected)]
+        public void LensFailure_UsesCameraReadinessForNoFaceEffects(bool requiresFace, bool cameraReady, ARDiagnosticOutcome expected)
+        {
+            Assert.AreEqual(expected, ARDiagnosticClassifier.WithLensFailure(ARDiagnosticOutcome.NoFacesDetected,
+                ARDiagnosticOutcome.LensRendererUnavailable, requiresFace, cameraReady));
+        }
+
         private static ARDiagnosticObservation Ready()
         {
             return new ARDiagnosticObservation

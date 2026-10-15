@@ -22,6 +22,9 @@ namespace CrushX.LensEngine
         private const int VideoLongestSide = 1280;
         public MediaCaptureState CurrentState { get; private set; }
         public Texture2D PreviewTexture { get; private set; }
+        public Texture DisplayPreviewTexture { get { return playback != null && playback.Texture != null ? playback.Texture : PreviewTexture; } }
+        public bool PreviewPlaybackReady { get { return playback != null && playback.IsPrepared; } }
+        public bool PreviewPlaying { get { return playback != null && playback.IsPlaying; } }
         public MediaCaptureResult PendingMedia { get; private set; }
         public string StatusMessage { get; private set; } = "Ready";
         public bool SuppressUi => false;
@@ -29,6 +32,17 @@ namespace CrushX.LensEngine
         public float RecordingSeconds => CurrentState == MediaCaptureState.Recording
             ? Mathf.Max(0f, Time.realtimeSinceStartup - recordingStarted) : 0f;
         public bool SupportsVideo => VideoCapability(out _);
+        public bool MicrophoneGranted
+        {
+            get
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                return Permission.HasUserAuthorizedPermission(Permission.Microphone);
+#else
+                return false;
+#endif
+            }
+        }
         public event Action<MediaCaptureState> StateChanged;
         public event Action<MediaCaptureResult> PreviewReady;
         public event Action<MediaCaptureResult> MediaSaved;
@@ -49,6 +63,7 @@ namespace CrushX.LensEngine
         private bool requestedMicrophone;
         private bool lifecycleStopping;
         private string captureLensId;
+        private MediaPreviewPlayer playback;
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject recorder;
 #endif
@@ -113,36 +128,51 @@ namespace CrushX.LensEngine
             StartCoroutine(RecordVideo(++generation));
         }
 
+        public void RequestMicrophoneAccess()
+        {
+            if (!CanBegin() || WaitingForMicrophonePermission) return;
+            if (MicrophoneGranted) { StatusMessage = "Microphone access allowed"; return; }
+#if UNITY_ANDROID && !UNITY_EDITOR
+            SetState(MediaCaptureState.Preparing, "Allow microphone access before recording");
+            WaitingForMicrophonePermission = true;
+            StartCoroutine(MicrophonePermission(++generation));
+#else
+            StatusMessage = "Microphone capture requires the Android recording pipeline";
+#endif
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private IEnumerator MicrophonePermission(int token)
+        {
+            bool answered = false;
+            var callbacks = new PermissionCallbacks();
+            callbacks.PermissionGranted += _ => answered = true;
+            callbacks.PermissionDenied += _ => answered = true;
+            callbacks.PermissionDeniedAndDontAskAgain += _ => answered = true;
+            Permission.RequestUserPermission(Permission.Microphone, callbacks);
+            float deadline = Time.realtimeSinceStartup + 30f;
+            while (!answered && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+                if (token != generation) yield break;
+            }
+            float focusDeadline = Time.realtimeSinceStartup + 3f;
+            while (answered && !Application.isFocused && Time.realtimeSinceStartup < focusDeadline)
+            {
+                yield return null;
+                if (token != generation) yield break;
+            }
+            WaitingForMicrophonePermission = false;
+            if (!answered) { SetState(MediaCaptureState.Idle, "Microphone request timed out; video can record without audio"); yield break; }
+            SetState(MediaCaptureState.Idle, MicrophoneGranted ? "Microphone ready — hold the shutter to record" : "Microphone not allowed — video will record without audio");
+        }
+#endif
+
         private IEnumerator RecordVideo(int token)
         {
             bool audio = requestedMicrophone;
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (audio && !Permission.HasUserAuthorizedPermission(Permission.Microphone))
-            {
-                bool answered = false;
-                var callbacks = new PermissionCallbacks();
-                callbacks.PermissionGranted += _ => answered = true;
-                callbacks.PermissionDenied += _ => answered = true;
-                callbacks.PermissionDeniedAndDontAskAgain += _ => answered = true;
-                WaitingForMicrophonePermission = true;
-                Permission.RequestUserPermission(Permission.Microphone, callbacks);
-                float until = Time.realtimeSinceStartup + 30f;
-                while (!answered && Time.realtimeSinceStartup < until)
-                {
-                    yield return null;
-                    if (token != generation) yield break;
-                }
-                WaitingForMicrophonePermission = false;
-                if (!answered) { Fail("Microphone permission request timed out; please retry"); yield break; }
-                float focusDeadline = Time.realtimeSinceStartup + 3f;
-                while (!Application.isFocused && Time.realtimeSinceStartup < focusDeadline)
-                {
-                    yield return null;
-                    if (token != generation) yield break;
-                }
-                if (!Application.isFocused) { Fail("Recording cancelled because the app is not in the foreground"); yield break; }
-                audio = Permission.HasUserAuthorizedPermission(Permission.Microphone);
-            }
+            audio = audio && MicrophoneGranted; // Permissions are requested explicitly before a shutter gesture.
             if (token != generation) yield break;
             // Freeze pixel dimensions/orientation for this clip; rotation cancels it rather than
             // stretching frames or pretending that a corrupt clip is a completed recording.
@@ -215,7 +245,8 @@ namespace CrushX.LensEngine
                 if (!File.Exists(draftPath) || new FileInfo(draftPath).Length < 128) throw new IOException("MP4 output is empty");
                 PendingMedia = NewResult("video", "video/mp4", recorder.Call<bool>("hasAudio"), recorder.Call<double>("getDurationSeconds"));
                 ReleaseRecorder(false);
-                SetState(MediaCaptureState.Preview, "Video poster preview — Retry or Save MP4");
+                SetState(MediaCaptureState.Preview, "Preparing video playback");
+                OpenVideoPreview();
                 Notify(PreviewReady, PendingMedia);
             }
             catch (Exception ex) { Fail("MP4 validation failed: " + ex.Message); }
@@ -239,26 +270,58 @@ namespace CrushX.LensEngine
         public void SavePreview()
         {
             if (CurrentState != MediaCaptureState.Preview || PendingMedia == null) return;
+            if (playback != null) playback.StopAndRelease();
+            previewSaveError = null;
+            string destination;
+            long size;
             try
             {
                 if (!CaptureFileValidation.IsControlledPath(PendingMedia.Path, DraftDirectory)
                     || !File.Exists(PendingMedia.Path) || new FileInfo(PendingMedia.Path).Length == 0)
                     throw new IOException("Capture draft is missing or outside the controlled directory");
                 Directory.CreateDirectory(SavedDirectory);
-                string destination = Path.Combine(SavedDirectory, Path.GetFileName(PendingMedia.Path));
+                destination = Path.Combine(SavedDirectory, Path.GetFileName(PendingMedia.Path));
+                size = new FileInfo(PendingMedia.Path).Length;
                 File.Move(PendingMedia.Path, destination);
-                PendingMedia.Path = destination;
-                PendingMedia.SizeBytes = new FileInfo(destination).Length;
-                var saved = PendingMedia;
-                draftPath = null;
-                PendingMedia = null;
-                ReleasePreview();
-                SetState(MediaCaptureState.Idle, "Saved privately on this device");
-                // Host composers receive only a completed file after explicit user Save.
-                Notify(MediaSaved, saved);
             }
-            catch (Exception ex) { Fail("Unable to save capture: " + ex.Message); }
+            catch (Exception ex)
+            {
+                bool retained = CaptureFileValidation.IsControlledPath(PendingMedia.Path, DraftDirectory) && File.Exists(PendingMedia.Path);
+                previewSaveError = "Unable to save capture: " + ex.Message;
+                SetState(MediaCaptureState.Preview, previewSaveError + (retained ? "; draft retained for retry" : "; draft is unavailable"));
+                if (retained && PendingMedia.MediaKind == "video") OpenVideoPreview();
+                Notify(Failed, StatusMessage);
+                return;
+            }
+            // File.Move has committed the save. Later UI/observer work cannot turn it
+            // back into an unsaved draft or report a second failed file operation.
+            PendingMedia.Path = destination;
+            PendingMedia.SizeBytes = size;
+            var saved = PendingMedia;
+            draftPath = null;
+            PendingMedia = null;
+            ReleasePreview();
+            SetState(MediaCaptureState.Idle, "Saved privately on this device");
+            Notify(MediaSaved, saved);
         }
+
+        private string previewSaveError;
+
+        private void OpenVideoPreview()
+        {
+            if (playback == null)
+            {
+                playback = gameObject.AddComponent<MediaPreviewPlayer>();
+                playback.StatusChanged += message =>
+                {
+                    if (CurrentState == MediaCaptureState.Preview)
+                        StatusMessage = string.IsNullOrEmpty(previewSaveError) ? message : previewSaveError + "; " + message;
+                };
+            }
+            playback.Open(PendingMedia.Path, PendingMedia.Width, PendingMedia.Height, PendingMedia.HasAudio);
+        }
+
+        public void TogglePreviewPlayback() { if (CurrentState == MediaCaptureState.Preview) playback?.TogglePlayback(); }
 
         public void Retry()
         {
@@ -447,7 +510,12 @@ namespace CrushX.LensEngine
             draftPath = null;
         }
 
-        private void ReleasePreview() { if (PreviewTexture != null) { Destroy(PreviewTexture); PreviewTexture = null; } }
+        private void ReleasePreview()
+        {
+            previewSaveError = null;
+            if (playback != null) playback.StopAndRelease();
+            if (PreviewTexture != null) { Destroy(PreviewTexture); PreviewTexture = null; }
+        }
         private void OnApplicationPause(bool paused)
         {
             if (!paused || lifecycleStopping) return;

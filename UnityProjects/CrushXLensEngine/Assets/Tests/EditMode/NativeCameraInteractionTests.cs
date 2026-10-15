@@ -14,6 +14,15 @@ namespace CrushX.LensEngine.Tests
         public void CircularIndex_HandlesSmallListsAndOverflow(int index, int count, int expected)
         { Assert.AreEqual(expected, CrushXSmartCarousel.WrappedIndex(index, count)); }
 
+        [TestCase(-1, 1, 3, 0)]
+        [TestCase(-1, -1, 3, 2)]
+        [TestCase(0, -1, 3, 2)]
+        [TestCase(2, 1, 3, 0)]
+        [TestCase(-1, 1, 1, 0)]
+        [TestCase(-1, 1, 0, -1)]
+        public void FilteredNavigation_EntersFirstOrLastResultWhenActiveLensIsAbsent(int current, int direction, int count, int expected)
+        { Assert.AreEqual(expected, CrushXSmartCarousel.NextResultIndex(current, direction, count)); }
+
         [Test]
         public void SafeArea_DrawingAndTouchCoordinatesAgree()
         {

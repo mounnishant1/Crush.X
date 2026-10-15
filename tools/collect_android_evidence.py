@@ -235,6 +235,13 @@ def collect(args) -> Path:
                 evidence["install"] = run(prefix + ["install", "-r", str(apk)], timeout=180)
                 if evidence["install"]["exitCode"] != 0:
                     raise ValueError("Test installation failed; see evidence.json. No uninstall or data clearing attempted.")
+        android_user = run(prefix + ["shell", "am", "get-current-user"])
+        evidence["probes"]["androidCurrentUser"] = android_user
+        user_id = android_user["stdout"].strip() if android_user["exitCode"] == 0 else ""
+        evidence["permissionScope"] = (
+            "Foreground Android user; corroborate package per-user state for managed/work profiles."
+            if re.fullmatch(r"[0-9]+", user_id) else "UNKNOWN: foreground Android user probe failed."
+        )
         probes = {
             "adbVersion": [adb, "version"],
             "manufacturer": prefix + ["shell", "getprop", "ro.product.manufacturer"],
@@ -246,11 +253,14 @@ def collect(args) -> Path:
             "appPackagePath": prefix + ["shell", "pm", "path", args.package],
             "launchActivity": prefix + ["shell", "cmd", "package", "resolve-activity", "--brief", "-a",
                                           "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", args.package],
-            "cameraPermission": prefix + ["shell", "cmd", "package", "check-permission", "android.permission.CAMERA", args.package, "0"],
             "cameraAppOps": prefix + ["shell", "cmd", "appops", "get", args.package, "CAMERA"],
             "memoryBefore": prefix + ["shell", "dumpsys", "meminfo", args.package],
             "gfxBefore": prefix + ["shell", "dumpsys", "gfxinfo", args.package],
         }
+        if re.fullmatch(r"[0-9]+", user_id):
+            probes["cameraPermission"] = prefix + ["shell", "cmd", "package", "check-permission", "android.permission.CAMERA", args.package, user_id]
+        else:
+            evidence["probes"]["cameraPermission"] = {"status": "BLOCKED", "reason": "Android user is unknown; no user-0 fallback."}
         for key, command in probes.items():
             evidence["probes"][key] = run(command)
             save()

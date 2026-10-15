@@ -4,6 +4,17 @@ namespace CrushX.LensEngine.Tests
 {
     public sealed class LensCompatibilityTests
     {
+        [TestCase("cinema-warm")]
+        [TestCase("noir-film")]
+        [TestCase("neon-duotone")]
+        public void ColorFilter_DoesNotWaitForUnavailableTrackingCapabilities(string id)
+        {
+            var result = LensCompatibility.Evaluate(LensCatalog.Find(id).Value, false, TrackingCapabilities.None);
+            Assert.IsTrue(result.CanSelect);
+            Assert.IsFalse(result.PendingCapabilities);
+            Assert.AreEqual(TrackingCapabilities.None, result.MissingRequired);
+        }
+
         [Test]
         public void UninitializedProvider_AllowsSelectionWhileCapabilitiesArePending()
         {
