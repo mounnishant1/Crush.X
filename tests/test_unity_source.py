@@ -204,7 +204,12 @@ class UnitySourceTests(unittest.TestCase):
                 else:output.append(line if enabled else '')
             self.assertFalse(stack,'Unclosed preprocessor branch')
             return ('\n'.join(output)+'\n').encode()
-        targets=[{'UNITY_ANDROID','ENABLE_INPUT_SYSTEM'},{'UNITY_EDITOR','UNITY_STANDALONE','ENABLE_INPUT_SYSTEM'},{'UNITY_EDITOR','UNITY_STANDALONE','ENABLE_LEGACY_INPUT_MANAGER'},{'UNITY_ANDROID','ENABLE_LEGACY_INPUT_MANAGER'}]
+        targets=[{'UNITY_ANDROID','ENABLE_INPUT_SYSTEM'},
+                 {'UNITY_EDITOR','UNITY_STANDALONE','ENABLE_INPUT_SYSTEM'},
+                 {'UNITY_EDITOR','UNITY_STANDALONE','ENABLE_LEGACY_INPUT_MANAGER'},
+                 {'UNITY_ANDROID','ENABLE_LEGACY_INPUT_MANAGER'},
+                 {'UNITY_ANDROID','DEVELOPMENT_BUILD','ENABLE_INPUT_SYSTEM'},
+                 {'UNITY_EDITOR','UNITY_ANDROID','ENABLE_INPUT_SYSTEM'}]
         for p in ASSETS.rglob('*.cs'):
             for defines in targets:
                 tree=parser.parse(preprocess(p.read_text(),defines))
