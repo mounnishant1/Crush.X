@@ -35,8 +35,9 @@ Before approval, record an owner, cleanup date, approved count (suggestion: at m
 5 controlled disposable users), expected email volume (suggestion: <=20), and an
 account-level budget/alert decision. These suggestions are planning caps, not
 service-enforced spending limits. This package does not create budgets, alarms or
-an automatic cost cutoff. Public-client self-sign-up is needed for the registration
-matrix and can be abused after activation; keep the test window short and close or
-remove the staging client promptly under approved teardown. Hiding the origin or
+an automatic cost cutoff. Public-client self-sign-up is disabled initially and must be enabled only for the
+approved registration matrix. It can be abused while enabled; keep the test window
+short, disable it again afterward and remove the staging client under approved
+teardown. Hiding the origin or
 public client ID is not a signup security boundary. Retained resources survive
 stack removal and still need owner-led cleanup.

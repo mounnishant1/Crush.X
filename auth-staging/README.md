@@ -33,6 +33,10 @@ Start with:
   [offline copy builder](scripts/prepare_frontend.py): no production replacement or
   fallback; null IDs and approvedForLiveTesting=false by default.
 
+Initial creation keeps public self-sign-up disabled. EnableDisposableSelfSignUp
+defaults to false and may be set true only through an approved staging-only change
+set for controlled live-account/email tests, then set false at the end of the window.
+
 Initial alias decision: new staging uses username + email only. The existing pool
 also has phone aliases; phone/SMS parity is intentionally deferred until a separately
 reviewed SMS-capable design. Case-sensitive usernames are an explicit staging

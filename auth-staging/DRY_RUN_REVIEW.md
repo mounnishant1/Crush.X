@@ -19,6 +19,7 @@ The stack has no dependency on production or another stack's exports.
 | Correct pool name / region / account guard | Source checked; CFN rules constrain account and us-west-2 |
 | Existing pool/client absent from template | Offline tests pass |
 | Policy / MFA / verified-email recovery | Offline tests pass |
+| Public registration | Closed initially (EnableDisposableSelfSignUp=false); approved live window requires reviewed staging update |
 | Browser secret disabled / SRP / minimal attributes | Offline tests pass |
 | Explicit token units / revocation | Offline tests pass |
 | LITE plan, no SMS or paid advanced features | Explicit in source |

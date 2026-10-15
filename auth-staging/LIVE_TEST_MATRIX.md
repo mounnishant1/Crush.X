@@ -16,6 +16,10 @@ Do not run this against `us-west-2_PAT0udHTx` under any circumstances.
 - Generate a unique throwaway compliant password locally for each account in a
   password manager. Do not reuse the illustrative unit-test passwords in live tests,
   commit secrets or put passwords in shell history/process arguments/logs.
+- Initial resource creation keeps self-sign-up disabled. Verify SignUp is rejected
+  without an account or email before Approval D. After Approval D, use a reviewed
+  staging-only change set to enable the controlled registration window, then close
+  it again afterward. IAM admin account creation remains separately restricted.
 - Prefer the approved staging frontend's self-sign-up and code confirmation, which
   exercise the actual application. This intentionally sends email and requires
   Approval D. Do not auto-confirm or set email_verified through an admin workaround
@@ -45,7 +49,7 @@ Do not run this against `us-west-2_PAT0udHTx` under any circumstances.
 | S02 | Wrong/production IDs or missing approval in frontend config | Builder refuses output; source unchanged; example null-ID config remains disabled |
 | S03 | Generated HTML on unapproved HTTP/HTTPS origin | Inline origin guard blocks auth initialization; no pool requests. Host only after approved staging origin is configured |
 | S04 | Registration: short, missing uppercase/lowercase/number/special; `Password123` | Frontend rejects before SignUp call; clear shared requirements; no account/message created |
-| S05 | Unique compliant disposable registration | One SignUp to staging; only approved mailbox gets a verification code; no SMS; pending confirmation state |
+| S05 | Unique compliant disposable registration after approved self-sign-up window is enabled | One SignUp to staging; only approved mailbox gets a verification code; no SMS; pending confirmation state |
 | S06 | Missing/malformed/incorrect/expired confirmation code | Local validation or Cognito error; loader released; account remains unconfirmed; retry possible |
 | S07 | Resend code, cancellation/back | Only approved mailbox gets a bounded resend; errors handled; back clears confirmation/password state |
 | S08 | Valid confirmation | Real email ownership verified; account confirmed; return to login; no automatic identity migration |

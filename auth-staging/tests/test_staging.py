@@ -45,7 +45,8 @@ class Infrastructure(unittest.TestCase):
         self.assertNotIn('SmsConfiguration', self.pool)
         self.assertNotIn('LambdaConfig', self.pool)
         self.assertEqual(self.pool['UserAttributeUpdateSettings']['AttributesRequireVerificationBeforeUpdate'], ['email'])
-        self.assertFalse(self.pool['AdminCreateUserConfig']['AllowAdminCreateUserOnly'])
+        self.assertEqual(self.pool['AdminCreateUserConfig']['AllowAdminCreateUserOnly'], {'Fn::If': ['DisposableSignupEnabled', False, True]})
+        self.assertEqual(self.template['Parameters']['EnableDisposableSelfSignUp']['Default'], 'false')
         self.assertEqual(self.pool['EmailConfiguration']['EmailSendingAccount'], 'COGNITO_DEFAULT')
 
     def test_policy_and_public_srp_client(self):

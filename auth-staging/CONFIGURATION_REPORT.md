@@ -62,7 +62,7 @@ needed to run the prepared inspector in an authorized environment.
 | Tokens | Explicit 60-minute access/ID, 5-day refresh, 3-minute challenge session, revocation enabled |
 | Email | COGNITO_DEFAULT for small-volume tests; no SES identity/resources created |
 | Cost tier | Explicit LITE; no paid advanced threat protection or managed-login setup |
-| Safety | Account and region rules, deletion protection ACTIVE, Retain on delete/replacement for pool and client |
+| Safety | Account/region rules, deletion protection ACTIVE, Retain on delete/replacement; public self-sign-up disabled by default until separately approved |
 | Frontend | Separate generated copy, exact approved HTTPS origin, separate local-state key, no API or uploads; example disabled with null IDs |
 
 Username case-sensitivity is an explicit new-pool decision, not a discovered copy

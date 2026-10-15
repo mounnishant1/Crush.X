@@ -64,7 +64,7 @@ Use inline template-body (below), so no S3 upload/bucket is required.
 
 Fill a local copy of `infra/parameters.example.json`: approved account ID, owner
 label and reviewed cleanup date. Its shipped sentinel values deliberately fail
-CloudFormation constraints. Keep deletion protection ACTIVE. Validate that the
+CloudFormation constraints. Keep deletion protection ACTIVE and EnableDisposableSelfSignUp=false. Validate that the
 date is real and in the future; its regex/tag is not a cleanup scheduler.
 
 Optional read-only service syntax validation, if the authorized network supports it:
@@ -154,7 +154,13 @@ check cannot restrict direct callers of a public app client.
 
 ## 5. Approval D — disposable accounts and email/authentication tests
 
-Follow LIVE_TEST_MATRIX.md. Resource approval does not approve emails, SMS, user
+Follow LIVE_TEST_MATRIX.md. Public self-sign-up is disabled by default. After
+approval for exact recipients/accounts and email sending, review a staging-only
+UPDATE change set that changes only EnableDisposableSelfSignUp to true (one
+non-replacing pool Modify); execute only that approved change set. Close the
+registration window by setting it false again under the approved test/cleanup
+procedure. The execution role must not grant unapproved AdminCreateUser access.
+Resource approval does not approve emails, SMS, user
 creation, password changes or login/reset tests. Approve exact controlled recipients,
 account count, message budget, test window and evidence handling before any such
 action. No SMS is needed or configured. Never use the existing pool, existing
@@ -162,7 +168,8 @@ personal accounts, production identities or production passwords.
 
 ## 6. Rollback and teardown — separate approval required
 
-1. Stop or withdraw only the staging frontend under its own hosting approval;
+1. Disable staging self-sign-up again (EnableDisposableSelfSignUp=false via a
+   reviewed staging-only change set), then stop or withdraw only the staging frontend under its own hosting approval;
    do not alter production. Freeze live tests and collect sanitized evidence.
 2. If provisioning failed, inspect the stack's actual resource states/physical IDs
    with read-only calls first. Retain + deletion protection may leave resources on
@@ -175,7 +182,7 @@ personal accounts, production identities or production passwords.
    export/backup is required for disposable identities. Deletion is irreversible.
 5. Prepare and review a staging-only UPDATE change set using this same template,
    changing only StagingDeletionProtection from ACTIVE to INACTIVE and preserving
-   the other approved parameter values. Expect one non-replacing Modify to the
+   the other approved parameter values, including self-sign-up disabled. Expect one non-replacing Modify to the
    staging pool. Execute only after that change set is approved.
 6. An approved delete-stack retains both resources by design. To actually remove
    them, verify the new pool's ARN/account, exact name, tags and physical IDs again,

@@ -1,6 +1,22 @@
 [
-  {"ParameterKey": "ApprovedAccountId", "ParameterValue": "REPLACE_WITH_APPROVED_ACCOUNT_ID"},
-  {"ParameterKey": "OwnerLabel", "ParameterValue": "crushx-staging-owner"},
-  {"ParameterKey": "TestWindowEnd", "ParameterValue": "REPLACE_WITH_APPROVED_DATE"},
-  {"ParameterKey": "StagingDeletionProtection", "ParameterValue": "ACTIVE"}
+  {
+    "ParameterKey": "ApprovedAccountId",
+    "ParameterValue": "REPLACE_WITH_APPROVED_ACCOUNT_ID"
+  },
+  {
+    "ParameterKey": "OwnerLabel",
+    "ParameterValue": "crushx-staging-owner"
+  },
+  {
+    "ParameterKey": "TestWindowEnd",
+    "ParameterValue": "REPLACE_WITH_APPROVED_DATE"
+  },
+  {
+    "ParameterKey": "StagingDeletionProtection",
+    "ParameterValue": "ACTIVE"
+  },
+  {
+    "ParameterKey": "EnableDisposableSelfSignUp",
+    "ParameterValue": "false"
+  }
 ]

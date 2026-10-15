@@ -34,7 +34,8 @@ was never bypassed. No IAM identity was configured, guessed or switched to make
 the read-only requests succeed. The sanitized blocked inspection is included.
 
 Unit coverage includes production-ID rejection, no imports/shared references,
-password/MFA/recovery/token settings, no secret or SMS configuration, region/account
+password/MFA/recovery/token settings, default-closed public self-sign-up with an
+explicit test-window parameter, no secret or SMS configuration, region/account
 and retention guards, read-only inspection allowlisting, disabled example config,
 unsafe origin/API/secret/upload rejection, source drift and overwrite protection.
 The frontend guard browser cases use fabricated IDs and make no AWS requests.
