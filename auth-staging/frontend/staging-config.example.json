@@ -1,0 +1,11 @@
+{
+  "environment": "staging",
+  "region": "us-west-2",
+  "poolName": "crushx-auth-staging",
+  "userPoolId": null,
+  "clientId": null,
+  "approvedOrigin": null,
+  "approvedForLiveTesting": false,
+  "apiBaseUrl": null,
+  "uploadsEnabled": false
+}

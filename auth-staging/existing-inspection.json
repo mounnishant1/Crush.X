@@ -1,0 +1,13 @@
+{
+  "scope": "existing pool; read-only; NOT staging",
+  "pool": {
+    "status": "blocked",
+    "reason": "credentials unavailable",
+    "operation": "describe-user-pool"
+  },
+  "client": {
+    "status": "blocked",
+    "reason": "credentials unavailable",
+    "operation": "describe-user-pool-client"
+  }
+}
