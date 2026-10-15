@@ -74,7 +74,6 @@ namespace CrushX.LensEngine
         public int EstimatedRendererCount;
         public int EstimatedTriangles;
         public bool PerformanceMeasured;
-        public bool RequiresBuiltInPipeline;
 
         public LensManifest(string id, string name, LensCategory category, bool expressions, bool sceneProvided = false)
         {
@@ -87,7 +86,7 @@ namespace CrushX.LensEngine
             RequiredCapabilities = TrackingCapabilities.FacePose;
             OptionalCapabilities = expressions ? TrackingCapabilities.Expressions : TrackingCapabilities.None;
             Implementation = sceneProvided ? LensImplementation.Imported3D : LensImplementation.ProceduralPrototype;
-            Verification = LensVerification.SourceChecked;
+            Verification = LensVerification.NotTested;
             PreviewAssetPath = sceneProvided ? "Assets/CrushX/ImportedLenses/FoxMask/Model/FoxMask_Thumbnail.png" : string.Empty;
             EffectAssetReference = sceneProvided ? "Assets/CrushX/ImportedLenses/FoxMask/FoxMask_AR.prefab" : "procedural:" + id;
             Compatibility = "Requires an initialized face-pose provider; Android rendering not device-verified";
@@ -95,7 +94,6 @@ namespace CrushX.LensEngine
             EstimatedRendererCount = 0; // Unknown until imported/built; zero is not a measured budget.
             EstimatedTriangles = 0;
             PerformanceMeasured = false;
-            RequiresBuiltInPipeline = false;
         }
     }
 }

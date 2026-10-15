@@ -90,7 +90,7 @@ namespace CrushX.LensEngine
                     case "mostUsed":
                         reply.succeeded = engine.PersonalizationEnabled;
                         reply.matches = reply.succeeded ? Search(string.Empty, true) : Array.Empty<LensCommandMatch>();
-                        reply.message = reply.succeeded ? "Your consented local usage ranking" : "Enable Remember recent lenses on this device first";
+                        reply.message = reply.succeeded ? (reply.matches.Length > 0 ? "Your consented local usage ranking" : "No lens usage has been saved yet") : "Enable Remember recent lenses on this device first";
                         break;
                     case "select":
                         reply.succeeded = engine.SelectLens(command.lensId);
@@ -121,9 +121,11 @@ namespace CrushX.LensEngine
             if (engine == null) return matches.ToArray();
             query = (query ?? string.Empty).Trim();
             if (query.Length > 160 || query.IndexOf("trending", StringComparison.OrdinalIgnoreCase) >= 0) return matches.ToArray();
-            IReadOnlyList<LensManifest> order = usageOrder ? new LensPersonalization().Ranked() : engine.RankedLenses;
+            var preferences = new LensPersonalization();
+            IReadOnlyList<LensManifest> order = usageOrder ? preferences.Ranked() : engine.RankedLenses;
             foreach (LensManifest lens in order)
             {
+                if (usageOrder && preferences.UsageCount(lens.Id) == 0) continue;
                 if (!Matches(lens, query)) continue;
                 LensCompatibilityResult compatibility = engine.Compatibility(lens);
                 if (!compatibility.CanSelect) continue;

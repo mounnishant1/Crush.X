@@ -134,6 +134,12 @@ namespace CrushX.LensEngine
                 }
                 WaitingForMicrophonePermission = false;
                 if (!answered) { Fail("Microphone permission request timed out; please retry"); yield break; }
+                float focusDeadline = Time.realtimeSinceStartup + 3f;
+                while (!Application.isFocused && Time.realtimeSinceStartup < focusDeadline)
+                {
+                    yield return null;
+                    if (token != generation) yield break;
+                }
                 if (!Application.isFocused) { Fail("Recording cancelled because the app is not in the foreground"); yield break; }
                 audio = Permission.HasUserAuthorizedPermission(Permission.Microphone);
             }
