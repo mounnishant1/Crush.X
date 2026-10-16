@@ -1,6 +1,7 @@
 # Offline source handoff without a Git push
 
-16 October 2026. The development branch is local; the Windows workstation is not connected.
+16 October 2026. The Windows workstation is not connected. The approved development source is also shared through
+draft PR #4; [GITHUB-REVIEW-HANDOFF.md](GITHUB-REVIEW-HANDOFF.md) covers that simpler fetch path.
 A local Git bundle and tracked-source ZIP can carry the reviewed source to Windows without
 publishing a branch or modifying `F:\CrushX-Git\Crush.X`. Creating archives is not a Windows
 transfer, Unity compilation, Android build, device installation or physical acceptance result.

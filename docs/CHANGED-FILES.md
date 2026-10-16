@@ -2,9 +2,9 @@
 
 Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 
-This inventory includes the local continuation beyond remote PR #4 at `0843da3`, the 16 October verification-tooling follow-up and executable host C# checks. No further push was performed.
+This inventory includes the reviewed source continuation, executable host C# checks, and the authorized feature-branch/draft PR #4 handoff. Production, merge, deployment and publication remain excluded.
 
-104 files: 83 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
+105 files: 84 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
 
 | Change | File |
 | --- | --- |
@@ -100,6 +100,7 @@ This inventory includes the local continuation beyond remote PR #4 at `0843da3`,
 | A | `docs/ANDROID-VERIFICATION.md` |
 | A | `docs/CHANGED-FILES.md` |
 | A | `docs/FINAL-LENS-ENGINE-STATUS.md` |
+| A | `docs/GITHUB-REVIEW-HANDOFF.md` |
 | A | `docs/LOCAL-CONTINUATION.md` |
 | A | `docs/OFFLINE-SOURCE-HANDOFF.md` |
 | A | `docs/VERIFICATION-TOOLING-REVIEW.md` |

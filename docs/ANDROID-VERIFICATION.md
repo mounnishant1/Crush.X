@@ -6,14 +6,19 @@ Artifacts and caches below use `F:\CrushX-Temp`.
 
 No Windows remote runtime is connected. This Linux session has no Unity Editor, Android SDK,
 ADB, Windows drive or phone. None of the following Windows commands has been executed here.
-The latest continuation is local source work, **not pushed to PR #4**. Transfer/review that source
-before expecting these new scripts/features on Windows. See [OFFLINE-SOURCE-HANDOFF.md](OFFLINE-SOURCE-HANDOFF.md) for an isolated local-bundle import. The existing PR at `0843da3` does not
-contain this continuation. Do not run a build on an unidentified checkout.
+The reviewed source is available through draft PR #4 on branch
+`codex/crushx-final-lens-engine`. Use [GITHUB-REVIEW-HANDOFF.md](GITHUB-REVIEW-HANDOFF.md)
+to fetch it into a separate Windows review worktree without changing your existing checkout.
+[OFFLINE-SOURCE-HANDOFF.md](OFFLINE-SOURCE-HANDOFF.md) remains an alternative for a copied bundle.
+Do not build an unidentified checkout. User authorization now covers the feature-branch/PR update
+and a verified development APK installation on the named OnePlus. Installation has not occurred;
+there is no connected Windows runtime or phone here.
 
 These instructions compile/test/build and collect read-only evidence. They do not install an APK,
 clear logs/app data, delete files, force-stop apps, grant permissions, push Git, or deploy anything.
-Open the already installed application manually for reproduction. Testing a newly built APK on
-OnePlus requires separate installation authorization; an old installed APK cannot verify new repairs.
+Open the already installed application manually for reproduction. A newly built development APK may be installed only on the explicitly identified OnePlus using
+the guarded workflow after its Windows build and exact artifact identity are verified. No tool here
+can reach that phone; an old installed APK cannot verify new repairs.
 
 ## 1. Identify the Windows source and installed Editor
 
@@ -198,7 +203,7 @@ actual result. These gates are all **NOT RUN** for the new source in this sessio
 | Output integrity | Inspect actual PNG/MP4 dimensions, orientation/mirroring, readable frames, durations/audio tracks and A/V sync. No overlay UI baked into media. |
 | Performance | Record sustained real FPS/frame-time/memory/GC/battery/thermal behavior and recovery; probes alone are not measured acceptance. |
 
-After separately authorized installation of the reviewed test build, repeat these gates against that
+After guarded installation of the authorized, reviewed test build on the verified OnePlus, repeat these gates against that
 exact installed artifact. Preserve the existing working camera/carousel as independent regression
 gates. No success claim or release should precede that execution.
 

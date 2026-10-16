@@ -1,5 +1,7 @@
 # Verification tooling follow-up
 
+This records the local verification phases before the user authorized GitHub sharing. Current publication/installation status is in [FINAL-LENS-ENGINE-STATUS.md](FINAL-LENS-ENGINE-STATUS.md).
+
 16 October 2026. Continues local repair commit `3c8f637`. Nothing in this follow-up was pushed,
 installed on Android, deployed or published. No AWS production operation or user-file deletion
 was performed. The Windows runtime, Unity Editor, SDK/ADB and OnePlus remain unavailable here.
@@ -44,7 +46,7 @@ and checked against its published SHA256:
 `6f6015203c47806c5cc444c19d8ed019695e610fbd948154264bf9ca8e157561`.
 The confined toolchain and synthetic evidence are workspace-only and are not shipped as app assets.
 
-The authored Unity suites remain 81 EditMode and two PlayMode cases, **none executed**. There is
+The authored Unity suites remain 81 EditMode and two PlayMode cases, **none executed inside Unity**. The later host-only subset run is described below. There is
 no APK from this environment, no real captured media, no verified front-camera/face subsystem/Fox
 alignment and no measured device performance. Original failure root cause remains NOT ESTABLISHED.
 

@@ -1,6 +1,6 @@
 # Local continuation for review
 
-Historical source repair report for `3c8f637`; see [VERIFICATION-TOOLING-REVIEW.md](VERIFICATION-TOOLING-REVIEW.md) for the 16 October tooling follow-up.
+Historical source repair report for `3c8f637`, before authorized GitHub sharing. Current publication/installation status is in [FINAL-LENS-ENGINE-STATUS.md](FINAL-LENS-ENGINE-STATUS.md); see [VERIFICATION-TOOLING-REVIEW.md](VERIFICATION-TOOLING-REVIEW.md) for the 16 October tooling follow-up.
 
 15 October 2026. Based on the previously pushed draft PR #4 source `0843da3`.
 All changes described here are **local only**, in the isolated
