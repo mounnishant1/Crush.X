@@ -608,7 +608,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   faceManager: {fileID: 993956797}
   foxMaskPrefab: {fileID: 4233910717137563312, guid: 86000dbcb0697264da2f3968386e6cdc, type: 3}
-  enabledOnStart: 1
+  enabledOnStart: 0
 --- !u!4 &1641793209
 Transform:
   m_ObjectHideFlags: 0

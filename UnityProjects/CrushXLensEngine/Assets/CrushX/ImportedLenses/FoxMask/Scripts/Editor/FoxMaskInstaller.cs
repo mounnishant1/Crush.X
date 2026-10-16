@@ -32,7 +32,8 @@ namespace CrushX.ImportedLenses.Editor
                 return;
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null
+                ? Shader.Find("Standard") : Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             if (shader == null)
             {
@@ -82,7 +83,7 @@ namespace CrushX.ImportedLenses.Editor
             if (controller == null) controller = Undo.AddComponent<FoxMaskARLens>(bridge);
             Undo.RecordObject(controller, "Register Crush.X Fox Mask Lens");
             controller.foxMaskPrefab = prefab;
-            controller.enabledOnStart = true; // activate for first in-device smoke test
+            controller.enabledOnStart = false; // selection comes from the shared lens catalog
             controller.faceManager = Object.FindFirstObjectByType<ARFaceManager>(FindObjectsInactive.Include);
             EditorUtility.SetDirty(controller);
             Scene active = SceneManager.GetActiveScene();

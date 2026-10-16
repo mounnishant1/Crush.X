@@ -28,6 +28,16 @@ namespace CrushX.LensEngine
             if (e != null) CaptureManager.SavePhoto(e);
         }
         public void ExitCamera(string ignored) { NativeLensLifecycle.ExitToCrushX(); }
+        public void LensCommand(string json)
+        {
+            LensEngineBootstrap current = GetEngine();
+            if (current != null) current.GetComponent<LensWorkflowBridge>()?.HandleCommand(json);
+        }
+        public void AuraLensCommand(string text)
+        {
+            LensEngineBootstrap current = GetEngine();
+            if (current != null) current.GetComponent<LensWorkflowBridge>()?.HandleNaturalLanguage(text);
+        }
         public void ToggleFavorite(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
