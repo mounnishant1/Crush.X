@@ -52,3 +52,23 @@ See [ANDROID-VERIFICATION.md](ANDROID-VERIFICATION.md) for Windows build/read-on
 and acceptance gates, and [OFFLINE-SOURCE-HANDOFF.md](OFFLINE-SOURCE-HANDOFF.md) for a verifiable
 source transfer that does not push Git or alter the original Windows repository. Handoff preparation
 is separate from copying/executing it on Windows.
+
+## Further executable C# verification
+
+The final source-only pass found no confirmed AR/Fox startup, provider, attachment or scene-reference
+defect warranting another camera/XR configuration change. The Windows/OnePlus access limit persists.
+
+`tools/check_ar_classifier.ps1` now compiles the unchanged application `ARDiagnosticClassifier.cs`
+and existing `ARDiagnosticClassifierTests.cs`, using Roslyn in PowerShell 7.4.6/.NET 8.0.10 plus
+NUnitLite 3.13.3. All **11 existing NUnit cases passed** on Linux, with zero failures/skips/inconclusive
+cases. This is actual C# compilation/execution of those two files, without Unity DLLs or Unity stubs.
+The cases cover unanswered/denied permission, loader readiness, requested/current camera mismatch,
+face loss/recovery, world-session independence, service messages and renderer failures. They do not
+initialize a camera or prove which branch the real OnePlus takes.
+
+The helper preserves source SHA256 values, runtime/OS, full NUnit XML and `host-summary.json` in a
+unique run directory. A separate copy with one deliberately failing assertion correctly returned
+nonzero and recorded 10 passes/one failure; the repository fixture was unchanged. Independent
+review found no material false-pass path. These 11 cases are a subset of the 81 authored EditMode
+cases and must not be added again to the authored-test total. All Unity runner/device gates remain
+unexecuted. The supplied NuGet dependencies are confined host tools, never Android assets.

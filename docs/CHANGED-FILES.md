@@ -2,9 +2,9 @@
 
 Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 
-This inventory includes the local continuation beyond remote PR #4 at `0843da3` and the 16 October verification-tooling follow-up. No further push was performed.
+This inventory includes the local continuation beyond remote PR #4 at `0843da3`, the 16 October verification-tooling follow-up and executable host C# checks. No further push was performed.
 
-103 files: 82 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
+104 files: 83 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
 
 | Change | File |
 | --- | --- |
@@ -108,6 +108,7 @@ This inventory includes the local continuation beyond remote PR #4 at `0843da3` 
 | A | `tests/test_powershell_tools.ps1` |
 | M | `tests/test_unity_source.py` |
 | A | `tools/check_android_media_java.py` |
+| A | `tools/check_ar_classifier.ps1` |
 | A | `tools/collect_android_evidence.ps1` |
 | A | `tools/collect_android_evidence.py` |
 | A | `tools/run_unity_checks.ps1` |

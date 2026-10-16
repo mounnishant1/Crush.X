@@ -150,19 +150,23 @@ Camera switching and flash controls remain unimplemented rather than exposing in
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Python source/asset suite | PASS | 15 cases; 46 C# files parsed under six define configurations (including Android development and Android-target Editor), asset/GUID/build-scene/dependency checks. No Unity type resolution or compilation. |
+| Pure C# AR classifier | PASS | Original classifier and existing NUnit fixture compiled with Roslyn on .NET 8.0.10; all 11 existing cases passed on Linux using NUnitLite 3.13.3. No Unity references, stubs, XR or Android execution. |
 | Python evidence/guard/timeout suite | PASS | 20 cases with subprocess/device mocks; verifies no default device writes, exact package/build checks, raw error retention and finite capture. |
 | Java compilation | PASS | ECJ Java 8 target against Android API34 classes. Three explicit YUV color-format deprecation warnings remain. Not an APK/Gradle build. |
 | Pure JVM RGBA/YUV tests | PASS | 8 conversion/chroma/row-orientation cases; no Android codec executed. |
 | Patch whitespace and metadata | PASS | Complete diff whitespace check and asset meta/GUID checks. Existing asset metadata and model/prefab bytes preserved. |
-| Unity import/typecheck/EditMode | BLOCKED | Editor/license/toolchain unavailable; 81 EditMode cases defined, none executed. |
+| Unity import/typecheck/EditMode | BLOCKED | Editor/license/toolchain unavailable; 81 EditMode cases defined; none run inside Unity. The 11 platform-independent classifier cases separately ran on host .NET. |
 | Unity PlayMode | BLOCKED | 2 coroutine lifecycle cases defined, none executed. |
-| PowerShell tooling | PARTIAL | Two tools and documented command blocks parsed under PowerShell 7.4.6 on Linux; six synthetic XML cases passed. Windows/F: runner execution remains untested. |
+| PowerShell tooling | PARTIAL | Four scripts and eight documented command blocks parsed under PowerShell 7.4.6 on Linux; six synthetic XML cases passed. Windows/F: runner execution remains untested. |
 | Android Gradle/APK/merged manifest | BLOCKED | Unity Android Build Support/SDK unavailable. No APK path or installed build exists from this work. |
 | OnePlus camera/tracking/Fox/input/lifecycle | BLOCKED | No connected device/ADB; exact hardware model ID, OxygenOS and installed AR service/build details unknown. |
 | Real captured PNG/MP4, ffprobe/playback/audio | BLOCKED | No camera/native runtime output exists to inspect. ffprobe presence does not establish media success. |
 | Sustained FPS/memory/thermal | BLOCKED | No real player/device run or profiler measurement. |
 
-Host tests total **35 passed**, not a sum inflated by rerunning them. Java cases are separately 8.
+Python host tests total **35 passed**, not a sum inflated by rerunning them. The **11 C# classifier cases**
+are an existing subset of the 81 authored EditMode cases, not 11 additional authored tests. Java cases
+are separately 8. A deliberate failing classifier-fixture copy verified nonzero failure reporting; the
+repository fixture was not altered.
 No Unity or physical acceptance result has been converted into PASS.
 
 ## Feature-status matrix

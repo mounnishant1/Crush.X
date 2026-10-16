@@ -211,3 +211,26 @@ if ($LASTEXITCODE -ne 0) { throw 'PowerShell result-reader tests failed.' }
 
 These six checks use synthetic XML without starting Unity or ADB. They were executed with
 PowerShell 7.4.6 on Linux; Windows PowerShell 5.1 and the actual Unity runner remain unverified.
+
+## Optional platform-independent C# classifier check
+
+The existing classifier/fixture can be compiled and executed without Unity using PowerShell 7's
+Roslyn compiler and official NuGet `NUnit`/`NUnitLite` **3.13.3**, taking their
+`lib/netstandard2.0/nunit.framework.dll` and `lib/netstandard2.0/nunitlite.dll` files. This helper
+does not download/install dependencies or start Unity, ADB or any network operation. Its PowerShell 7
+requirement does not change the Windows PowerShell 5.1 support of the Unity build runner.
+
+```powershell
+$pwsh = Read-Host 'Full path to an installed PowerShell 7 pwsh.exe'
+$framework = Read-Host 'Full path to NuGet NUnit 3.13.3 netstandard2.0 nunit.framework.dll'
+$lite = Read-Host 'Full path to NuGet NUnitLite 3.13.3 netstandard2.0 nunitlite.dll'
+& $pwsh -NoProfile -File (Join-Path $repo 'tools/check_ar_classifier.ps1') `
+    -Repository $repo -NUnitFramework $framework -NUnitLite $lite `
+    -Artifacts 'F:\CrushX-Temp\ClassifierHostChecks'
+if ($LASTEXITCODE -ne 0) { throw 'Host classifier compilation or tests failed.' }
+```
+
+This ran successfully on Linux here: 11 existing cases, zero skipped. Evidence includes full NUnit
+XML, source hashes and runtime metadata. A failure-injection copy also correctly failed. None of
+these results is Unity compilation, a new authored test count, an ARCore initialization test or
+real-device acceptance. Original OnePlus root cause remains unestablished.
