@@ -2,9 +2,9 @@
 
 Baseline: `446459fec20103fc007d38268ab763a7e9b3939d`.
 
-This inventory includes the local continuation beyond remote PR #4 at `0843da3`. No further push was performed.
+This inventory includes the local continuation beyond remote PR #4 at `0843da3` and the 16 October verification-tooling follow-up. No further push was performed.
 
-100 files: 79 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
+103 files: 82 added, 21 modified, 0 deleted. New Unity assets include stable metadata.
 
 | Change | File |
 | --- | --- |
@@ -101,8 +101,11 @@ This inventory includes the local continuation beyond remote PR #4 at `0843da3`.
 | A | `docs/CHANGED-FILES.md` |
 | A | `docs/FINAL-LENS-ENGINE-STATUS.md` |
 | A | `docs/LOCAL-CONTINUATION.md` |
+| A | `docs/OFFLINE-SOURCE-HANDOFF.md` |
+| A | `docs/VERIFICATION-TOOLING-REVIEW.md` |
 | A | `tests/native_media/CrushXMediaRecorderTests.java` |
 | A | `tests/test_android_evidence.py` |
+| A | `tests/test_powershell_tools.ps1` |
 | M | `tests/test_unity_source.py` |
 | A | `tools/check_android_media_java.py` |
 | A | `tools/collect_android_evidence.ps1` |

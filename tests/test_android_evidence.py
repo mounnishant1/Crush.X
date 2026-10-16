@@ -1,5 +1,6 @@
 """Host-side collector safety and evidence parsing; no Android or Unity behavior claims."""
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -114,7 +115,7 @@ class ArtifactAndTimeoutTests(unittest.TestCase):
         def fake_capture(command, path, seconds):
             commands.append(command)
             path.write_text("[CrushXAR] outcome=Tracking faces=1")
-            return {"exitCode": 0, "requestedSeconds": seconds}
+            return {"exitCode": 0, "requestedSeconds": seconds, "completedWindow": True}
 
         with tempfile.TemporaryDirectory() as directory:
             args = SimpleNamespace(adb="adb", install=False, apk=None, build_info=None, serial="test-serial",
@@ -135,8 +136,12 @@ class ArtifactAndTimeoutTests(unittest.TestCase):
             if "logcat" in command:
                 self.assertNotIn("-c", command)
         self.assertTrue(any("resolve-activity" in command for command in commands))
-        permission_command = next(command for command in commands if "check-permission" in command)
-        self.assertEqual(permission_command[-1], "10", "Camera permission must use the observed Android user, not assume owner 0")
+        self.assertFalse(any("check-permission" in command for command in commands), "Do not use the unsupported AOSP package shell command")
+        permission = result["probes"]["cameraPermission"]
+        self.assertEqual(permission["androidForegroundUser"], "10")
+        self.assertEqual(permission["status"], "NOT_INTERPRETED")
+        self.assertEqual(permission["sourceProbes"], ["appPackage", "cameraAppOps"])
+        self.assertIn("runtime grant", permission["reason"])
 
     def test_build_identity_must_be_in_the_apk_not_merely_a_sidecar(self):
         info = {"commitSha": "a" * 40, "buildId": "build-identity-001"}
@@ -175,6 +180,74 @@ class ArtifactAndTimeoutTests(unittest.TestCase):
         process.kill.assert_not_called()
         self.assertEqual(process.wait.call_args_list, [mock.call(timeout=3), mock.call(timeout=5)])
         self.assertEqual(result["requestedSeconds"], 3)
+        self.assertTrue(result["completedWindow"])
+        self.assertEqual(result["terminationReason"], "deadline")
+
+    def test_logcat_early_exit_is_incomplete_even_with_zero_exit_code_and_preserves_errors(self):
+        for exit_code in (0, 1):
+            with self.subTest(exit_code=exit_code), tempfile.TemporaryDirectory() as directory:
+                process = mock.Mock()
+                process.wait.return_value = exit_code
+                error_bytes = b"adb: device disconnected\n" * 4096
+
+                def fake_popen(command, stdout, stderr):
+                    stdout.write(b"partial native output\n")
+                    stderr.write(error_bytes)
+                    return process
+
+                path = Path(directory) / "logcat-live.txt"
+                with mock.patch.object(evidence.subprocess, "Popen", side_effect=fake_popen), \
+                        mock.patch.object(evidence.time, "monotonic", side_effect=[10.0, 10.25]):
+                    result = evidence.capture_logcat(["adb", "logcat"], path, 3)
+                self.assertFalse(result["completedWindow"])
+                self.assertEqual(result["terminationReason"], "process-exited-before-deadline")
+                self.assertEqual(result["exitCode"], exit_code)
+                self.assertEqual(result["elapsedSeconds"], .25)
+                self.assertEqual(path.read_bytes(), b"partial native output\n")
+                self.assertEqual(path.with_suffix(".stderr.txt").read_bytes(), error_bytes)
+                process.terminate.assert_not_called()
+                process.kill.assert_not_called()
+
+    def test_incomplete_live_capture_fails_collection_after_saving_partial_evidence(self):
+        for exit_code in (0, 1):
+            with self.subTest(exit_code=exit_code), tempfile.TemporaryDirectory() as directory:
+                args = SimpleNamespace(adb="adb", install=False, apk=None, build_info=None, serial="test-serial",
+                                       expected_model=None, package="in.crushx.lens.pr3test", manifest_tool=None,
+                                       output=Path(directory) / "capture", seconds=3)
+
+                def fake_run(command, timeout=20):
+                    stdout = "List of devices attached\ntest-serial device\n" if "devices" in command else ""
+                    return {"exitCode": 0, "stdout": stdout, "stderr": ""}
+
+                def fake_capture(command, path, seconds):
+                    path.write_text("[CrushXAR] outcome=SubsystemStopped")
+                    path.with_suffix(".stderr.txt").write_text("adb: device disconnected\n")
+                    return {"exitCode": exit_code, "requestedSeconds": seconds, "completedWindow": False,
+                            "terminationReason": "process-exited-before-deadline"}
+
+                with mock.patch.object(evidence.shutil, "which", return_value="adb"), \
+                        mock.patch.object(evidence, "run", side_effect=fake_run), \
+                        mock.patch.object(evidence, "capture_logcat", side_effect=fake_capture), \
+                        mock.patch.object(evidence.subprocess, "run", return_value=SimpleNamespace(returncode=0)), \
+                        self.assertRaisesRegex(ValueError, "capture is incomplete"):
+                    evidence.collect(args)
+                saved = json.loads((args.output / "evidence.json").read_text())
+                self.assertFalse(saved["logcatCapture"]["completedWindow"])
+                self.assertIn("capture is incomplete", saved["collectorError"])
+                self.assertIn("finishedUtc", saved)
+                self.assertEqual(saved["acceptance"], "NOT TESTED")
+                self.assertEqual(saved["probes"]["cameraPermission"]["status"], "BLOCKED")
+                self.assertIsNone(saved["probes"]["cameraPermission"]["androidForegroundUser"])
+                self.assertIn("device disconnected", (args.output / "logcat-live.stderr.txt").read_text())
+                self.assertTrue((args.output / "logcat-analysis.json").is_file())
+
+    def test_incomplete_collection_propagates_nonzero_cli_exit(self):
+        with mock.patch.object(evidence, "collect", side_effect=ValueError("capture is incomplete")), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as errors, \
+                self.assertRaises(SystemExit) as raised:
+            evidence.main(["--serial", "test-serial"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("capture is incomplete", errors.getvalue())
 
     def test_aapt2_inspection_preserves_badging_and_full_manifest_tree(self):
         with mock.patch.object(evidence, "run", side_effect=[

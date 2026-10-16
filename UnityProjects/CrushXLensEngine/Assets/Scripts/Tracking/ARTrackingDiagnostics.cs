@@ -49,6 +49,8 @@ namespace CrushX.LensEngine
         private string supportedConfigurations = "not queried";
         private bool configurationsQueried;
         private string configurationCamera;
+        private XRCameraSubsystem configurationSubsystem;
+        private bool applicationPaused;
         private readonly StringBuilder faceStates = new StringBuilder();
         private readonly HashSet<string> collectionErrors = new HashSet<string>();
 
@@ -107,8 +109,23 @@ namespace CrushX.LensEngine
         }
 
         private void OnDestroy() { if (Instance == this) Instance = null; }
-        private void OnApplicationPause(bool paused) { RecordLifecycle(paused ? "paused" : "resumed"); nextSample = 0; }
-        private void OnApplicationFocus(bool focused) { RecordLifecycle(focused ? "focused" : "unfocused"); nextSample = 0; }
+        private void OnApplicationPause(bool paused)
+        {
+            RecordLifecycle(paused ? "paused" : "resumed");
+            nextSample = 0;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            applicationPaused = paused;
+            InvalidateCameraConfigurations(paused ? "application paused" : "application resumed");
+#endif
+        }
+        private void OnApplicationFocus(bool focused)
+        {
+            RecordLifecycle(focused ? "focused" : "unfocused");
+            nextSample = 0;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (focused) InvalidateCameraConfigurations("application focused");
+#endif
+        }
         private void SceneLoaded(Scene scene, LoadSceneMode mode) { RecordLifecycle("sceneLoaded:" + scene.name + ":" + mode); nextSample = 0; }
         private void SessionStateChanged(ARSessionStateChangedEventArgs args) { nextSample = 0; }
 
@@ -121,11 +138,14 @@ namespace CrushX.LensEngine
             CurrentTrackingOutcome = ARDiagnosticClassifier.Classify(LastObservation);
             RefreshOutcome();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (applicationPaused) return;
             string signature = CurrentOutcome + "|" + ARSession.state + "|" + ARSession.notTrackingReason + "|" +
                 LastObservation.Permission + "|" + LastObservation.LoaderPresent + "|" + LastObservation.LoaderInitializationComplete + "|" +
                 LastObservation.CameraPresent + "|" + LastObservation.CameraRunning + "|" + LastObservation.CurrentCamera + "|" +
                 LastObservation.FaceSubsystemPresent + "|" + LastObservation.FaceSubsystemRunning + "|" + faceStates;
-            bool changed = signature != lastSignature;
+            bool cameraConfigurationChanged = !ReferenceEquals(configurationSubsystem, cameraManager == null ? null : cameraManager.subsystem) ||
+                configurationCamera != (cameraManager == null ? "none" : cameraManager.currentFacingDirection.ToString());
+            bool changed = signature != lastSignature || cameraConfigurationChanged;
             bool periodic = Time.realtimeSinceStartup >= nextSnapshot && periodicSnapshots < 12;
             if (changed || periodic)
             {
@@ -330,6 +350,16 @@ namespace CrushX.LensEngine
 #endif
         }
 
+        private void InvalidateCameraConfigurations(string reason)
+        {
+            configurationsQueried = false;
+            configurationCamera = null;
+            configurationSubsystem = null;
+            supportedConfigurations = "not queried (" + reason + ")";
+            // Resume/focus must produce one fresh snapshot even after the periodic budget is exhausted.
+            lastSignature = null;
+        }
+
         private void WriteSnapshot(string eventName)
         {
             try
@@ -340,20 +370,31 @@ namespace CrushX.LensEngine
                 var faces = faceManager == null ? null : faceManager.subsystem;
                 var nativeSession = session == null ? null : session.subsystem;
                 string currentCamera = cameraManager == null ? "none" : cameraManager.currentFacingDirection.ToString();
-                if (camera != null && camera.running && (!configurationsQueried || configurationCamera != currentCamera))
+                if (!ReferenceEquals(configurationSubsystem, camera) || configurationCamera != currentCamera)
                 {
-                    configurationsQueried = true;
+                    configurationsQueried = false;
+                    configurationSubsystem = camera;
                     configurationCamera = currentCamera;
+                    supportedConfigurations = "not queried (camera subsystem or direction changed)";
+                }
+                // Retry incomplete startup observations only when a bounded snapshot is already being written.
+                if (!applicationPaused && camera != null && camera.running && !configurationsQueried)
+                {
                     try
                     {
                         using (var configurations = cameraManager.GetConfigurations(Allocator.Temp))
                         {
                             var text = new StringBuilder();
                             foreach (var configuration in configurations) text.Append(configuration).Append(';');
-                            supportedConfigurations = text.Length == 0 ? "none reported" : text.ToString();
+                            configurationsQueried = configurations.Length > 0;
+                            supportedConfigurations = configurationsQueried ? text.ToString() : "none reported (will retry on a later diagnostic snapshot)";
                         }
                     }
-                    catch (Exception e) { supportedConfigurations = "query unavailable: " + e.GetType().Name; }
+                    catch (Exception e)
+                    {
+                        configurationsQueried = false;
+                        supportedConfigurations = "query unavailable: " + e.GetType().Name + " (will retry on a later diagnostic snapshot)";
+                    }
                 }
                 string descriptors = "session not running";
                 if (nativeSession != null && nativeSession.running)

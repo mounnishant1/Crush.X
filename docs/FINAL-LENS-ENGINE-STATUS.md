@@ -1,10 +1,11 @@
 # Crush.X native lens engineering status
 
-15 October 2026. Branch: `codex/crushx-final-lens-engine`.
+16 October 2026. Branch: `codex/crushx-final-lens-engine`.
 
 This is an implemented **development candidate**, not a production-ready release.
 The latest continuation is local only; PR #4 remains at `0843da3`. No further Git push or
-APK installation is authorized for this round. See [LOCAL-CONTINUATION.md](LOCAL-CONTINUATION.md). The OnePlus
+APK installation is authorized for this round. See [LOCAL-CONTINUATION.md](LOCAL-CONTINUATION.md) and
+[VERIFICATION-TOOLING-REVIEW.md](VERIFICATION-TOOLING-REVIEW.md). The OnePlus
 back-camera/face-tracking failure has **not** been reproduced or assigned an exact native failure
 reason in this environment. Physical acceptance remains blocked. No production AWS, API, auth,
 database, upload, store deployment, merge, or user-content publication was performed.
@@ -149,19 +150,19 @@ Camera switching and flash controls remain unimplemented rather than exposing in
 | Check | Status | Evidence |
 | --- | --- | --- |
 | Python source/asset suite | PASS | 15 cases; 46 C# files parsed under six define configurations (including Android development and Android-target Editor), asset/GUID/build-scene/dependency checks. No Unity type resolution or compilation. |
-| Python evidence/guard/timeout suite | PASS | 17 cases with subprocess/device mocks; verifies no default device writes, exact package/build checks, raw error retention and finite capture. |
+| Python evidence/guard/timeout suite | PASS | 20 cases with subprocess/device mocks; verifies no default device writes, exact package/build checks, raw error retention and finite capture. |
 | Java compilation | PASS | ECJ Java 8 target against Android API34 classes. Three explicit YUV color-format deprecation warnings remain. Not an APK/Gradle build. |
 | Pure JVM RGBA/YUV tests | PASS | 8 conversion/chroma/row-orientation cases; no Android codec executed. |
 | Patch whitespace and metadata | PASS | Complete diff whitespace check and asset meta/GUID checks. Existing asset metadata and model/prefab bytes preserved. |
 | Unity import/typecheck/EditMode | BLOCKED | Editor/license/toolchain unavailable; 81 EditMode cases defined, none executed. |
 | Unity PlayMode | BLOCKED | 2 coroutine lifecycle cases defined, none executed. |
-| Windows PowerShell runner | NOT TESTED | Target Windows/F: environment unavailable. |
+| PowerShell tooling | PARTIAL | Two tools and documented command blocks parsed under PowerShell 7.4.6 on Linux; six synthetic XML cases passed. Windows/F: runner execution remains untested. |
 | Android Gradle/APK/merged manifest | BLOCKED | Unity Android Build Support/SDK unavailable. No APK path or installed build exists from this work. |
 | OnePlus camera/tracking/Fox/input/lifecycle | BLOCKED | No connected device/ADB; exact hardware model ID, OxygenOS and installed AR service/build details unknown. |
 | Real captured PNG/MP4, ffprobe/playback/audio | BLOCKED | No camera/native runtime output exists to inspect. ffprobe presence does not establish media success. |
 | Sustained FPS/memory/thermal | BLOCKED | No real player/device run or profiler measurement. |
 
-Host tests total **32 passed**, not a sum inflated by rerunning them. Java cases are separately 8.
+Host tests total **35 passed**, not a sum inflated by rerunning them. Java cases are separately 8.
 No Unity or physical acceptance result has been converted into PASS.
 
 ## Feature-status matrix

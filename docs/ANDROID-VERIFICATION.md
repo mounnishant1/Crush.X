@@ -1,13 +1,13 @@
 # Windows and OnePlus verification handoff
 
-15 October 2026. Windows 11 HP ZBook repository: `F:\CrushX-Git\Crush.X`.
+16 October 2026. Windows 11 HP ZBook repository: `F:\CrushX-Git\Crush.X`.
 Unity project: `F:\CrushX-Git\Crush.X\UnityProjects\CrushXLensEngine`.
 Artifacts and caches below use `F:\CrushX-Temp`.
 
 No Windows remote runtime is connected. This Linux session has no Unity Editor, Android SDK,
 ADB, Windows drive or phone. None of the following Windows commands has been executed here.
 The latest continuation is local source work, **not pushed to PR #4**. Transfer/review that source
-before expecting these new scripts/features on Windows. The existing PR at `0843da3` does not
+before expecting these new scripts/features on Windows. See [OFFLINE-SOURCE-HANDOFF.md](OFFLINE-SOURCE-HANDOFF.md) for an isolated local-bundle import. The existing PR at `0843da3` does not
 contain this continuation. Do not run a build on an unidentified checkout.
 
 These instructions compile/test/build and collect read-only evidence. They do not install an APK,
@@ -58,7 +58,9 @@ a nonempty passing EditMode suite, optional PlayMode, and optional development A
 Unity process has a finite timeout (45 minutes by default). The runner creates a unique evidence
 folder and restores process environment values. TEMP/TMP, Gradle, UPM and GI overrides use F:.
 Project Library/Temp remain within the F: project; this does not relocate all global Editor caches.
-Headless graphics-dependent tests can be skipped: inspect the XML skipped count, and run those
+The runner prints passed/failed/skipped/inconclusive counts and writes `test-summary.json`.
+Empty, entirely skipped, failed, missing or malformed results are rejected. Headless graphics-dependent
+tests can be skipped: inspect the XML skipped count, and run those
 material/shader tests in a graphics-capable Editor before recording them as passing.
 
 The APK entry is `CrushX.LensEngine.Editor.CrushXAndroidBuild.DevelopmentApk`. Only isolated
@@ -135,9 +137,16 @@ The collector saves a pre-run full Logcat snapshot, then full unfiltered live Lo
 logs. It records actual device/OS/AR-service versions, installed package, resolved launch activity,
 permission/app-op, memory/gfx observations, and pulls/hashes the installed base APK read-only.
 Merged-manifest inspection is recorded when a manifest tool is available. Failed probes remain
-failures; missing tools do not turn into passing checks. The camera permission probe uses the
-observed foreground Android user, without a user-0 fallback. For work/managed profiles, corroborate
-package per-user states and the actual app process user before attributing a grant failure.
+failures; missing tools do not turn into passing checks. There is no portable AOSP
+`cmd package check-permission` command, so the collector does not invoke it. `cameraPermission` is
+explicitly NOT_INTERPRETED/BLOCKED: inspect raw `dumpsys package` per-user runtime permissions and
+app-level permission diagnostics. The observed foreground Android user is context, with no user-0
+fallback. App-ops alone is not a runtime grant. For work/managed profiles, corroborate package
+per-user states and the actual app process user before attributing a grant failure.
+
+A Logcat process exiting before the requested window, even with exit code zero, is an incomplete
+capture. The collector returns a failure and preserves partial stdout, full stderr, analysis and
+evidence. Reaching the finite deadline and stopping only that local ADB client is the expected end.
 
 If manifest inspection is needed for a separately built APK, rerun with `-Apk $apk` and the confirmed
 `-ManifestTool 'EXACT\PATH\aapt2.exe'`. This records supplied/installed hashes and their comparison.
@@ -192,3 +201,13 @@ actual result. These gates are all **NOT RUN** for the new source in this sessio
 After separately authorized installation of the reviewed test build, repeat these gates against that
 exact installed artifact. Preserve the existing working camera/carousel as independent regression
 gates. No success claim or release should precede that execution.
+
+## Host-only PowerShell result checks
+
+```powershell
+powershell.exe -NoProfile -File (Join-Path $repo 'tests\test_powershell_tools.ps1') -Repository $repo
+if ($LASTEXITCODE -ne 0) { throw 'PowerShell result-reader tests failed.' }
+```
+
+These six checks use synthetic XML without starting Unity or ADB. They were executed with
+PowerShell 7.4.6 on Linux; Windows PowerShell 5.1 and the actual Unity runner remain unverified.

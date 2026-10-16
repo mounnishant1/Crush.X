@@ -1,5 +1,7 @@
 # Local continuation for review
 
+Historical source repair report for `3c8f637`; see [VERIFICATION-TOOLING-REVIEW.md](VERIFICATION-TOOLING-REVIEW.md) for the 16 October tooling follow-up.
+
 15 October 2026. Based on the previously pushed draft PR #4 source `0843da3`.
 All changes described here are **local only**, in the isolated
 `codex/crushx-final-lens-engine` worktree. No further Git push, device installation, deletion of
@@ -86,8 +88,9 @@ physical acceptance gates. The runner uses F:\CrushX-Temp cache/output defaults 
 folders, verifies the selected Editor version before opening the project, and builds only a separate
 development package. The new PowerShell evidence wrapper requires explicit device serial/package,
 checks Python 3.10+, discovers installed tools or accepts explicit paths, and has no installation path.
-The collector observes the foreground Android user for its permission probe, records uncertainty
-instead of assuming user 0, and retains package per-user/app-op evidence for profile corroboration.
+The collector retains the observed foreground Android user and raw package per-user/app-op
+evidence for profile corroboration. The follow-up removes the unsupported dedicated permission
+shell command and leaves grant interpretation explicit, rather than guessing a profile grant.
 
 No command in the handoff installs an APK, deletes data/logs/files, pushes Git, or deploys anything.
 The currently installed build can supply failure evidence but cannot verify newly repaired code.

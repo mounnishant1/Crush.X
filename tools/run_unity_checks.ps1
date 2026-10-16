@@ -56,6 +56,31 @@ function Invoke-Unity([string]$Stage, [string[]]$Extra) {
     if ($process.ExitCode -ne 0) { throw "Unity $Stage failed (exit $($process.ExitCode)); see $log." }
 }
 
+function Read-UnityTestSummary([string]$Stage, [string]$Path) {
+    if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Unity returned without $Stage results: $Path" }
+    [xml]$results = Get-Content -LiteralPath $Path -Raw
+    $root = $results.DocumentElement
+    $cases = [int]$root.GetAttribute('testcasecount')
+    $passed = [int]$root.GetAttribute('passed')
+    $failed = [int]$root.GetAttribute('failed')
+    return [pscustomobject]@{
+        stage = $Stage; result = $root.GetAttribute('result'); cases = $cases
+        passed = $passed; failed = $failed; skipped = [int]$root.GetAttribute('skipped')
+        inconclusive = [int]$root.GetAttribute('inconclusive'); resultsPath = $Path
+        accepted = ($cases -gt 0 -and $passed -gt 0 -and $failed -eq 0 -and $root.GetAttribute('result') -eq 'Passed')
+    }
+}
+
+function Confirm-UnityTests([string]$Stage, [string]$Path) {
+    $summary = Read-UnityTestSummary -Stage $Stage -Path $Path
+    $testSummaries[$Stage] = $summary
+    $testSummaries | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'test-summary.json') -Encoding utf8
+    Write-Host "$Stage results: passed=$($summary.passed), failed=$($summary.failed), skipped=$($summary.skipped), inconclusive=$($summary.inconclusive)"
+    if (!$summary.accepted) { throw "$Stage suite is empty, entirely skipped, or failing; see $Path." }
+}
+
+$testSummaries = @{}
+
 try {
     $env:TEMP = $tempDirectory
     $env:TMP = $tempDirectory
@@ -69,17 +94,10 @@ try {
     & git -C $Repository status --short | Out-File -LiteralPath (Join-Path $output 'source-status.txt') -Encoding utf8
     Invoke-Unity -Stage 'import-compile' -Extra @('-quit')
     Invoke-Unity -Stage 'editmode' -Extra @('-runTests', '-testPlatform', 'EditMode', '-testResults', (Join-Path $output 'editmode.xml'))
-    if (!(Test-Path -LiteralPath (Join-Path $output 'editmode.xml'))) { throw 'Unity returned without EditMode results.' }
-    [xml]$testResults = Get-Content -LiteralPath (Join-Path $output 'editmode.xml') -Raw
-    $testRoot = $testResults.DocumentElement
-    if ([int]$testRoot.GetAttribute('testcasecount') -lt 1 -or [int]$testRoot.GetAttribute('failed') -gt 0 -or $testRoot.GetAttribute('result') -ne 'Passed') {
-        throw 'EditMode results did not verify a nonempty, passing test suite.'
-    }
+    Confirm-UnityTests -Stage 'EditMode' -Path (Join-Path $output 'editmode.xml')
     if ($RunPlayMode) {
         Invoke-Unity -Stage 'playmode' -Extra @('-runTests', '-testPlatform', 'PlayMode', '-testResults', (Join-Path $output 'playmode.xml'))
-        if (!(Test-Path -LiteralPath (Join-Path $output 'playmode.xml'))) { throw 'Unity returned without PlayMode results.' }
-        [xml]$playResults = Get-Content -LiteralPath (Join-Path $output 'playmode.xml') -Raw
-        if ([int]$playResults.DocumentElement.GetAttribute('testcasecount') -lt 1 -or $playResults.DocumentElement.GetAttribute('result') -ne 'Passed') { throw 'PlayMode suite missing, empty or failing.' }
+        Confirm-UnityTests -Stage 'PlayMode' -Path (Join-Path $output 'playmode.xml')
     }
     if ($BuildAndroid) {
         Invoke-Unity -Stage 'android-build' -Extra @('-quit', '-executeMethod', 'CrushX.LensEngine.Editor.CrushXAndroidBuild.DevelopmentApk',

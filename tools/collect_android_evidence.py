@@ -175,18 +175,28 @@ def file_sha256(path: Path) -> str:
 def capture_logcat(command: list[str], path: Path, seconds: int) -> dict:
     """Collect every buffer for a finite deadline; terminate only the local adb client."""
     started = time.monotonic()
+    completed_window = False
     with path.open("wb") as output, path.with_suffix(".stderr.txt").open("wb") as errors:
         process = subprocess.Popen(command, stdout=output, stderr=errors)
         try:
             code = process.wait(timeout=seconds)
         except subprocess.TimeoutExpired:
+            # Streaming Logcat should remain connected until our deadline. A process
+            # that exits first (even with code 0) did not capture the requested window.
+            completed_window = True
             process.terminate()
             try:
                 code = process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
                 code = process.wait(timeout=5)
-        return {"exitCode": code, "requestedSeconds": seconds, "elapsedSeconds": round(time.monotonic() - started, 3)}
+        return {
+            "exitCode": code, "requestedSeconds": seconds,
+            "elapsedSeconds": round(time.monotonic() - started, 3),
+            "completedWindow": completed_window,
+            "terminationReason": "deadline" if completed_window else "process-exited-before-deadline",
+            "stdoutFile": path.name, "stderrFile": path.with_suffix(".stderr.txt").name,
+        }
 
 
 def collect(args) -> Path:
@@ -238,9 +248,10 @@ def collect(args) -> Path:
         android_user = run(prefix + ["shell", "am", "get-current-user"])
         evidence["probes"]["androidCurrentUser"] = android_user
         user_id = android_user["stdout"].strip() if android_user["exitCode"] == 0 else ""
+        observed_user = user_id if re.fullmatch(r"[0-9]+", user_id) else None
         evidence["permissionScope"] = (
-            "Foreground Android user; corroborate package per-user state for managed/work profiles."
-            if re.fullmatch(r"[0-9]+", user_id) else "UNKNOWN: foreground Android user probe failed."
+            "Foreground Android user is context only; inspect package per-user runtime permissions and app-level diagnostics, including managed/work profiles."
+            if observed_user is not None else "UNKNOWN: foreground Android user probe failed; do not assume user 0."
         )
         probes = {
             "adbVersion": [adb, "version"],
@@ -257,10 +268,16 @@ def collect(args) -> Path:
             "memoryBefore": prefix + ["shell", "dumpsys", "meminfo", args.package],
             "gfxBefore": prefix + ["shell", "dumpsys", "gfxinfo", args.package],
         }
-        if re.fullmatch(r"[0-9]+", user_id):
-            probes["cameraPermission"] = prefix + ["shell", "cmd", "package", "check-permission", "android.permission.CAMERA", args.package, user_id]
-        else:
-            evidence["probes"]["cameraPermission"] = {"status": "BLOCKED", "reason": "Android user is unknown; no user-0 fallback."}
+        # AOSP PackageManagerShellCommand has no portable check-permission command.
+        # Retain the raw per-user grant records and app-ops rather than inventing a
+        # denied/granted result from an unsupported command or another profile.
+        evidence["probes"]["cameraPermission"] = {
+            "status": "NOT_INTERPRETED" if observed_user is not None else "BLOCKED",
+            "androidForegroundUser": observed_user,
+            "permission": "android.permission.CAMERA",
+            "sourceProbes": ["appPackage", "cameraAppOps"],
+            "reason": "Inspect raw dumpsys package per-user runtime permissions and app-level permission diagnostics; app-ops alone is not a runtime grant.",
+        }
         for key, command in probes.items():
             evidence["probes"][key] = run(command)
             save()
@@ -301,6 +318,12 @@ def collect(args) -> Path:
         parsed = parse_logcat((output / "logcat-live.txt").read_text(encoding="utf-8", errors="replace"))
         (output / "logcat-analysis.json").write_text(json.dumps(parsed, indent=2), encoding="utf-8")
         evidence["finishedUtc"] = datetime.now(timezone.utc).isoformat()
+        if not evidence["logcatCapture"]["completedWindow"]:
+            raise ValueError(
+                f"Live Logcat ended before the requested {args.seconds}s window "
+                f"(exit {evidence['logcatCapture']['exitCode']}); capture is incomplete. "
+                "Raw output and full errors are preserved in logcat-live.txt and logcat-live.stderr.txt."
+            )
     except Exception as exc:
         evidence["collectorError"] = str(exc)
         raise
