@@ -40,18 +40,23 @@ namespace CrushX.LensEngine
             get { return captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
-        private void Start()
+        private void Start() { ResolveDependencies(); }
+
+        // A Unity scene can register its AR rig and engine after this UI is enabled.
+        // A one-shot Start lookup previously left the entire control surface invisible.
+        private void ResolveDependencies()
         {
-            engine = FindFirstObjectByType<LensEngineBootstrap>();
+            if (engine == null) engine = FindFirstObjectByType<LensEngineBootstrap>();
             // RequireComponent does not retrofit already serialized scene components.
             if (GetComponent<CrushXCameraSwipe>() == null) gameObject.AddComponent<CrushXCameraSwipe>();
-            carousel = GetComponent<CrushXSmartCarousel>();
+            if (carousel == null) carousel = GetComponent<CrushXSmartCarousel>();
             if (carousel == null) carousel = gameObject.AddComponent<CrushXSmartCarousel>();
-            if (engine != null) capture = NativeMediaCapture.GetOrCreate(engine);
+            if (engine != null && capture == null) capture = NativeMediaCapture.GetOrCreate(engine);
         }
 
         private void Update()
         {
+            if (engine == null || capture == null || carousel == null) ResolveDependencies();
             if (engine == null) return;
             bool back = false;
 #if ENABLE_INPUT_SYSTEM
@@ -146,7 +151,8 @@ namespace CrushX.LensEngine
 
         private void OnGUI()
         {
-            if (engine == null || capture == null || capture.SuppressUi) return;
+            if (engine == null || capture == null || carousel == null) ResolveDependencies();
+            if (capture != null && capture.SuppressUi) return;
             EnsureStyles();
             NativeCameraLayout layout = NativeCameraLayout.Current;
             Matrix4x4 oldMatrix = GUI.matrix;
@@ -154,7 +160,9 @@ namespace CrushX.LensEngine
             bool oldEnabled = GUI.enabled;
             GUI.matrix = layout.Matrix;
             GUI.color = Color.white;
-            if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
+            if (engine == null || capture == null || carousel == null)
+                GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
             else DrawCamera(layout);
             GUI.enabled = oldEnabled;
             GUI.color = oldColor;
@@ -188,6 +196,12 @@ namespace CrushX.LensEngine
             DrawTab(new Rect(tabs.x, tabs.y, tabWidth, tabs.height), LensBrowseFilter.All, "All");
             DrawTab(new Rect(tabs.x + tabWidth + 4, tabs.y, tabWidth, tabs.height), LensBrowseFilter.Favorites, "Favorites");
             DrawTab(new Rect(tabs.x + (tabWidth + 4) * 2, tabs.y, tabWidth, tabs.height), LensBrowseFilter.Recent, "Recent");
+            Rect categories = layout.Categories;
+            if (GUI.Button(new Rect(categories.x, categories.y, 50, categories.height), "‹", button)) carousel.CycleCategory(-1);
+            GUI.Box(new Rect(categories.x + 54, categories.y, categories.width - 108, categories.height), GUIContent.none);
+            GUI.Label(new Rect(categories.x + 58, categories.y, categories.width - 116, categories.height),
+                carousel.CategoryLabel + " · " + carousel.VisibleCount, status);
+            if (GUI.Button(new Rect(categories.xMax - 50, categories.y, 50, categories.height), "›", button)) carousel.CycleCategory(1);
             if (carousel.Filter == LensBrowseFilter.Recent)
             {
                 Rect consent = new Rect(tabs.x, searchVisible ? layout.Search.y - 44 : tabs.y - 44, tabs.width, 38);

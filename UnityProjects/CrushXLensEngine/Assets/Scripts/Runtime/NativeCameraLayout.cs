@@ -34,8 +34,9 @@ namespace CrushX.LensEngine
         public Rect Bounds { get { return new Rect(0, 0, Width, Height); } }
         private float ContentWidth { get { return Mathf.Min(Width - 24f, 640f); } }
         private float ContentLeft { get { return (Width - ContentWidth) * .5f; } }
-        public Rect Search { get { return new Rect(ContentLeft, Height - 350, ContentWidth, 38); } }
-        public Rect Tabs { get { return new Rect(ContentLeft, Height - 306, ContentWidth, 36); } }
+        public Rect Search { get { return new Rect(ContentLeft, Height - 396, ContentWidth, 38); } }
+        public Rect Tabs { get { return new Rect(ContentLeft, Height - 352, ContentWidth, 36); } }
+        public Rect Categories { get { return new Rect(ContentLeft, Height - 310, ContentWidth, 36); } }
         public Rect Carousel { get { return new Rect(ContentLeft, Height - 264, ContentWidth, 88); } }
         public Rect LensTitle { get { return new Rect(ContentLeft, Height - 172, ContentWidth, 32); } }
         public Rect Shutter { get { return new Rect(Width * .5f - 40, Height - 128, 80, 80); } }

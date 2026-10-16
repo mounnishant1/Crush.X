@@ -20,6 +20,10 @@ namespace CrushX.ImportedLenses
         public ARFaceManager faceManager;
         public GameObject foxMaskPrefab;
         public bool enabledOnStart = false; // the shared lens picker controls selection
+        [Header("Device-calibrated local Fox alignment")]
+        public Vector3 localPositionOffset = Vector3.zero;
+        public Vector3 localEulerOffset = Vector3.zero;
+        [Range(.5f, 2f)] public float localScaleMultiplier = 1f;
 
         string ISceneLens.LensId { get { return LensId; } }
         public bool IsAvailable { get { ResolveManager(); return isActiveAndEnabled && foxMaskPrefab != null && faceManager != null && faceManager.isActiveAndEnabled; } }
@@ -47,6 +51,8 @@ namespace CrushX.ImportedLenses
 
         private void ResolveManager()
         {
+            if (faceManager == null)
+                faceManager = FindFirstObjectByType<ARFaceManager>();
             if (faceManager == null)
                 faceManager = FindFirstObjectByType<ARFaceManager>(FindObjectsInactive.Include);
             if (faceManager == null && !warnedNoManager)
@@ -113,6 +119,7 @@ namespace CrushX.ImportedLenses
                 if (face == null || face.trackingState != TrackingState.Tracking) continue;
                 tracked++;
                 GameObject instance = attachments.Bind(face.trackableId, face.transform, out bool created, out bool rebound);
+                if (instance != null) ApplyCalibration(instance);
                 if (created) ARTrackingDiagnostics.RecordFoxEvent("created-and-bound", face, instance);
                 else if (rebound) ARTrackingDiagnostics.RecordFoxEvent("rebound", face, instance);
             }
@@ -137,6 +144,18 @@ namespace CrushX.ImportedLenses
             ApplyCompatibleMaterials(instance);
             nextRendererSnapshot = 0;
             return instance;
+        }
+
+        private void ApplyCalibration(GameObject instance)
+        {
+            // Defaults preserve the imported prefab exactly. Tune these fields
+            // only from measured face footage; arbitrary scale guesses hide bugs.
+            Transform root = instance.transform;
+            root.localPosition = localPositionOffset;
+            root.localRotation = Quaternion.Euler(localEulerOffset);
+            // A pre-existing serialized scene may not contain this new field yet.
+            float multiplier = localScaleMultiplier <= 0f ? 1f : Mathf.Clamp(localScaleMultiplier, .5f, 2f);
+            root.localScale = foxMaskPrefab.transform.localScale * multiplier;
         }
 
         private void OnRemovingInstance(TrackableId id, GameObject instance, string reason)

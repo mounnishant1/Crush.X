@@ -174,6 +174,45 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('engine.RankedLenses',carousel)
         self.assertNotIn('preferences.Ranked()',carousel)
 
+    def test_delayed_rig_and_controls_have_retry_paths(self):
+        engine=source('Scripts/Runtime/LensEngineBootstrap.cs')
+        ui=source('Scripts/Runtime/NativeLensUI.cs')
+        entry=source('Scripts/Runtime/LensRuntimeEntry.cs')
+        self.assertIn('private void TryBindNativeRig()',engine)
+        self.assertGreaterEqual(engine.count('TryBindNativeRig();'),2)
+        self.assertIn('FindObjectsInactive.Include',engine)
+        self.assertIn('CameraFacingDirection.User',engine)
+        self.assertRegex(engine,r'#if UNITY_EDITOR \|\| UNITY_STANDALONE\s+if \(Camera.main == null\)')
+        self.assertIn('private void ResolveDependencies()',ui)
+        self.assertGreaterEqual(ui.count('ResolveDependencies();'),3)
+        self.assertIn('Preparing camera controls',ui)
+        self.assertIn('FindFirstObjectByType<NativeLensUI>(FindObjectsInactive.Include)',entry)
+        self.assertIn('CrushX Native Lens UI (recovery)',entry)
+
+    def test_circular_selector_and_fox_calibration_are_explicit(self):
+        carousel=source('Scripts/Runtime/CrushXSmartCarousel.cs')
+        fox=source('CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs')
+        self.assertIn('public static Rect BubbleRect',carousel)
+        self.assertIn('GUI.DrawTexture(bubble, bubbleTexture',carousel)
+        self.assertIn('localScaleMultiplier = 1f',fox)
+        self.assertIn('localPositionOffset = Vector3.zero',fox)
+        self.assertIn('if (instance != null) ApplyCalibration(instance)',fox)
+
+    def test_installed_only_category_browsing_combines_all_filters(self):
+        carousel=source('Scripts/Runtime/CrushXSmartCarousel.cs')
+        layout=source('Scripts/Runtime/NativeCameraLayout.cs')
+        ui=source('Scripts/Runtime/NativeLensUI.cs')
+        tests=source('Tests/EditMode/NativeCameraInteractionTests.cs')
+        for token in ('AvailableCategories(', 'NextCategory(', 'SetCategory(',
+                      'LensCategory? category = null', 'Matches(lens, term, category)'):
+            self.assertIn(token,carousel)
+        self.assertIn('layout.Categories',ui)
+        self.assertIn('CycleCategory(-1)',ui)
+        self.assertIn('CycleCategory(1)',ui)
+        self.assertIn('public Rect Categories',layout)
+        self.assertIn('CategoryCombinesWithFavoritesRecentAndSearch',tests)
+        self.assertIn('observedActiveId != engine.ActiveId',carousel)
+
     def test_csharp_syntax_only_not_unity_compilation(self):
         try:
             from tree_sitter import Language,Parser

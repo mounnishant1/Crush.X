@@ -21,7 +21,11 @@ namespace CrushX.LensEngine
         private string notice = "";
         private float noticeUntil;
         private GameObject demoFace;
+        private GameObject demoCamera;
         private ARTrackingDiagnostics diagnostics;
+        private ARFoundationFaceProvider deviceProvider;
+        private ARCameraManager frontCamera;
+        private float nextRigLookup;
         private readonly List<string> recentLensIds = new List<string>();
 
         public event Action<string, LensRuntimeState> LensStateChanged;
@@ -48,28 +52,22 @@ namespace CrushX.LensEngine
             personalization = new LensPersonalization();
             recentLensIds.AddRange(personalization.RecentIds());
             tracking = gameObject.AddComponent<FaceTrackingManager>();
-            ARFoundationFaceProvider deviceProvider = null;
-            ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
-            if (faceManager != null)
-            {
-                deviceProvider = gameObject.AddComponent<ARFoundationFaceProvider>();
-                deviceProvider.FaceManager = faceManager;
-                ARCameraManager frontCamera = FindFirstObjectByType<ARCameraManager>();
-                if (frontCamera != null)
-                    frontCamera.requestedFacingDirection = UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
-                tracking.SetProvider(deviceProvider);
-            }
+            TryBindNativeRig();
 #if UNITY_EDITOR || UNITY_STANDALONE
-            else
+            if (deviceProvider == null)
             {
                 var mock = gameObject.AddComponent<MockTrackingProvider>();
                 tracking.SetProvider(mock);
                 usingMock = true;
             }
 #endif
+            // A synthetic camera can cover the real AR feed if the host creates
+            // its XR rig late. It belongs only in the Editor/Standalone demo.
+#if UNITY_EDITOR || UNITY_STANDALONE
             if (Camera.main == null)
             {
                 var cam = new GameObject("CrushX Demo Camera");
+                demoCamera = cam;
                 cam.tag = "MainCamera";
                 var c = cam.AddComponent<Camera>();
                 c.transform.position = new Vector3(0, 0, -2);
@@ -79,6 +77,7 @@ namespace CrushX.LensEngine
                 c.fieldOfView = 56;
                 cam.AddComponent<AudioListener>();
             }
+#endif
             var light = new GameObject("CrushX Demo Light");
             light.transform.SetParent(transform, false);
             var lamp = light.AddComponent<Light>();
@@ -90,6 +89,35 @@ namespace CrushX.LensEngine
             ranking = personalization.Ranked();
             foreach (LensManifest lens in ranking)
                 if (SelectLens(lens.Id)) break;
+        }
+
+        private void TryBindNativeRig()
+        {
+            // The launch scene or a host can create/activate its XR rig after Awake.
+            // Never fall back to synthetic tracking in an ordinary Android player.
+            ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
+            if (faceManager == null) faceManager = FindFirstObjectByType<ARFaceManager>(FindObjectsInactive.Include);
+            if (faceManager != null)
+            {
+                if (deviceProvider == null)
+                    deviceProvider = GetComponent<ARFoundationFaceProvider>() ?? gameObject.AddComponent<ARFoundationFaceProvider>();
+                deviceProvider.FaceManager = faceManager;
+                if (tracking.ProviderComponent != deviceProvider) tracking.SetProvider(deviceProvider);
+                if (usingMock)
+                {
+                    usingMock = false;
+                    if (demoFace != null) { demoFace.SetActive(false); Destroy(demoFace); demoFace = null; }
+                    if (demoCamera != null) { demoCamera.SetActive(false); Destroy(demoCamera); demoCamera = null; }
+                }
+            }
+            if (frontCamera == null)
+            {
+                frontCamera = FindFirstObjectByType<ARCameraManager>();
+                if (frontCamera == null)
+                    frontCamera = FindFirstObjectByType<ARCameraManager>(FindObjectsInactive.Include);
+            }
+            if (frontCamera != null && frontCamera.requestedFacingDirection != CameraFacingDirection.User)
+                frontCamera.requestedFacingDirection = CameraFacingDirection.User;
         }
 
         private void CreateDemoFace()
@@ -249,6 +277,12 @@ namespace CrushX.LensEngine
 
         private void Update()
         {
+            if ((deviceProvider == null || deviceProvider.FaceManager == null || frontCamera == null) &&
+                Time.unscaledTime >= nextRigLookup)
+            {
+                nextRigLookup = Time.unscaledTime + 1f;
+                TryBindNativeRig();
+            }
             bool showing = TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
             if (!string.IsNullOrEmpty(activeId))
@@ -264,6 +298,14 @@ namespace CrushX.LensEngine
         private void OnApplicationPause(bool paused)
         {
             if (paused && effectRoot != null) effectRoot.gameObject.SetActive(false);
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) return;
+            nextRigLookup = 0;
+            if (frontCamera != null && frontCamera.requestedFacingDirection != CameraFacingDirection.User)
+                frontCamera.requestedFacingDirection = CameraFacingDirection.User;
         }
 
         private void OnDestroy()
