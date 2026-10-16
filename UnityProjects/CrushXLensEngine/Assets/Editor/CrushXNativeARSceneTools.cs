@@ -90,7 +90,11 @@ namespace CrushX.LensEngine.Editor
 
 if (!scenes.Exists(s => s.path == scenePath))
 {
-    scenes.Add(new EditorBuildSettingsScene(scenePath, false));
+    scenes.Add(new EditorBuildSettingsScene(scenePath, true));
+}
+else
+{
+    scenes.Find(s => s.path == scenePath).enabled = true;
 }
 
 EditorBuildSettings.scenes = scenes.ToArray();

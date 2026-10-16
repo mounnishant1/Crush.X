@@ -21,18 +21,26 @@ namespace CrushX.LensEngine
         {
             ProviderComponent = component;
             provider = component as ITrackingProvider;
+            ResetTracking();
+        }
+
+        public void ResetTracking()
+        {
             Current = default;
             initialized = false;
             IsTracking = false;
+            lastGoodAt = -100;
         }
 
         private void Awake() { SetProvider(ProviderComponent); }
+        private void OnDisable() { ResetTracking(); }
+        private void OnApplicationPause(bool paused) { if (paused) ResetTracking(); }
 
         private void Update()
         {
             if (provider == null && ProviderComponent != null) provider = ProviderComponent as ITrackingProvider;
             FaceSample incoming = default;
-            bool good = provider != null && provider.TryGetFace(out incoming) && incoming.Valid && incoming.Confidence >= MinimumConfidence;
+            bool good = ProviderComponent != null && ProviderComponent.isActiveAndEnabled && provider != null && provider.TryGetFace(out incoming) && incoming.Valid && incoming.Confidence >= MinimumConfidence;
             if (good)
             {
                 // Avoid interpolation from zero pose when first acquiring or after recovery.

@@ -21,6 +21,41 @@ namespace CrushX.LensEngine
         private string notice = "";
         private float noticeUntil;
         private GameObject demoFace;
+        private ARTrackingDiagnostics diagnostics;
+        private bool selectionRestoreFailed;
+        private readonly List<string> recentLensIds = new List<string>();
+
+        public event Action<string, LensRuntimeState> LensStateChanged;
+        public LensRuntimeState State { get; private set; }
+        public string LastLensError { get; private set; }
+        public string TrackingStatus
+        {
+            get
+            {
+                if (selectionRestoreFailed) return LastLensError;
+                if (!ActiveLensRequiresFace && diagnostics != null)
+                {
+                    if (diagnostics.CurrentOutcome == ARDiagnosticOutcome.LensRendererUnavailable || diagnostics.LastObservation.Permission == ARPermissionObservation.Denied)
+                        return diagnostics.CurrentMessage;
+                    return CameraReady ? "Camera ready" : "Starting camera";
+                }
+                return diagnostics != null ? diagnostics.CurrentMessage : TrackingActive ? "Face tracking active" : "Initializing face tracking";
+            }
+        }
+        public bool ActiveLensRequiresFace
+        {
+            get
+            {
+                LensManifest? manifest = LensCatalog.Find(activeId);
+                return !manifest.HasValue || (manifest.Value.RequiredCapabilities & (TrackingCapabilities.FacePose | TrackingCapabilities.FaceMesh | TrackingCapabilities.Expressions)) != 0;
+            }
+        }
+        public bool CameraReady { get { return diagnostics != null && diagnostics.LastObservation.CameraRunning && diagnostics.LastObservation.Permission == ARPermissionObservation.Granted; } }
+        public bool IsFavorite(string id) { return personalization != null && personalization.IsFavorite(id); }
+        public bool PersonalizationEnabled { get { return personalization != null && personalization.UsageEnabled; } }
+        public IReadOnlyList<string> RecentLensIds { get { return recentLensIds; } }
+        public TrackingCapabilities ProviderCapabilities { get { return tracking != null && tracking.ProviderComponent is ITrackingCapabilitiesProvider capabilities ? capabilities.Capabilities : TrackingCapabilities.None; } }
+        public bool ProviderCapabilitiesKnown { get { return tracking != null && tracking.ProviderComponent is ITrackingCapabilitiesProvider capabilities && capabilities.CapabilitiesKnown; } }
 
         public IReadOnlyList<LensManifest> RankedLenses { get { return ranking; } }
         public string Notice { get { return Time.unscaledTime < noticeUntil ? notice : string.Empty; } }
@@ -29,7 +64,12 @@ namespace CrushX.LensEngine
 
         private void Awake()
         {
+            diagnostics = GetComponent<ARTrackingDiagnostics>();
+            if (diagnostics == null) diagnostics = gameObject.AddComponent<ARTrackingDiagnostics>();
+            if (GetComponent<LensWorkflowBridge>() == null) gameObject.AddComponent<LensWorkflowBridge>();
+            if (GetComponent<LensPerformanceMonitor>() == null) gameObject.AddComponent<LensPerformanceMonitor>();
             personalization = new LensPersonalization();
+            recentLensIds.AddRange(personalization.RecentIds());
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
             ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
@@ -92,10 +132,42 @@ namespace CrushX.LensEngine
 
         private GameObject premiumLensInstance;
 
+        public void SetPersonalizationEnabled(bool enabled)
+        {
+            personalization.SetUsageEnabled(enabled);
+            recentLensIds.Clear();
+            recentLensIds.AddRange(personalization.RecentIds());
+            // Keep the current session's browse order stable; new ranking applies next session.
+        }
+
+        private void SetState(LensRuntimeState state)
+        {
+            if (State == state) return;
+            State = state;
+            LensStateChanged?.Invoke(activeId, State);
+        }
+
+        public LensCompatibilityResult Compatibility(LensManifest lens)
+        {
+            if (lens.Implementation == LensImplementation.ColorFilter && !ColorFilterLens.IsSupported(out string reason))
+                return new LensCompatibilityResult(false, false, TrackingCapabilities.None, TrackingCapabilities.None, reason);
+            return LensCompatibility.Evaluate(lens, ProviderCapabilitiesKnown, ProviderCapabilities);
+        }
+
         public bool SelectLens(string id)
         {
+            id = LensCompatibility.NormalizeId(id);
             LensManifest? manifest = LensCatalog.Find(id);
-            if (!manifest.HasValue) { Say("Lens not found"); return false; }
+            if (!manifest.HasValue) { LastLensError = "Lens not found"; Say(LastLensError); return false; }
+            if (activeId == id && !selectionRestoreFailed) return true;
+            LensCompatibilityResult compatibility = Compatibility(manifest.Value);
+            if (!compatibility.CanSelect)
+            {
+                LastLensError = compatibility.Message;
+                ARTrackingDiagnostics.RecordLensSelection(id, false, LastLensError);
+                Say(LastLensError);
+                return false;
+            }
             var sceneLenses = new List<ISceneLens>();
             bool sceneLensAvailable = false;
             foreach (MonoBehaviour component in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
@@ -109,41 +181,81 @@ namespace CrushX.LensEngine
             // Reject before destroying the active lens. Imported lenses never fall back to fake tracking.
             if (manifest.Value.SceneProvided && !sceneLensAvailable)
             {
-                Say("This lens needs its configured AR scene and prefab");
+                LastLensError = "This lens needs its configured AR scene and prefab";
+                ARTrackingDiagnostics.RecordLensSelection(id, false, LastLensError);
+                Say(LastLensError);
                 return false;
             }
-            foreach (ISceneLens sceneLens in sceneLenses) sceneLens.SelectLens(id);
-            if (effect != null) Destroy(effect.gameObject);
-            effect = null;
-
-            if (premiumLensInstance != null)
-                Destroy(premiumLensInstance);
-
-            premiumLensInstance = null;
-
-            GameObject prefab = PreferResourcePrefabs ? Resources.Load<GameObject>(
-                "CrushXLenses/" + id) : null;
-
-            if (manifest.Value.SceneProvided)
+            LensEffect candidateEffect = null;
+            GameObject candidate = null;
+            LensRuntimeState previousState = State;
+            SetState(LensRuntimeState.Loading);
+            try
             {
-                // The scene controller attaches imported geometry to real ARFace trackables.
+                GameObject prefab = PreferResourcePrefabs ? Resources.Load<GameObject>("CrushXLenses/" + id) : null;
+                if (!manifest.Value.SceneProvided)
+                {
+                    candidate = prefab != null ? Instantiate(prefab, effectRoot, false) : new GameObject("Lens-" + id);
+                    candidate.SetActive(false);
+                    candidate.transform.SetParent(effectRoot, false);
+                    if (prefab == null)
+                    {
+                        candidateEffect = (LensEffect)candidate.AddComponent(LensCatalog.ResolveType(id));
+                        candidateEffect.Build();
+                    }
+                }
+                if (candidateEffect != null) candidateEffect.OnSelected();
+                ARTrackingDiagnostics.RecordLensSelection(id, true, compatibility.Message);
+                foreach (ISceneLens sceneLens in sceneLenses) sceneLens.SelectLens(id);
             }
-            else if (prefab != null)
+            catch (Exception error)
             {
-                premiumLensInstance = Instantiate(
-                    prefab, effectRoot, false);
+                bool restoreFailed = false;
+                if (candidateEffect != null)
+                {
+                    try { candidateEffect.OnDeselected(); candidateEffect.ReleaseResources(); }
+                    catch (Exception cleanupError) { Debug.LogException(cleanupError); }
+                }
+                if (candidate != null) { candidate.SetActive(false); Destroy(candidate); }
+                if (effect != null)
+                {
+                    try { effect.OnSelected(); }
+                    catch (Exception restoreError) { restoreFailed = true; Debug.LogException(restoreError); }
+                }
+                foreach (ISceneLens sceneLens in sceneLenses)
+                {
+                    try { sceneLens.SelectLens(activeId ?? string.Empty); }
+                    catch (Exception rollbackError) { restoreFailed = true; Debug.LogException(rollbackError); }
+                }
+                selectionRestoreFailed = restoreFailed;
+                LastLensError = restoreFailed ? "Lens could not load and the previous lens could not be restored; select a lens to retry" :
+                    string.IsNullOrEmpty(activeId) ? "Lens could not load" : "Lens could not load; previous lens retained";
+                ARTrackingDiagnostics.RecordLensRollback(activeId, !restoreFailed);
+                ARTrackingDiagnostics.RecordLensSelection(id, false, error.GetType().Name);
+                SetState(restoreFailed ? LensRuntimeState.Failed : previousState);
+                Say(LastLensError);
+                Debug.LogException(error);
+                return false;
             }
-            else
+            if (effect != null)
             {
-                var go = new GameObject("Lens-" + id);
-                go.transform.SetParent(effectRoot, false);
-                effect = (LensEffect)go.AddComponent(
-                    LensCatalog.ResolveType(id));
-                effect.Build();
+                effect.OnDeselected();
+                effect.ReleaseResources();
+                effect.gameObject.SetActive(false);
+                Destroy(effect.gameObject);
             }
+            if (premiumLensInstance != null) { premiumLensInstance.SetActive(false); Destroy(premiumLensInstance); }
+            effect = candidateEffect;
+            premiumLensInstance = candidateEffect == null ? candidate : null;
             activeId = id;
+            selectionRestoreFailed = false;
+            if (candidate != null) candidate.SetActive(true);
             startAt = Time.unscaledTime;
+            LastLensError = string.Empty;
             personalization.RecordUsage(id);
+            recentLensIds.Clear();
+            recentLensIds.AddRange(personalization.RecentIds());
+            SetState((ActiveLensRequiresFace ? TrackingActive : CameraReady) ? LensRuntimeState.Active : LensRuntimeState.WaitingForTracking);
             // Apply usage-based ordering next session, not in the middle of a swipe sequence.
             return true;
         }
@@ -171,18 +283,33 @@ namespace CrushX.LensEngine
         public void ResetRanking()
         {
             personalization.Reset(); ranking = personalization.Ranked(); Say("Local ranking reset");
+            recentLensIds.Clear();
         }
         public void Say(string message) { notice = message; noticeUntil = Time.unscaledTime + 3; }
 
         private void Update()
         {
-            bool showing = TrackingActive;
+            bool showing = !selectionRestoreFailed && (!ActiveLensRequiresFace || TrackingActive);
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
+            if (!string.IsNullOrEmpty(activeId))
+                SetState(selectionRestoreFailed ? LensRuntimeState.Failed : diagnostics != null && (diagnostics.CurrentOutcome == ARDiagnosticOutcome.LensPrefabMissing || diagnostics.CurrentOutcome == ARDiagnosticOutcome.LensRendererUnavailable)
+                    ? LensRuntimeState.Unavailable : (ActiveLensRequiresFace ? TrackingActive : CameraReady) ? LensRuntimeState.Active : LensRuntimeState.WaitingForTracking);
             if (!showing) return;
-            FaceSample face = tracking.Current;
-            effectRoot.position = face.Position;
-            effectRoot.rotation = face.Rotation;
+            FaceSample face = ActiveLensRequiresFace ? tracking.Current : default;
+            effectRoot.position = ActiveLensRequiresFace ? face.Position : Vector3.zero;
+            effectRoot.rotation = ActiveLensRequiresFace ? face.Rotation : Quaternion.identity;
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && effectRoot != null) effectRoot.gameObject.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (effect != null) effect.OnDeselected();
+            LensGeometry.ReleaseMaterials();
         }
 
         private NativeLensUI cachedNativeLensUi;
