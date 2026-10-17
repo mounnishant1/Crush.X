@@ -148,8 +148,9 @@ namespace CrushX.LensEngine
             bool answered = false;
             var callbacks = new PermissionCallbacks();
             callbacks.PermissionGranted += _ => answered = true;
+            // Unity's deprecated Don'tAskAgain callback is unreliable; denied
+            // requests are handled by PermissionDenied and the deadline below.
             callbacks.PermissionDenied += _ => answered = true;
-            callbacks.PermissionDeniedAndDontAskAgain += _ => answered = true;
             Permission.RequestUserPermission(Permission.Microphone, callbacks);
             float deadline = Time.realtimeSinceStartup + 30f;
             while (!answered && Time.realtimeSinceStartup < deadline)
