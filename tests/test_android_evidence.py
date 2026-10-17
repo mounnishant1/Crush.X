@@ -1,5 +1,6 @@
 """Host-side collector safety and evidence parsing; no Android or Unity behavior claims."""
 import importlib.util
+import base64
 import io
 import json
 from pathlib import Path
@@ -17,6 +18,101 @@ SPEC.loader.exec_module(evidence)
 
 
 class EvidenceParsingTests(unittest.TestCase):
+    @staticmethod
+    def packet_lines(record_id, kind, payload):
+        data = payload.encode("utf-8")
+        encoded = base64.b64encode(data).decode("ascii")
+        chunks = [encoded[offset:offset + 600] for offset in range(0, len(encoded), 600)] or [""]
+        return [f"[CrushX AR] packet v=1 record={record_id} kind={kind} part={index}/{len(chunks)} bytes={len(data)} data={chunk}"
+                for index, chunk in enumerate(chunks, 1)]
+
+    def test_long_unicode_metadata_renderer_and_snapshot_survive_interleaved_packets(self):
+        metadata = json.dumps({"commitSha": "a" * 40, "buildId": "设备-🦊" * 200}, ensure_ascii=False, indent=2)
+        snapshot = json.dumps({"eventName": "transition", "outcome": "NoFacesDetected", "selectedLens": "cat-ears",
+                               "availableSessionConfigurations": "UserFacingCamera 🦊\n" * 300,
+                               "faceSubsystemRunning": True, "faceCount": 0}, ensure_ascii=False)
+        renderer = json.dumps({"eventName": "fox:renderer-snapshot", "detail": "renderer=面罩🦊 material=毛皮\n" * 250}, ensure_ascii=False)
+        batches = [self.packet_lines("session-1", "build", metadata), self.packet_lines("session-2", "snapshot", snapshot),
+                   self.packet_lines("session-3", "event", renderer)]
+        core = '[CrushX AR] core record=session-2 data={"eventName":"transition","outcome":"NoFacesDetected","faceCount":0}'
+        lines = [core]
+        for index in range(max(map(len, batches))):
+            for batch in batches:
+                if index < len(batch):
+                    lines.append("10-16 21:01:38.621 3898 3955 I Unity : " + batch[index])
+        result = evidence.parse_logcat("\n".join(lines))
+        self.assertEqual(result["diagnosticLines"], lines)
+        self.assertEqual(result["diagnosticIssues"], [])
+        self.assertEqual({record["recordId"]: record["payload"] for record in result["diagnosticRecords"]},
+                         {"session-1": metadata, "session-2": snapshot, "session-3": renderer})
+        self.assertEqual(result["observedOutcomeCounts"], {"NoFacesDetected": 1})
+        self.assertTrue(all(len(line.encode("utf-8")) <= 800 for batch in batches for line in batch))
+
+    def test_missing_packet_keeps_core_evidence_without_inventing_full_record(self):
+        lines = self.packet_lines("missing-1", "snapshot", json.dumps({"outcome": "Tracking", "details": "face" * 1000}))
+        core = '[CrushX AR] core record=missing-1 data={"outcome":"Tracking","faceCount":1}'
+        result = evidence.parse_logcat("\n".join([core] + lines[:1] + lines[2:]))
+        self.assertEqual(result["diagnosticRecords"], [])
+        self.assertEqual(result["observedOutcomeCounts"], {"Tracking": 1})
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "missingPackets")
+        self.assertEqual(result["diagnosticIssues"][0]["missingPartIndices"], [2])
+
+    def test_conflicting_packet_is_flagged_and_identical_duplicates_are_deduplicated(self):
+        line = self.packet_lines("duplicate-1", "snapshot", '{"outcome":"Tracking"}')[0]
+        result = evidence.parse_logcat(line + "\n" + line)
+        self.assertEqual(result["observedOutcomeCounts"], {"Tracking": 1})
+        self.assertEqual(result["diagnosticIssues"], [])
+        result = evidence.parse_logcat(line + "\n" + line[:-4] + "AAAA")
+        self.assertEqual(result["diagnosticRecords"], [])
+        self.assertEqual(result["observedOutcomeCounts"], {})
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "conflictingPacket")
+
+    def test_conflicting_header_and_truncated_base64_cannot_be_accepted_as_complete(self):
+        line = self.packet_lines("header-1", "build", '{"buildId":"test"}')[0]
+        conflict = line.replace("kind=build", "kind=environment")
+        result = evidence.parse_logcat(line + "\n" + conflict)
+        self.assertEqual(result["diagnosticRecords"], [])
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "conflictingPacket")
+        result = evidence.parse_logcat(line[:-4])  # still syntactically valid base64, but bytes are missing
+        self.assertEqual(result["diagnosticRecords"], [])
+        self.assertIn(result["diagnosticIssues"][0]["reason"], ("packetByteLengthMismatch", "invalidPacketEncoding"))
+        result = evidence.parse_logcat(line.split(" data=")[0])
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "malformedOrTruncatedPacket")
+
+    def test_truncated_legacy_json_is_visible_and_preserves_observed_outcome(self):
+        line = '[CrushX AR] {"eventName":"transition","outcome":"NoFacesDetected","configuration":"Tracking ' + "x" * 940
+        result = evidence.parse_logcat(line + '\n[CrushX AR] build {')
+        self.assertEqual(result["diagnosticLines"], [line, '[CrushX AR] build {'])
+        self.assertEqual(result["observedOutcomeCounts"], {"NoFacesDetected": 1})
+        self.assertEqual([issue["reason"] for issue in result["diagnosticIssues"]], ["legacyTruncatedOrMalformedJson"] * 2)
+
+    def test_structured_details_do_not_create_outcomes_and_own_guidance_is_not_native_error(self):
+        event = json.dumps({"eventName": "fox:renderer-snapshot", "detail": "tracking=Tracking shader fail"})
+        lines = self.packet_lines("details-1", "event", event)
+        lines += ['[CrushX AR] ' + evidence.NATIVE_GUIDANCE + '; XRFaceSubsystem has no generic failureReason.',
+                  '10-16 E ARCore: Session configure failed AR_ERROR_FATAL']
+        result = evidence.parse_logcat("\n".join(lines))
+        self.assertEqual(result["observedOutcomeCounts"], {})
+        self.assertEqual(result["nativeErrorObservations"], [lines[-1]])
+
+    def test_core_without_packets_is_reported_as_incomplete(self):
+        result = evidence.parse_logcat('[CrushX AR] core record=core-1 data={"outcome":"FacesNotTracking"}')
+        self.assertEqual(result["observedOutcomeCounts"], {"FacesNotTracking": 1})
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "missingPacketRecord")
+
+    def test_conflicting_core_does_not_invent_an_outcome_without_full_payload(self):
+        lines = ['[CrushX AR] core record=core-1 data={"outcome":"Tracking"}',
+                 '[CrushX AR] core record=core-1 data={"outcome":"FacesNotTracking"}']
+        result = evidence.parse_logcat("\n".join(lines))
+        self.assertEqual(result["observedOutcomeCounts"], {})
+        self.assertIn("conflictingCore", [issue["reason"] for issue in result["diagnosticIssues"]])
+
+    def test_invalid_encoded_utf8_is_reported_without_replacement_or_partial_record(self):
+        line = '[CrushX AR] packet v=1 record=utf8-1 kind=build part=1/1 bytes=1 data=/w=='
+        result = evidence.parse_logcat(line)
+        self.assertEqual(result["diagnosticRecords"], [])
+        self.assertEqual(result["diagnosticIssues"][0]["reason"], "invalidPacketEncoding")
+
     def test_runtime_diagnostic_tag_with_spaces_is_recognized(self):
         line = '[CrushX AR] {"outcome":"SubsystemStopped","currentFacingDirection":"World"}'
         fox = "[CrushX FoxMask] LensRendererUnavailable"

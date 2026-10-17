@@ -5,6 +5,7 @@ param(
     [string]$Artifacts = 'F:\CrushX-Temp\UnityRuns',
     [switch]$BuildAndroid,
     [switch]$RunPlayMode,
+    [switch]$GenerateLensCovers,
     [int]$TimeoutMinutes = 45,
     [string]$Package = 'in.crushx.lens.pr3test'
 )
@@ -39,9 +40,11 @@ $upmDirectory = Join-Path $CacheRoot 'UPM'
 $giDirectory = Join-Path $CacheRoot 'GI'
 foreach ($path in @($tempDirectory, $gradleDirectory, $upmDirectory, $giDirectory)) { New-Item -ItemType Directory -Force -Path $path | Out-Null }
 
-function Invoke-Unity([string]$Stage, [string[]]$Extra) {
+function Invoke-Unity([string]$Stage, [string[]]$Extra, [switch]$WithGraphics) {
     $log = Join-Path $output "$Stage.log"
-    $arguments = @('-batchmode', '-nographics', '-projectPath', $project, '-buildTarget', 'Android', '-logFile', $log) + $Extra
+    $arguments = @('-batchmode')
+    if (!$WithGraphics) { $arguments += '-nographics' }
+    $arguments += @('-projectPath', $project, '-buildTarget', 'Android', '-logFile', $log) + $Extra
     # Start-Process ArgumentList joins values; quote whitespace/backslashes explicitly for Windows.
     $quoted = foreach ($argument in $arguments) {
         '"' + [regex]::Replace([regex]::Replace($argument, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
@@ -93,6 +96,11 @@ try {
     if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw 'Cannot identify exact checkout commit.' }
     & git -C $Repository status --short | Out-File -LiteralPath (Join-Path $output 'source-status.txt') -Encoding utf8
     Invoke-Unity -Stage 'import-compile' -Extra @('-quit')
+    if ($GenerateLensCovers) {
+        # Actual effect covers need GPU rendering. Preserve new source assets for review/build provenance.
+        Invoke-Unity -Stage 'lens-covers' -WithGraphics -Extra @('-quit', '-executeMethod', 'CrushX.LensEngine.Editor.CrushXLensCoverBaker.BatchGenerate')
+        & git -C $Repository status --short | Out-File -LiteralPath (Join-Path $output 'source-status-after-covers.txt') -Encoding utf8
+    }
     Invoke-Unity -Stage 'editmode' -Extra @('-runTests', '-testPlatform', 'EditMode', '-testResults', (Join-Path $output 'editmode.xml'))
     Confirm-UnityTests -Stage 'EditMode' -Path (Join-Path $output 'editmode.xml')
     if ($RunPlayMode) {

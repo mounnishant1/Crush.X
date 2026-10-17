@@ -17,6 +17,8 @@ namespace CrushX.LensEngine
         private GestureOwner owner;
         private bool waitForAllReleased;
         private int gestureWidth, gestureHeight;
+        private Rect gestureSafeArea;
+        private ScreenOrientation gestureOrientation;
 
         private void Awake() { Resolve(); }
         private void Resolve()
@@ -68,11 +70,19 @@ namespace CrushX.LensEngine
             startPosition = position;
             gestureWidth = Screen.width;
             gestureHeight = Screen.height;
+            gestureSafeArea = Screen.safeArea;
+            gestureOrientation = Screen.orientation;
+        }
+
+        private bool GestureGeometryChanged()
+        {
+            return gestureWidth != Screen.width || gestureHeight != Screen.height ||
+                gestureSafeArea != Screen.safeArea || gestureOrientation != Screen.orientation;
         }
 
         private void Move(Vector2 position)
         {
-            if (gestureWidth != Screen.width || gestureHeight != Screen.height) { Cancel(); return; }
+            if (GestureGeometryChanged()) { Cancel(); return; }
             if (owner == GestureOwner.Carousel && carousel != null)
                 carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
             if (owner == GestureOwner.Shutter &&
@@ -84,20 +94,25 @@ namespace CrushX.LensEngine
         {
             GestureOwner completed = owner;
             owner = GestureOwner.None;
-            if (completed == GestureOwner.Shutter) { if (ui != null) ui.EndShutter(canceled); return; }
-            if (carousel != null) carousel.CancelDrag();
-            if (canceled) return;
-            if (ui != null && ui.BlocksCameraGestures) return;
-            if (gestureWidth != Screen.width || gestureHeight != Screen.height) return;
-            int step = SwipeStep(startPosition, position, Screen.width);
+            bool resized = GestureGeometryChanged();
+            if (completed == GestureOwner.Shutter)
+            { if (ui != null) ui.EndShutter(canceled || resized); return; }
+            if (canceled || resized || (ui != null && ui.BlocksCameraGestures))
+            { if (carousel != null) carousel.CancelDrag(); return; }
             if (completed == GestureOwner.Carousel && carousel != null)
             {
-                if (step != 0) carousel.StepVisible(step);
-                else if (IsTap(startPosition, position, NativeCameraLayout.Current.Scale))
-                    carousel.Tap(NativeCameraLayout.Current.ToGui(position, Screen.height));
+                NativeCameraLayout layout = NativeCameraLayout.Current;
+                Vector2 delta = position - startPosition;
+                // Preserve the last finger position through release. A carousel snaps by cell spacing,
+                // rather than the unrelated full-camera swipe threshold.
+                carousel.Drag(delta.x / layout.Scale);
+                carousel.EndDrag(layout.ToGui(position, Screen.height),
+                    IsTap(startPosition, position, layout.Scale), Mathf.Abs(delta.y) <= Mathf.Abs(delta.x) * .7f);
             }
-            else if (completed == GestureOwner.Camera && step != 0)
+            else if (completed == GestureOwner.Camera)
             {
+                int step = SwipeStep(startPosition, position, Screen.width);
+                if (step == 0) return;
                 if (carousel != null) carousel.StepVisible(step);
                 else if (engine != null) engine.Step(step);
             }

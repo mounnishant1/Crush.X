@@ -53,11 +53,21 @@ namespace CrushX.LensEngine
         private bool applicationPaused;
         private readonly StringBuilder faceStates = new StringBuilder();
         private readonly HashSet<string> collectionErrors = new HashSet<string>();
+        private static readonly string logSessionId = Guid.NewGuid().ToString("N");
+        private static long logRecordSequence;
+
+        [Serializable]
+        private sealed class CoreSnapshot
+        {
+            public string eventName, outcome, trackingOutcome, selectedLens, lensFailure, permission, sessionState, currentCamera;
+            public bool managerPresent, managerEnabled, loaderReady, sessionRunning, cameraRunning, faceRunning;
+            public int faceCount, trackingFaceCount;
+        }
 
         [Serializable]
         private sealed class Snapshot
         {
-            public string eventName, outcome, selectedLens, scene, permission, activeLoader, sessionState;
+            public string eventName, outcome, trackingOutcome, selectedLens, lensFailure, scene, permission, activeLoader, sessionState;
             public string sessionNotTrackingReason, nativeSessionNotTrackingReason, requestedCamera, currentCamera;
             public string requestedTrackingMode, currentTrackingMode, sessionRequestedFeatures, sessionConfiguration;
             public string availableSessionConfigurations, selectedCameraConfiguration, supportedCameraConfigurations;
@@ -77,19 +87,23 @@ namespace CrushX.LensEngine
             Instance = this;
             startedAt = Time.realtimeSinceStartup;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            ReadAndroidEnvironment();
-            TextAsset asset = Resources.Load<TextAsset>("CrushXBuildInfo");
-            string metadata = asset == null ? "unavailable (ad hoc build; exact commit/build ID unknown)" : asset.text;
-            Debug.Log("[CrushX AR] build " + metadata);
-            Debug.Log("[CrushX AR] environment " + JsonUtility.ToJson(new EnvironmentInfo
+            try
             {
-                applicationVersion = Application.version, packageId = Application.identifier,
-                unityVersion = Application.unityVersion, deviceModel = SystemInfo.deviceModel,
-                manufacturer = manufacturer, operatingSystem = SystemInfo.operatingSystem,
-                arService = arService, graphicsApi = SystemInfo.graphicsDeviceType.ToString(),
-                gpu = SystemInfo.graphicsDeviceName, pipeline = PipelineName()
-            }));
-            Debug.Log("[CrushX AR] Native ARCore configure/resume errors require full adb logcat; XRFaceSubsystem has no generic failureReason. Session tracking reasons describe the session, not face support.");
+                ReadAndroidEnvironment();
+                TextAsset asset = Resources.Load<TextAsset>("CrushXBuildInfo");
+                string metadata = asset == null ? "unavailable (ad hoc build; exact commit/build ID unknown)" : asset.text;
+                EmitDiagnostic("build", metadata);
+                EmitDiagnostic("environment", JsonUtility.ToJson(new EnvironmentInfo
+                {
+                    applicationVersion = Application.version, packageId = Application.identifier,
+                    unityVersion = Application.unityVersion, deviceModel = SystemInfo.deviceModel,
+                    manufacturer = manufacturer, operatingSystem = SystemInfo.operatingSystem,
+                    arService = arService, graphicsApi = SystemInfo.graphicsDeviceType.ToString(),
+                    gpu = SystemInfo.graphicsDeviceName, pipeline = PipelineName()
+                }));
+                EmitDiagnostic("guidance", "Native ARCore configure/resume errors require full adb logcat; XRFaceSubsystem has no generic failureReason. Session tracking reasons describe the session, not face support.");
+            }
+            catch (Exception e) { ReportCollectionFailure(e); }
 #endif
         }
 
@@ -139,7 +153,7 @@ namespace CrushX.LensEngine
             RefreshOutcome();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (applicationPaused) return;
-            string signature = CurrentOutcome + "|" + ARSession.state + "|" + ARSession.notTrackingReason + "|" +
+            string signature = selectedLens + "|" + lensFailure + "|" + CurrentOutcome + "|" + ARSession.state + "|" + ARSession.notTrackingReason + "|" +
                 LastObservation.Permission + "|" + LastObservation.LoaderPresent + "|" + LastObservation.LoaderInitializationComplete + "|" +
                 LastObservation.CameraPresent + "|" + LastObservation.CameraRunning + "|" + LastObservation.CurrentCamera + "|" +
                 LastObservation.FaceSubsystemPresent + "|" + LastObservation.FaceSubsystemRunning + "|" + faceStates;
@@ -263,7 +277,7 @@ namespace CrushX.LensEngine
                 Instance.lensFailure = outcome == ARDiagnosticOutcome.LensPrefabMissing || outcome == ARDiagnosticOutcome.LensRendererUnavailable ? outcome : (ARDiagnosticOutcome?)null;
                 Instance.RefreshOutcome();
             }
-            LogEvent("lensStatus", lensId + " " + outcome + " " + detail);
+            LogEvent("lensStatus", lensId + " " + outcome + " " + detail, outcome.ToString());
         }
 
         public static void RecordLensRollback(string activeLensId, bool restored)
@@ -286,51 +300,93 @@ namespace CrushX.LensEngine
         public static void RecordFoxEvent(string eventName, ARFace face, GameObject instance, string detail = null)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            var value = new StringBuilder();
-            value.Append("face=").Append(face == null ? "none" : face.trackableId.ToString()).Append(" tracking=").Append(face == null ? "none" : face.trackingState.ToString());
-            if (instance != null)
+            try
             {
-                Transform parent = instance.transform.parent;
-                value.Append(" instance=").Append(instance.GetInstanceID()).Append(" parent=").Append(parent == null ? "none" : parent.name)
-                    .Append(" boundToFace=").Append(face != null && parent == face.transform)
-                    .Append(" activeSelf=").Append(instance.activeSelf).Append(" activeInHierarchy=").Append(instance.activeInHierarchy)
-                    .Append(" localPosition=").Append(instance.transform.localPosition).Append(" localRotation=").Append(instance.transform.localEulerAngles)
-                    .Append(" localScale=").Append(instance.transform.localScale).Append(" pipeline=").Append(PipelineName());
-                Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
-                value.Append(" rendererCount=").Append(renderers.Length);
-                foreach (Renderer renderer in renderers)
+                var value = new StringBuilder();
+                value.Append("face=").Append(face == null ? "none" : face.trackableId.ToString()).Append(" tracking=").Append(face == null ? "none" : face.trackingState.ToString());
+                if (instance != null)
                 {
-                    value.Append(" [renderer=").Append(renderer.name).Append(" enabled=").Append(renderer.enabled)
-                        .Append(" active=").Append(renderer.gameObject.activeInHierarchy).Append(" visibleAnyCamera=").Append(renderer.isVisible)
-                        .Append(" bounds=").Append(renderer.bounds).Append(" layer=").Append(renderer.gameObject.layer);
-                    foreach (Material material in renderer.sharedMaterials)
-                        value.Append(" material=").Append(material == null ? "null" : material.name)
-                            .Append(" shader=").Append(material == null || material.shader == null ? "null" : material.shader.name)
-                            .Append(" supported=").Append(material != null && material.shader != null && material.shader.isSupported)
-                            .Append(" renderQueue=").Append(material == null ? -1 : material.renderQueue);
-                    value.Append(']');
+                    Transform parent = instance.transform.parent;
+                    value.Append(" instance=").Append(instance.GetInstanceID()).Append(" parent=").Append(parent == null ? "none" : parent.name)
+                        .Append(" boundToFace=").Append(face != null && parent == face.transform)
+                        .Append(" activeSelf=").Append(instance.activeSelf).Append(" activeInHierarchy=").Append(instance.activeInHierarchy)
+                        .Append(" localPosition=").Append(instance.transform.localPosition).Append(" localRotation=").Append(instance.transform.localEulerAngles)
+                        .Append(" localScale=").Append(instance.transform.localScale).Append(" pipeline=").Append(PipelineName());
+                    Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+                    value.Append(" rendererCount=").Append(renderers.Length);
+                    foreach (Renderer renderer in renderers)
+                    {
+                        value.Append(" [renderer=").Append(renderer.name).Append(" enabled=").Append(renderer.enabled)
+                            .Append(" active=").Append(renderer.gameObject.activeInHierarchy).Append(" visibleAnyCamera=").Append(renderer.isVisible)
+                            .Append(" bounds=").Append(renderer.bounds).Append(" layer=").Append(renderer.gameObject.layer);
+                        foreach (Material material in renderer.sharedMaterials)
+                            value.Append(" material=").Append(material == null ? "null" : material.name)
+                                .Append(" shader=").Append(material == null || material.shader == null ? "null" : material.shader.name)
+                                .Append(" supported=").Append(material != null && material.shader != null && material.shader.isSupported)
+                                .Append(" renderQueue=").Append(material == null ? -1 : material.renderQueue);
+                        value.Append(']');
+                    }
                 }
+                LogEvent("fox:" + eventName, value + " " + detail);
             }
-            LogEvent("fox:" + eventName, value + " " + detail);
+            catch (Exception e) { if (Instance != null) Instance.ReportCollectionFailure(e); }
 #endif
         }
 
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
-        private static void LogEvent(string eventName, string detail)
+        private static void LogEvent(string eventName, string detail, string outcome = null)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-            Debug.Log("[CrushX AR] " + JsonUtility.ToJson(new EventInfo { eventName = eventName, detail = detail, elapsedSeconds = Time.realtimeSinceStartup }));
+            try
+            {
+                EmitDiagnostic("event", JsonUtility.ToJson(new EventInfo { eventName = eventName, detail = detail, outcome = outcome, elapsedSeconds = Time.realtimeSinceStartup }));
+            }
+            catch (Exception e) { if (Instance != null) Instance.ReportCollectionFailure(e); }
 #endif
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        [Serializable] private sealed class EventInfo { public string eventName, detail; public double elapsedSeconds; }
+        [Serializable] private sealed class EventInfo { public string eventName, detail, outcome; public double elapsedSeconds; }
         [Serializable] private sealed class EnvironmentInfo
         {
             public string applicationVersion, packageId, unityVersion, deviceModel, manufacturer, operatingSystem, arService, graphicsApi, gpu, pipeline;
         }
 
         private static string PipelineName() { return GraphicsSettings.currentRenderPipeline == null ? "Built-in" : GraphicsSettings.currentRenderPipeline.GetType().FullName; }
+
+        private static void EmitDiagnostic(string kind, string payload, CoreSnapshot core = null)
+        {
+            // Transport and summary failures must never escape into lens or tracking lifecycle code.
+            try
+            {
+                string recordId = logSessionId + "-" + System.Threading.Interlocked.Increment(ref logRecordSequence).ToString("x");
+                if (core != null)
+                {
+                    try { Debug.Log(ARDiagnosticLogProtocol.Core(recordId, JsonUtility.ToJson(core))); }
+                    catch (Exception) { Debug.Log("[CrushX AR] diagnosticCoreUnavailable record=" + recordId); }
+                }
+                foreach (string line in ARDiagnosticLogProtocol.Packets(recordId, kind, payload)) Debug.Log(line);
+            }
+            catch (Exception)
+            {
+                try { Debug.LogWarning("[CrushX AR] diagnosticLoggingUnavailable"); }
+                catch (Exception) { /* Diagnostics cannot interrupt the application. */ }
+            }
+        }
+
+        private void ReportCollectionFailure(Exception exception)
+        {
+            try
+            {
+                if (collectionErrors.Add(exception.GetType().FullName))
+                    EmitDiagnostic("collectionWarning", JsonUtility.ToJson(new EventInfo
+                    {
+                        eventName = "diagnosticCollectionUnavailable", detail = exception.GetType().Name,
+                        elapsedSeconds = Time.realtimeSinceStartup
+                    }));
+            }
+            catch (Exception) { /* Diagnostic error reporting is also best effort. */ }
+        }
 
         private void ReadAndroidEnvironment()
         {
@@ -410,9 +466,10 @@ namespace CrushX.LensEngine
                     }
                     catch (Exception e) { descriptors = "query unavailable: " + e.GetType().Name; }
 
-                Debug.Log("[CrushX AR] " + JsonUtility.ToJson(new Snapshot
+                var snapshot = new Snapshot
                 {
-                    eventName = eventName, outcome = CurrentOutcome.ToString(), selectedLens = selectedLens, scene = SceneManager.GetActiveScene().name,
+                    eventName = eventName, outcome = CurrentOutcome.ToString(), trackingOutcome = CurrentTrackingOutcome.ToString(),
+                    selectedLens = selectedLens, lensFailure = lensFailure.HasValue ? lensFailure.Value.ToString() : "none", scene = SceneManager.GetActiveScene().name,
                     permission = value.Permission == ARPermissionObservation.Unknown ? "notGrantedOrUnknownDecision (not proof of denial)" : value.Permission.ToString(),
                     activeLoader = manager == null || manager.activeLoader == null ? "none" : manager.activeLoader.GetType().FullName,
                     loaderInitializationComplete = value.LoaderInitializationComplete, managerPresent = value.ManagerPresent, managerEnabled = value.ManagerEnabled,
@@ -434,11 +491,21 @@ namespace CrushX.LensEngine
                     currentMaximumFaceCount = faceManager == null ? 0 : faceManager.currentMaximumFaceCount, supportedFaceCount = faceManager == null ? 0 : faceManager.supportedFaceCount,
                     renderingPipeline = PipelineName(), graphicsApi = SystemInfo.graphicsDeviceType.ToString(), gpu = SystemInfo.graphicsDeviceName,
                     arService = arService, elapsedSeconds = value.ElapsedSeconds
-                }));
+                };
+                EmitDiagnostic("snapshot", JsonUtility.ToJson(snapshot), new CoreSnapshot
+                {
+                    eventName = eventName, outcome = CurrentOutcome.ToString(), trackingOutcome = CurrentTrackingOutcome.ToString(),
+                    selectedLens = ARDiagnosticLogProtocol.SummaryValue(selectedLens), lensFailure = lensFailure.HasValue ? lensFailure.Value.ToString() : "none",
+                    permission = value.Permission.ToString(), sessionState = ARSession.state.ToString(), currentCamera = currentCamera,
+                    managerPresent = value.ManagerPresent, managerEnabled = value.ManagerEnabled,
+                    loaderReady = value.LoaderInitializationComplete && value.LoaderPresent, sessionRunning = value.SessionRunning,
+                    cameraRunning = value.CameraRunning, faceRunning = value.FaceSubsystemRunning,
+                    faceCount = value.FaceCount, trackingFaceCount = value.TrackingFaceCount
+                });
             }
             catch (Exception e)
             {
-                if (collectionErrors.Add(e.GetType().FullName)) Debug.LogWarning("[CrushX AR] Diagnostic field collection unavailable: " + e.GetType().Name + ". Tracking behavior is unchanged.");
+                ReportCollectionFailure(e);
             }
         }
 #endif

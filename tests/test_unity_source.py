@@ -116,12 +116,11 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('compatibleMaterials.Dispose()',fox)
         self.assertIn('Resources.Load<Material>("CrushXLenses/FoxMaskBuiltIn")',fox)
 
-    def test_single_swipe_owner_and_canceled_touch_handling(self):
+    def test_single_swipe_owner_and_input_backends(self):
         ui=source('Scripts/Runtime/NativeLensUI.cs');swipe=source('Scripts/Runtime/CrushXCameraSwipe.cs')
         self.assertIn('RequireComponent(typeof(CrushXCameraSwipe))',ui)
         self.assertIn('gameObject.AddComponent<CrushXCameraSwipe>()',ui)
         self.assertNotIn('engine.Step(',ui)
-        self.assertIn('if (canceled) return;',swipe)
         self.assertIn('pressed > 1',swipe)
         self.assertIn('Touchscreen.current',swipe)
         self.assertIn('ENABLE_LEGACY_INPUT_MANAGER',swipe)

@@ -51,6 +51,14 @@ namespace CrushX.LensEngine.Editor
             if (!scenes.Contains("Assets/SCENES/CrushXNativeAR.unity"))
                 throw new BuildFailedException("Enabled build scenes must include Assets/SCENES/CrushXNativeAR.unity.");
             if (scenes.Any(s => !File.Exists(Path.Combine(projectRoot, s)))) throw new BuildFailedException("An enabled scene is missing.");
+            // The circular browser needs real cover resources, not a test APK full of placeholders.
+            foreach (LensManifest lens in LensCatalog.All)
+            {
+                string cover = CrushXLensCoverBaker.CoverFolder + "/" + lens.Id + ".png";
+                if (AssetDatabase.LoadAssetAtPath<Texture2D>(cover) == null)
+                    throw new BuildFailedException("Lens cover missing: " + cover +
+                        ". Run CrushX/Lens Covers/Generate Missing Covers or use -GenerateLensCovers with run_unity_checks.ps1 before building.");
+            }
 
             string head = Git("rev-parse HEAD");
             string supplied = Argument("-crushxCommit");

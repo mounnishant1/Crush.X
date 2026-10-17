@@ -66,5 +66,17 @@ namespace CrushX.LensEngine.Tests
             Assert.IsFalse(CrushXCameraSwipe.IsTap(Vector2.zero, new Vector2(100, 0), 1));
             Assert.AreEqual(0, CrushXCameraSwipe.SwipeStep(Vector2.zero, new Vector2(90, 200), 440));
         }
+
+        [TestCase("", MediaCaptureState.Idle, "Ready", "")]
+        [TestCase("Saved to favorites", MediaCaptureState.Idle, "Ready", "Saved to favorites")]
+        [TestCase("", MediaCaptureState.Idle, "Saved privately on this device", "Saved privately on this device")]
+        [TestCase("", MediaCaptureState.Idle, "Microphone access allowed", "Microphone access allowed")]
+        [TestCase("Saved to favorites", MediaCaptureState.Error, "Photo capture failed", "Photo capture failed")]
+        [TestCase("Saved to favorites", MediaCaptureState.Finalizing, "Finishing MP4", "Finishing MP4")]
+        public void CameraNotice_DoesNotClaimIdleCaptureMeansTrackingReadyOrHideCaptureErrors(
+            string lensNotice, MediaCaptureState state, string message, string expected)
+        {
+            Assert.AreEqual(expected, NativeLensUI.ComposeCameraNotice(lensNotice, state, message));
+        }
     }
 }

@@ -8,6 +8,8 @@ keep them local and review before sharing.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -30,21 +32,156 @@ OUTCOMES = (
     "CameraMismatch", "SubsystemMissing", "SubsystemStopped", "NoFacesDetected", "FacesNotTracking",
     "Tracking", "LensPrefabMissing", "LensRendererUnavailable",
 )
+PACKET = re.compile(
+    r"^packet v=1 record=([A-Za-z0-9_-]{1,64}) kind=([A-Za-z0-9_-]{1,32}) "
+    r"part=([1-9][0-9]{0,9})/([1-9][0-9]{0,9}) bytes=([0-9]{1,10}) data=([A-Za-z0-9+/]*={0,2})$")
+CORE = re.compile(r"^core record=([A-Za-z0-9_-]{1,64}) data=(.*)$")
+NATIVE_GUIDANCE = "Native ARCore configure/resume errors require full adb logcat"
 
 
 def parse_logcat(text: str) -> dict:
-    """Keep exact observed lines; state names and native errors are evidence, not a diagnosis."""
+    """Keep raw evidence, reconstruct bounded packets, and report losses without inventing data."""
     diagnostics, native, outcomes = [], [], {}
-    for line in text.splitlines():
-        if DIAGNOSTIC_TAG.search(line):
-            diagnostics.append(line)
-            for outcome in OUTCOMES:
-                if re.search(r"(?<![A-Za-z])" + outcome + r"(?![A-Za-z])", line):
-                    outcomes[outcome] = outcomes.get(outcome, 0) + 1
-        if NATIVE_ERROR.search(line):
+    packets, cores, records, issues = {}, {}, [], []
+    damaged_records, damaged_cores = set(), set()
+
+    def issue(reason, *, record_id=None, line_number=None, **details):
+        entry = {"reason": reason, **details}
+        if record_id is not None:
+            entry["recordId"] = record_id
+        if line_number is not None:
+            entry["lineNumber"] = line_number
+        issues.append(entry)
+
+    def count_outcome(value):
+        if isinstance(value, dict) and value.get("outcome") in OUTCOMES:
+            outcome = value["outcome"]
+            outcomes[outcome] = outcomes.get(outcome, 0) + 1
+            return True
+        return False
+
+    def count_legacy_words(value):
+        # A cut JSON record can still have its explicit outcome intact. Prefer it
+        # over unrelated words such as a renderer's "tracking=Tracking" detail.
+        explicit = re.search(r'"outcome"\s*:\s*"([A-Za-z]+)"', value)
+        if explicit and count_outcome({"outcome": explicit[1]}):
+            return
+        for outcome in OUTCOMES:
+            if re.search(r"(?<![A-Za-z])" + outcome + r"(?![A-Za-z])", value):
+                outcomes[outcome] = outcomes.get(outcome, 0) + 1
+
+    for line_number, line in enumerate(text.splitlines(), 1):
+        tag = DIAGNOSTIC_TAG.search(line)
+        if NATIVE_ERROR.search(line) and not (tag and NATIVE_GUIDANCE in line):
             native.append(line)
+        if tag:
+            diagnostics.append(line)
+            message = line[tag.end():].strip()
+            if message.startswith("packet "):
+                match = PACKET.fullmatch(message)
+                if not match:
+                    identity = re.search(r"\brecord=([A-Za-z0-9_-]{1,64})\b", message)
+                    record_id = identity[1] if identity else None
+                    if record_id:
+                        damaged_records.add(record_id)
+                    issue("malformedOrTruncatedPacket", record_id=record_id, line_number=line_number)
+                    continue
+                record_id, kind, index, count, byte_count, data = match.groups()
+                index, count, byte_count = int(index), int(count), int(byte_count)
+                if not (1 <= index <= count <= 2147483647 and byte_count <= 2147483647):
+                    damaged_records.add(record_id)
+                    issue("invalidPacketBounds", record_id=record_id, line_number=line_number)
+                    continue
+                header = (kind, count, byte_count)
+                record = packets.setdefault(record_id, {"header": header, "parts": {}, "firstLine": line_number})
+                if record["header"] != header or (index in record["parts"] and record["parts"][index] != data):
+                    damaged_records.add(record_id)
+                    issue("conflictingPacket", record_id=record_id, line_number=line_number, partIndex=index)
+                else:
+                    record["parts"][index] = data  # identical duplicate packets are harmless
+                continue
+            if message.startswith("core "):
+                match = CORE.fullmatch(message)
+                try:
+                    if not match:
+                        raise ValueError("Malformed core header")
+                    record_id = match[1]
+                    value = json.loads(match[2])
+                    if not isinstance(value, dict):
+                        raise ValueError("Core must be an object")
+                    if record_id in cores and cores[record_id] != value:
+                        damaged_cores.add(record_id)
+                        issue("conflictingCore", record_id=record_id, line_number=line_number)
+                    else:
+                        cores[record_id] = value
+                except ValueError:
+                    issue("malformedOrTruncatedCore", line_number=line_number)
+                continue
+
+            # Older APKs used a single JSON line (or pretty build JSON). Preserve visible
+            # outcomes, while making truncated/multiline records explicit in the analysis.
+            payload = re.sub(r"^(?:build|environment)\s+", "", message)
+            if payload.startswith("{"):
+                try:
+                    value = json.loads(payload)
+                except json.JSONDecodeError:
+                    issue("legacyTruncatedOrMalformedJson", line_number=line_number)
+                    count_legacy_words(message)
+                else:
+                    if not count_outcome(value) and isinstance(value, dict) and value.get("eventName") == "lensStatus":
+                        count_legacy_words(str(value.get("detail", "")))
+            else:
+                count_legacy_words(message)
+
+    counted_records = set()
+    for record_id, record in sorted(packets.items(), key=lambda pair: pair[1]["firstLine"]):
+        kind, count, byte_count = record["header"]
+        parts = record["parts"]
+        if len(parts) != count:
+            missing = []
+            for index in range(1, count + 1):
+                if index not in parts:
+                    missing.append(index)
+                    if len(missing) == 100:
+                        break
+            issue("missingPackets", record_id=record_id, expectedParts=count, receivedParts=len(parts), missingPartIndices=missing)
+            continue
+        if record_id in damaged_records:
+            continue
+        try:
+            decoded = base64.b64decode("".join(parts[index] for index in range(1, count + 1)), validate=True)
+            if len(decoded) != byte_count:
+                issue("packetByteLengthMismatch", record_id=record_id, expectedBytes=byte_count, receivedBytes=len(decoded))
+                continue
+            payload = decoded.decode("utf-8", errors="strict")
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            issue("invalidPacketEncoding", record_id=record_id)
+            continue
+        reconstructed = {"recordId": record_id, "kind": kind, "payload": payload}
+        try:
+            value = json.loads(payload)
+        except json.JSONDecodeError:
+            value = None
+            if kind in ("snapshot", "environment", "event", "collectionWarning") or payload.lstrip().startswith("{"):
+                issue("malformedPayloadJson", record_id=record_id)
+        else:
+            reconstructed["json"] = value
+        records.append(reconstructed)
+        if count_outcome(value):
+            counted_records.add(record_id)
+        if record_id in cores and isinstance(value, dict) and cores[record_id].get("outcome") != value.get("outcome"):
+            issue("coreOutcomeMismatch", record_id=record_id)
+
+    for record_id, core in cores.items():
+        if record_id not in packets:
+            issue("missingPacketRecord", record_id=record_id)
+        if record_id not in counted_records and record_id not in damaged_cores:
+            count_outcome(core)
+
     return {
         "diagnosticLines": diagnostics, "nativeErrorObservations": native,
+        "diagnosticRecords": records, "diagnosticIssues": issues,
+        "coreSnapshots": [{"recordId": record_id, "json": core} for record_id, core in cores.items()],
         "observedOutcomeCounts": outcomes,
         "rootCause": "NOT ESTABLISHED: correlate exact native errors, build identity and session observations with reproduction.",
         "physicalAcceptance": "NOT TESTED: log collection or a Tracking observation alone does not verify visible mask alignment, UI, media or performance.",

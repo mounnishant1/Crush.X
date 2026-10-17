@@ -13,15 +13,24 @@ namespace CrushX.LensEngine
         private NativeLensUI nativeUi;
         private readonly List<LensManifest> sessionOrder = new List<LensManifest>();
         private readonly List<LensManifest> visible = new List<LensManifest>();
-        private GUIStyle cardStyle, emptyStyle;
+        private NativeCameraSkin skin;
         private LensBrowseFilter filter;
         private string query = string.Empty;
-        private float dragOffset;
-        private bool dragging;
+        private readonly LensCarouselMotion motion = new LensCarouselMotion();
+        private readonly Dictionary<string, Texture2D> covers = new Dictionary<string, Texture2D>();
+        private string observedActiveId;
+        private bool orderLoaded;
+        private bool dragStartedSettled;
 
         public LensBrowseFilter Filter { get { return filter; } }
         public string Query { get { return query; } }
         public int VisibleCount { get { EnsureEngine(); return visible.Count; } }
+
+        public Texture2D GetCover(string lensId)
+        {
+            Texture2D cover;
+            return lensId != null && covers.TryGetValue(lensId, out cover) ? cover : null;
+        }
 
         private void Start() { EnsureEngine(); }
 
@@ -29,10 +38,17 @@ namespace CrushX.LensEngine
         {
             if (engine == null) engine = FindFirstObjectByType<LensEngineBootstrap>();
             if (nativeUi == null) nativeUi = GetComponent<NativeLensUI>();
-            if (sessionOrder.Count == 0 && engine != null && engine.RankedLenses != null)
+            if (!orderLoaded && engine != null && engine.RankedLenses != null)
             {
+                orderLoaded = true;
                 // Usage changes may influence the next camera session, never an active browse gesture.
-                foreach (LensManifest lens in engine.RankedLenses) sessionOrder.Add(lens);
+                foreach (LensManifest lens in engine.RankedLenses)
+                {
+                    sessionOrder.Add(lens);
+                    // Includes missing entries, so OnGUI never retries a load or allocates a resource path.
+                    if (!covers.ContainsKey(lens.Id))
+                        covers.Add(lens.Id, Resources.Load<Texture2D>("CrushXLensCovers/" + lens.Id));
+                }
                 Refresh();
             }
             return engine != null;
@@ -94,8 +110,9 @@ namespace CrushX.LensEngine
             if (engine == null) return;
             visible.Clear();
             visible.AddRange(BuildResults(sessionOrder, filter, query, engine.IsFavorite, engine.RecentLensIds));
-            dragging = false;
-            dragOffset = 0;
+            observedActiveId = engine.ActiveId;
+            motion.Reset(visible.Count, CenterIndex());
+            dragStartedSettled = false;
         }
 
         private int CenterIndex()
@@ -104,22 +121,78 @@ namespace CrushX.LensEngine
             return -1;
         }
 
-        public void BeginDrag() { dragging = true; dragOffset = 0; }
-        public void Drag(float logicalDelta) { if (dragging) dragOffset = Mathf.Clamp(logicalDelta, -100, 100); }
-        public void CancelDrag() { dragging = false; dragOffset = 0; }
+        public void BeginDrag()
+        {
+            if (!EnsureEngine()) return;
+            SynchronizeSelection();
+            dragStartedSettled = motion.IsSettled;
+            motion.BeginDrag();
+        }
+
+        public void Drag(float logicalDelta)
+        {
+            motion.Drag(logicalDelta / CellSpacing(CarouselViewport(NativeCameraLayout.Current.Carousel)));
+        }
+
+        public void CancelDrag()
+        {
+            motion.CancelDrag();
+            dragStartedSettled = false;
+        }
+
+        public bool EndDrag(Vector2 logicalPosition, bool isTap, bool isHorizontal)
+        {
+            SynchronizeSelection();
+            if (!motion.IsDragging) return false;
+            bool allowTap = dragStartedSettled;
+            dragStartedSettled = false;
+            if (isTap)
+            {
+                motion.CancelDrag();
+                return allowTap && TapAtPosition(logicalPosition, true);
+            }
+            if (!isHorizontal) { motion.CancelDrag(); return false; }
+            int index = motion.EndDrag();
+            if (SelectResult(index)) return true;
+            // An unavailable result must return to the actual selection instead of claiming it was applied.
+            int active = CenterIndex();
+            if (active >= 0) motion.SelectIndex(active);
+            return false;
+        }
 
         public bool StepVisible(int amount)
         {
             if (!EnsureEngine() || visible.Count == 0 || amount == 0) return false;
+            SynchronizeSelection();
             int direction = amount < 0 ? -1 : 1;
-            int index = NextResultIndex(CenterIndex(), direction, visible.Count);
+            int current = CenterIndex();
+            int index = NextResultIndex(current, direction, visible.Count);
             CancelDrag();
             for (int attempt = 0; attempt < visible.Count; attempt++)
             {
-                if (visible[index].Id == engine.ActiveId || engine.SelectLens(visible[index].Id)) return true;
+                if (SelectResult(index, current < 0 ? 0 : direction)) return true;
                 index = WrappedIndex(index + direction, visible.Count);
             }
             return false;
+        }
+
+        private bool SelectResult(int index, int direction = 0)
+        {
+            if (index < 0 || index >= visible.Count) return false;
+            LensManifest lens = visible[index];
+            if (lens.Id != engine.ActiveId && !engine.SelectLens(lens.Id)) return false;
+            observedActiveId = engine.ActiveId;
+            motion.SelectIndex(index, direction);
+            return true;
+        }
+
+        private void SynchronizeSelection()
+        {
+            if (engine == null || string.Equals(observedActiveId, engine.ActiveId, StringComparison.Ordinal)) return;
+            observedActiveId = engine.ActiveId;
+            CancelDrag();
+            int index = CenterIndex();
+            if (index >= 0) motion.SelectIndex(index);
         }
 
         public static int NextResultIndex(int current, int direction, int count)
@@ -131,83 +204,145 @@ namespace CrushX.LensEngine
 
         public bool Tap(Vector2 logicalPosition)
         {
-            if (!EnsureEngine() || visible.Count == 0) return false;
-            Rect bounds = NativeCameraLayout.Current.Carousel;
-            int slots = Mathf.Min(5, visible.Count);
-            int center = Mathf.Max(0, CenterIndex());
-            for (int slot = 0; slot < slots; slot++)
-                if (CardRect(bounds, slot, slots).Contains(logicalPosition))
+            return TapAtPosition(logicalPosition, false);
+        }
+
+        private bool TapAtPosition(Vector2 logicalPosition, bool releasedTap)
+        {
+            SynchronizeSelection();
+            if (!EnsureEngine() || visible.Count == 0 || motion.IsDragging ||
+                (!releasedTap && !motion.IsSettled)) return false;
+            Rect viewport = CarouselViewport(NativeCameraLayout.Current.Carousel);
+            if (!viewport.Contains(logicalPosition)) return false;
+            int first, last;
+            VisibleCoordinates(out first, out last);
+            for (int coordinate = first; coordinate <= last; coordinate++)
+            {
+                // The same animated, scaled circle is used by rendering; empty corners are not tappable.
+                Rect circle = AnimatedCardRect(viewport, coordinate);
+                Vector2 delta = logicalPosition - circle.center;
+                if (delta.sqrMagnitude <= circle.width * circle.width * .25f)
                 {
-                    LensManifest lens = visible[WrappedIndex(center + slot - slots / 2, visible.Count)];
-                    CancelDrag();
-                    return lens.Id == engine.ActiveId || engine.SelectLens(lens.Id);
+                    // A clipped wrap copy must travel in the direction of the image that was actually tapped.
+                    int direction = coordinate < motion.Position ? -1 : coordinate > motion.Position ? 1 : 0;
+                    return SelectResult(WrappedIndex(coordinate, visible.Count), direction);
                 }
-            CancelDrag();
+            }
             return false;
         }
+
+        private static Rect CarouselViewport(Rect bounds)
+        {
+            float width = Mathf.Min(420f, bounds.width);
+            return new Rect(bounds.center.x - width * .5f, bounds.y, width, bounds.height);
+        }
+
+        private static float CellSpacing(Rect bounds) { return Mathf.Max(1f, bounds.width / 5f); }
 
         public static Rect CardRect(Rect bounds, int slot, int slots)
         {
             if (slots <= 0) return Rect.zero;
-            float cell = Mathf.Min(120f, (bounds.width - 12f) / slots);
-            float left = bounds.center.x - cell * slots * .5f;
-            return new Rect(left + slot * cell + 3, bounds.y + 8, cell - 6, bounds.height - 16);
+            float spacing = CellSpacing(bounds);
+            float diameter = Mathf.Min(72f, Mathf.Max(1f, spacing - 8f));
+            return new Rect(bounds.center.x + (slot - (slots - 1) * .5f) * spacing - diameter * .5f,
+                bounds.center.y - diameter * .5f, diameter, diameter);
+        }
+
+        private Rect AnimatedCardRect(Rect bounds, int coordinate)
+        {
+            Rect circle = CardRect(bounds, 0, 1);
+            float distance = (float)(coordinate - motion.Position);
+            float scale = Mathf.Lerp(.84f, 1f, Mathf.Clamp01(1f - Mathf.Abs(distance)));
+            circle.x += distance * CellSpacing(bounds);
+            Vector2 center = circle.center;
+            circle.width *= scale;
+            circle.height *= scale;
+            circle.center = center;
+            return circle;
+        }
+
+        private void VisibleCoordinates(out int first, out int last)
+        {
+            if (!motion.Loops) { first = 0; last = visible.Count - 1; return; }
+            int anchor = (int)Math.Floor(motion.Position);
+            first = anchor - 3;
+            last = anchor + 3;
         }
 
         private void Update()
         {
-            if (!dragging) dragOffset = Mathf.MoveTowards(dragOffset, 0, Time.unscaledDeltaTime * 650f);
+            EnsureEngine();
+            SynchronizeSelection();
+            motion.Tick(Time.unscaledDeltaTime);
         }
 
         private void OnApplicationPause(bool paused) { if (paused) CancelDrag(); }
+        private void OnApplicationFocus(bool focused) { if (!focused) CancelDrag(); }
         private void OnDisable() { CancelDrag(); }
+        private void OnDestroy() { if (skin != null) skin.Dispose(); }
 
         private void OnGUI()
         {
             if (!EnsureEngine() || (nativeUi != null && nativeUi.HidesCarousel)) return;
-            if (cardStyle == null)
-            {
-                cardStyle = new GUIStyle(GUI.skin.box) { fontSize = 15, wordWrap = true, alignment = TextAnchor.MiddleCenter };
-                cardStyle.normal.textColor = Color.white;
-                emptyStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, wordWrap = true, alignment = TextAnchor.MiddleCenter };
-                emptyStyle.normal.textColor = Color.white;
-            }
+            if (skin == null) skin = new NativeCameraSkin();
             Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.color;
             Color previousBackground = GUI.backgroundColor;
             NativeCameraLayout layout = NativeCameraLayout.Current;
             GUI.matrix = layout.Matrix;
             GUI.color = Color.white;
-            Rect bounds = layout.Carousel;
-            GUI.Box(bounds, GUIContent.none);
+            Rect bounds = CarouselViewport(layout.Carousel);
             if (visible.Count == 0)
             {
                 string message = filter == LensBrowseFilter.Favorites ? "Favorite a lens to find it here" :
                     filter == LensBrowseFilter.Recent ? "No recent lenses saved" : "No lenses match your search";
-                GUI.Label(bounds, message, emptyStyle);
+                GUI.Label(bounds, message, skin.Status);
             }
             else
             {
-                int center = Mathf.Max(0, CenterIndex());
-                int slots = Mathf.Min(5, visible.Count);
                 GUI.BeginGroup(bounds);
                 Rect localBounds = new Rect(0, 0, bounds.width, bounds.height);
-                for (int slot = 0; slot < slots; slot++)
+                int first, last;
+                VisibleCoordinates(out first, out last);
+                for (int coordinate = first; coordinate <= last; coordinate++)
                 {
-                    LensManifest lens = visible[WrappedIndex(center + slot - slots / 2, visible.Count)];
+                    LensManifest lens = visible[WrappedIndex(coordinate, visible.Count)];
+                    Rect circle = AnimatedCardRect(localBounds, coordinate);
+                    if (circle.xMax < 0 || circle.xMin > localBounds.width) continue;
                     bool active = lens.Id == engine.ActiveId;
-                    Rect card = CardRect(localBounds, slot, slots);
-                    card.x += dragOffset;
-                    GUI.backgroundColor = active ? new Color(.95f, .22f, .61f) : new Color(.16f, .19f, .25f);
-                    // Touches are owned by CrushXCameraSwipe; GUI.Button would also select on release after a drag.
-                    GUI.Box(card, (engine.IsFavorite(lens.Id) ? "★ " : "") + lens.DisplayName, cardStyle);
-                    if (active) GUI.DrawTexture(new Rect(card.x + 8, card.yMax - 5, card.width - 16, 3), Texture2D.whiteTexture);
+                    skin.Disc(circle, NativeCameraSkin.PanelColor);
+                    Texture2D cover = GetCover(lens.Id);
+                    if (cover != null)
+                        GUI.DrawTexture(circle, cover, ScaleMode.ScaleToFit, true);
+                    else
+                    {
+                        // A missing resource is explicit; badges must never masquerade as effect previews.
+                        skin.Disc(circle, BadgeColor(lens));
+                        GUI.Label(circle, "NO COVER", skin.Badge);
+                    }
+                    Rect ring = new Rect(circle.x - 2f, circle.y - 2f, circle.width + 4f, circle.height + 4f);
+                    // Keep the texture-space thickness fixed as the cell scales, so animation reuses two rings.
+                    skin.Ring(ring, active ? NativeCameraSkin.AccentColor : new Color(1f, 1f, 1f, .35f),
+                        1f, ring.width * (active ? .04f : .022f));
                 }
                 GUI.EndGroup();
             }
             GUI.backgroundColor = previousBackground;
             GUI.color = previousColor;
             GUI.matrix = previousMatrix;
+        }
+
+        private static Color BadgeColor(LensManifest lens)
+        {
+            if (lens.Implementation == LensImplementation.ColorFilter) return new Color(.22f, .20f, .38f, 1f);
+            switch (lens.Category)
+            {
+                case LensCategory.Animals: return new Color(.38f, .23f, .15f, 1f);
+                case LensCategory.SciFi: return new Color(.10f, .29f, .36f, 1f);
+                case LensCategory.Fantasy: return new Color(.30f, .18f, .38f, 1f);
+                case LensCategory.Beauty: return new Color(.36f, .18f, .28f, 1f);
+                default: return new Color(.20f, .25f, .34f, 1f);
+            }
         }
     }
 }

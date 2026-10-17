@@ -32,6 +32,7 @@ namespace CrushX.LensEngine
         public float RecordingSeconds => CurrentState == MediaCaptureState.Recording
             ? Mathf.Max(0f, Time.realtimeSinceStartup - recordingStarted) : 0f;
         public bool SupportsVideo => VideoCapability(out _);
+        public string VideoCapabilityReason { get { VideoCapability(out string reason); return reason; } }
         public bool MicrophoneGranted
         {
             get
@@ -58,7 +59,7 @@ namespace CrushX.LensEngine
         private int framesCopied, lastReadFrame;
         private float recordingStarted;
         private string draftPath;
-        private bool capabilityChecked, videoSupported;
+        private bool capabilityChecked, capabilityLogged, videoSupported;
         private string capabilityReason;
         private bool requestedMicrophone;
         private bool lifecycleStopping;
@@ -258,7 +259,12 @@ namespace CrushX.LensEngine
 
         public void StopVideo()
         {
-            if (CurrentState == MediaCaptureState.Preparing) { Retry(); return; }
+            if (CurrentState == MediaCaptureState.Preparing)
+            {
+                if (WaitingForMicrophonePermission) Retry();
+                else Fail("Recording was too short; hold the shutter until recording starts");
+                return;
+            }
             if (CurrentState != MediaCaptureState.Recording) return;
             SetState(MediaCaptureState.Finalizing, "Finishing and inspecting MP4");
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -417,7 +423,11 @@ namespace CrushX.LensEngine
         private bool VideoCapability(out string reason)
         {
             if (GraphicsSettings.currentRenderPipeline != null)
-            { reason = "MP4 capture needs a validated renderer feature for this SRP"; return false; }
+            {
+                reason = "MP4 capture needs a validated renderer feature for this SRP";
+                LogVideoCapabilityOnce(false, reason);
+                return false;
+            }
             if (!capabilityChecked)
             {
                 capabilityChecked = true;
@@ -430,13 +440,24 @@ namespace CrushX.LensEngine
                         capabilityReason = videoSupported ? "Available Android AVC encoder" : "No supported Android byte-buffer AVC encoder";
                     }
                 }
-                catch (Exception ex) { capabilityReason = "Android video encoder unavailable: " + ex.Message; }
+                catch (Exception ex) { capabilityReason = "Android video encoder unavailable: " + ex.GetType().Name + ": " + ex.Message; }
 #else
                 capabilityReason = "Rendered MP4 capture is available only on an Android device";
 #endif
+                // Cache the same bounded native-probe reason for UI and diagnostics.
+                capabilityReason = (capabilityReason ?? "Video capability probe returned no reason").Replace('\r', ' ').Replace('\n', ' ');
+                if (capabilityReason.Length > 220) capabilityReason = capabilityReason.Substring(0, 217) + "...";
             }
             reason = capabilityReason;
+            LogVideoCapabilityOnce(videoSupported, reason);
             return videoSupported;
+        }
+
+        private void LogVideoCapabilityOnce(bool supported, string reason)
+        {
+            if (capabilityLogged) return;
+            capabilityLogged = true;
+            Debug.Log("[CrushX Capture] videoSupported=" + supported + " reason=" + reason);
         }
 
 #if UNITY_ANDROID && !UNITY_EDITOR

@@ -59,7 +59,7 @@ namespace CrushX.LensEngine.Tests
                 capture.Failed += message => failure = message;
                 capture.StartVideo(false);
                 Assert.AreEqual(MediaCaptureState.Error, capture.CurrentState);
-                Assert.IsNotEmpty(failure);
+                Assert.AreEqual(capture.VideoCapabilityReason, failure);
                 Assert.IsNull(capture.PendingMedia);
                 capture.Retry();
                 Assert.AreEqual(MediaCaptureState.Idle, capture.CurrentState);
@@ -67,9 +67,15 @@ namespace CrushX.LensEngine.Tests
             finally { UnityEngine.Object.DestroyImmediate(go); }
         }
 
-        [TestCase(MediaCaptureState.Preview)]
-        [TestCase(MediaCaptureState.Finalizing)]
-        public void CanceledStaleShutter_PreservesCompletedOrFinalizingVideo(MediaCaptureState state)
+        [TestCase(MediaCaptureState.Preview, "EndShutter")]
+        [TestCase(MediaCaptureState.Finalizing, "EndShutter")]
+        [TestCase(MediaCaptureState.Preview, "OnApplicationPause")]
+        [TestCase(MediaCaptureState.Finalizing, "OnApplicationPause")]
+        [TestCase(MediaCaptureState.Preview, "OnApplicationFocus")]
+        [TestCase(MediaCaptureState.Finalizing, "OnApplicationFocus")]
+        [TestCase(MediaCaptureState.Preview, "OnDisable")]
+        [TestCase(MediaCaptureState.Finalizing, "OnDisable")]
+        public void CanceledShutterOrLifecycle_PreservesCompletedOrFinalizingVideo(MediaCaptureState state, string cancelMethod)
         {
             var go = new GameObject("Completed clip gesture test");
             try
@@ -81,11 +87,64 @@ namespace CrushX.LensEngine.Tests
                 typeof(NativeMediaCapture).GetProperty(nameof(NativeMediaCapture.PendingMedia)).SetValue(capture, pending);
                 const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
                 typeof(NativeLensUI).GetField("capture", fields).SetValue(ui, capture);
-                typeof(NativeLensUI).GetField("shutterHeld", fields).SetValue(ui, true);
-                typeof(NativeLensUI).GetField("videoStarted", fields).SetValue(ui, true);
-                ui.EndShutter(true);
+                var gesture = (ShutterGesture)typeof(NativeLensUI).GetField("shutterGesture", fields).GetValue(ui);
+                gesture.Begin(0d);
+                gesture.Poll(ShutterGesture.HoldSeconds, true);
+                if (cancelMethod == "EndShutter") ui.EndShutter(true);
+                else
+                {
+                    object[] arguments = cancelMethod == "OnDisable" ? null : new object[] { cancelMethod == "OnApplicationPause" };
+                    typeof(NativeLensUI).GetMethod(cancelMethod, fields).Invoke(ui, arguments);
+                }
                 Assert.AreEqual(state, capture.CurrentState);
                 Assert.AreSame(pending, capture.PendingMedia);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void ReleaseWhilePreparingReportsTooShortWithoutPhotoFallback()
+        {
+            var go = new GameObject("Preparing clip release test");
+            try
+            {
+                var capture = go.AddComponent<NativeMediaCapture>();
+                var ui = go.AddComponent<NativeLensUI>();
+                typeof(NativeMediaCapture).GetProperty(nameof(NativeMediaCapture.CurrentState)).SetValue(capture, MediaCaptureState.Preparing);
+                const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
+                typeof(NativeLensUI).GetField("capture", fields).SetValue(ui, capture);
+                var gesture = (ShutterGesture)typeof(NativeLensUI).GetField("shutterGesture", fields).GetValue(ui);
+                gesture.Begin(0d);
+                gesture.Poll(ShutterGesture.HoldSeconds, true);
+                ui.EndShutter(false);
+                Assert.AreEqual(MediaCaptureState.Error, capture.CurrentState);
+                Assert.That(capture.StatusMessage, Does.Contain("too short"));
+                Assert.IsNull(capture.PendingMedia);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void BackCancelsPendingShutterBeforeClosingSearchWithoutCapture()
+        {
+            var go = new GameObject("Back while holding shutter test");
+            try
+            {
+                var capture = go.AddComponent<NativeMediaCapture>();
+                var ui = go.AddComponent<NativeLensUI>();
+                const BindingFlags fields = BindingFlags.NonPublic | BindingFlags.Instance;
+                typeof(NativeLensUI).GetField("capture", fields).SetValue(ui, capture);
+                typeof(NativeLensUI).GetField("searchVisible", fields).SetValue(ui, true);
+                // Search closure calls carousel.SetQuery; use the component created during normal setup.
+                var carousel = go.AddComponent<CrushXSmartCarousel>();
+                typeof(NativeLensUI).GetField("carousel", fields).SetValue(ui, carousel);
+                var gesture = (ShutterGesture)typeof(NativeLensUI).GetField("shutterGesture", fields).GetValue(ui);
+                gesture.Begin(0d);
+                typeof(NativeLensUI).GetMethod("Back", fields).Invoke(ui, null);
+                Assert.IsFalse(gesture.IsHeld);
+                Assert.AreEqual(ShutterAction.None, gesture.Poll(10d, true));
+                Assert.AreEqual(MediaCaptureState.Idle, capture.CurrentState);
+                Assert.IsNull(capture.PendingMedia);
             }
             finally { UnityEngine.Object.DestroyImmediate(go); }
         }
