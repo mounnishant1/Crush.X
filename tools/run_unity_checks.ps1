@@ -6,6 +6,7 @@ param(
     [switch]$BuildAndroid,
     [switch]$RunPlayMode,
     [switch]$GenerateLensCovers,
+    [switch]$AllowLowMemory,
     [int]$TimeoutMinutes = 45,
     [string]$Package = 'in.crushx.lens.pr3test'
 )
@@ -82,6 +83,33 @@ function Confirm-UnityTests([string]$Stage, [string]$Path) {
     if (!$summary.accepted) { throw "$Stage suite is empty, entirely skipped, or failing; see $Path." }
 }
 
+# Practical headroom guard, not a claim about Unity's minimum hardware requirements.
+# The 17 October OnePlus test build reached UnityLinker and ran out of memory
+# with only ~0.64 GiB free physical and ~0.26 GiB free virtual memory.
+function Confirm-BuildMemoryHeadroom {
+    try { $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop }
+    catch {
+        Write-Warning "Could not inspect Windows memory headroom: $($_.Exception.Message)"
+        return
+    }
+    $memory = [pscustomobject]@{
+        totalPhysicalGiB = [math]::Round([double]$os.TotalVisibleMemorySize / 1048576, 2)
+        freePhysicalGiB  = [math]::Round([double]$os.FreePhysicalMemory / 1048576, 2)
+        freeVirtualGiB   = [math]::Round([double]$os.FreeVirtualMemory / 1048576, 2)
+        lowMemoryOverride = [bool]$AllowLowMemory
+    }
+    $memory | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'memory-preflight.json') -Encoding utf8
+    Write-Host "Build memory: physical free=$($memory.freePhysicalGiB) GiB; virtual free=$($memory.freeVirtualGiB) GiB"
+    if ($memory.freePhysicalGiB -lt 2 -or $memory.freeVirtualGiB -lt 4) {
+        $message = 'Low memory headroom may fail UnityLinker. Save work, close other applications and reboot before the Android build. Check pagefile and disk space if virtual memory stays low.'
+        if (!$AllowLowMemory) { throw "$message The -AllowLowMemory switch explicitly permits an attempted build." }
+        Write-Warning "$message Continuing because -AllowLowMemory was specified."
+    }
+    elseif ($memory.freePhysicalGiB -lt 3 -or $memory.freeVirtualGiB -lt 6) {
+        Write-Warning 'Memory headroom is limited; an Android IL2CPP build may still fail. Watch the UnityLinker stage.'
+    }
+}
+
 $testSummaries = @{}
 
 try {
@@ -95,6 +123,7 @@ try {
     $commit = (& git -C $Repository rev-parse HEAD)
     if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw 'Cannot identify exact checkout commit.' }
     & git -C $Repository status --short | Out-File -LiteralPath (Join-Path $output 'source-status.txt') -Encoding utf8
+    if ($BuildAndroid) { Confirm-BuildMemoryHeadroom }
     Invoke-Unity -Stage 'import-compile' -Extra @('-quit')
     if ($GenerateLensCovers) {
         # Actual effect covers need GPU rendering. Preserve new source assets for review/build provenance.
