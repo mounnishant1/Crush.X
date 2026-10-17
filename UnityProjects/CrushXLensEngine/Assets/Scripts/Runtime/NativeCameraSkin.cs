@@ -84,8 +84,11 @@ namespace CrushX.LensEngine
         private static void SetState(GUIStyleState state, Texture2D background)
         {
             state.background = background;
-            // Inherited high-DPI skin assets must not override the owned background.
+            // Unity 6 exposes scaledBackgrounds only to Editor assemblies. Android player
+            // code must use the ordinary background texture above.
+#if UNITY_EDITOR
             state.scaledBackgrounds = null;
+#endif
             state.textColor = Color.white;
         }
 
