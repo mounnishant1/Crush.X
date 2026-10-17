@@ -173,6 +173,22 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('engine.RankedLenses',carousel)
         self.assertNotIn('preferences.Ranked()',carousel)
 
+    def test_android_player_avoids_editor_only_skin_api_and_obsolete_permission_callback(self):
+        skin=source('Scripts/Runtime/NativeCameraSkin.cs')
+        set_state=skin[skin.index('private static void SetState('):skin.index('private Texture2D CreateRounded(')]
+        self.assertRegex(set_state,r'#if UNITY_EDITOR\s+state\.scaledBackgrounds = null;\s+#endif')
+        self.assertIn('state.background = background;',set_state)
+        capture=source('Scripts/Capture/NativeMediaCapture.cs')
+        self.assertNotIn('callbacks.PermissionDeniedAndDontAskAgain +=',capture)
+        self.assertIn('callbacks.PermissionDenied +=',capture)
+
+    def test_android_runner_reports_memory_before_expensive_build(self):
+        runner=(ROOT/'tools/run_unity_checks.ps1').read_text()
+        self.assertIn('[switch]$AllowLowMemory',runner)
+        self.assertIn('Get-CimInstance Win32_OperatingSystem',runner)
+        self.assertIn('memory-preflight.json',runner)
+        self.assertLess(runner.index('if ($BuildAndroid) { Confirm-BuildMemoryHeadroom }'),runner.index("Invoke-Unity -Stage 'import-compile'"))
+
     def test_csharp_syntax_only_not_unity_compilation(self):
         try:
             from tree_sitter import Language,Parser
