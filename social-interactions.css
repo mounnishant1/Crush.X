@@ -28,3 +28,8 @@
 .social-comment-row p{overflow-wrap:anywhere;min-width:0}
 .reel-details .social-friend-bubble{color:inherit}
 @media(max-width:420px){.social-friend-row{gap:8px}.social-friend-row img{width:35px;height:35px}.social-recipient-list{max-height:155px}}
+
+.social-item-caption{padding:12px 0;overflow-wrap:anywhere;font-size:.87rem}
+.social-item-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.social-item-actions button{min-height:44px;border:1px solid #c9c9d0;border-radius:13px;padding:8px;font-weight:700}
+.social-item-actions button[aria-pressed="true"]{color:#db2777;border-color:#db2777}
