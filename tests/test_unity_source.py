@@ -208,6 +208,19 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('CanAutoAdvance(visible.Count, motion.IsSettled, busy, hidden, searching, rearCamera)',carousel)
         self.assertIn('carousel.SetAutoSlideEnabled(nextAuto)',ui)
 
+    def test_carousel_flick_velocity_flows_from_touch_into_bounded_spring(self):
+        swipe=source('Scripts/Runtime/CrushXCameraSwipe.cs')
+        carousel=source('Scripts/Runtime/CrushXSmartCarousel.cs')
+        motion=source('Scripts/Runtime/LensCarouselMotion.cs')
+        self.assertIn('float sampledVelocity = deltaX / deltaTime;',swipe)
+        self.assertIn('Time.unscaledTime - lastCarouselVelocityAt < .12f',swipe)
+        self.assertIn('IsTap(startPosition, position, layout.Scale)',swipe)
+        self.assertIn('Mathf.Abs(delta.y) <= Mathf.Abs(delta.x) * .7f, velocity',swipe)
+        self.assertIn('double velocityCells = -screenVelocityPixelsPerSecond',carousel)
+        self.assertIn('motion.EndDrag(velocityCells)',carousel)
+        self.assertIn('Math.Max(-2.2, Math.Min(2.2, releaseVelocityCellsPerSecond * .14))',motion)
+        self.assertIn('double decay = Math.Exp(-SpringRate * unscaledDeltaSeconds)',motion)
+
     def test_csharp_syntax_only_not_unity_compilation(self):
         try:
             from tree_sitter import Language,Parser
