@@ -132,7 +132,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('#searchInput').evaluate(e => e === document.activeElement), true);
     await page.evaluate(() => {const s = getState(); s.reels.push({...s.reels[0],id:'video_test',userId:'user_2',source:'https://example.com/movie.webm?x=1',mediaType:'video'}); saveState(s); navigate('reels');});
     assert.equal(await page.locator('main video').count(), 1); assert.equal(await page.locator('main video').getAttribute('controls'), '');
-    assert.equal(await page.locator('main img[alt="Reel image"]').count(), 1);
+    assert.equal(await page.locator('main img[alt^="Sample image reel by"]').count(), 1);
     await page.locator('main video').evaluate(async video => { await video.play(); });
     await page.waitForFunction(() => document.querySelector('main video')?.currentTime > 0.1);
     await page.locator('main video').evaluate(video => video.pause());
@@ -279,11 +279,11 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.evaluate(()=>{appFeedFilter='all';appProfileFilter='posts';saveState(clone(defaultState));navigate('home');});
     await page.locator('[data-open-story]').first().focus();
     await page.locator('[data-open-story]').first().press('Enter');
-    assert.equal(await page.locator('dialog[data-app-dialog]').count(),1);
-    await page.locator('[data-next-story]').click();
-    assert.match(await page.locator('dialog').textContent(),/2 \/ 3/);
+    assert.equal(await page.locator('dialog.story-viewer').count(),1);
+    await page.locator('[data-sv="next"]').click();
+    assert.match(await page.locator('dialog.story-viewer').textContent(),/2\/3/);
     await page.keyboard.press('Escape');
-    await page.waitForFunction(()=>!document.querySelector('dialog[data-app-dialog]'));
+    await page.waitForFunction(()=>!document.querySelector('dialog.story-viewer'));
     await page.locator('[data-feed-filter="following"]').click();
     assert.equal(await page.locator('[data-feed-filter="following"]').getAttribute('aria-pressed'),'true');
     await page.locator('[data-feed-filter="all"]').click();
