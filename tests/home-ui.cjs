@@ -26,6 +26,7 @@ const context = vm.createContext({
 });
 vm.runInContext(inlineScript, context, {filename: 'index.html'});
 vm.runInContext(fs.readFileSync(path.join(root, 'app-improvements.js'), 'utf8'), context, {filename: 'app-improvements.js'});
+vm.runInContext(fs.readFileSync(path.join(root, 'story-editor.js'), 'utf8'), context, {filename: 'story-editor.js'});
 
 const evaluate = source => vm.runInContext(source, context);
 const home = evaluate('renderHome(getState())');

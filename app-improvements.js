@@ -99,7 +99,7 @@ bindRepairEvents = function() {
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
   on('[data-feed-filter]', button => { appFeedFilter = button.dataset.feedFilter; renderApp(); });
   document.getElementById('activityButton')?.addEventListener('click', openSampleActivity);
-  on('[data-story-create]', () => navigate('create'));
+  on('[data-story-create]', () => openStoryStudio());
   on('[data-post-options]', button => openSamplePostOptions(button.dataset.postOptions));
   document.querySelectorAll('[data-feed-media]').forEach(media => media.addEventListener('dblclick', () => {
     const post = getState().posts.find(item => item.id === media.dataset.feedMedia);
