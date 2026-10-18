@@ -2,8 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-assert.match(html, /heads-up-notifications\\.css/);
-assert.match(html, /heads-up-notifications\\.js/);
+assert.match(html, /heads-up-notifications\.css/);
+assert.match(html, /heads-up-notifications\.js/);
 const listeners = {}, nodes = [], nav = [];
 class Node {
   constructor(tag) { this.tagName = tag; this.children = []; this.className = ''; this.events = {}; this.attributes = {}; this.classList = { add: () => {}, remove: () => {} }; this.dataset = {}; this.isConnected = true; }
