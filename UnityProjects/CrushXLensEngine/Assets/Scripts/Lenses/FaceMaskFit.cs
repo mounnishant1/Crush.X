@@ -11,6 +11,14 @@ namespace CrushX.LensEngine
         private const float ReferenceFaceWidthMeters = .145f;
         private const float SurfaceClearanceMeters = .005f;
 
+        public static bool TryRelativeScale(float faceWidth, out float relativeScale)
+        {
+            relativeScale = 1f;
+            if (!Finite(faceWidth) || faceWidth < .08f || faceWidth > .25f) return false;
+            relativeScale = Mathf.Clamp(faceWidth / ReferenceFaceWidthMeters, .8f, 1.25f);
+            return true;
+        }
+
         public static bool TryTarget(float faceMinX, float faceMaxX, float faceFrontZ,
             float modelFrontZ, out float relativeScale, out float depthOffset)
         {
@@ -22,10 +30,10 @@ namespace CrushX.LensEngine
             float width = faceMaxX - faceMinX;
             // Reject uninitialized and wildly implausible provider geometry rather than
             // stretching a mask over a transient/invalid face mesh.
-            if (width < .08f || width > .25f || faceFrontZ < -.25f || faceFrontZ > .08f ||
+            if (faceFrontZ < -.25f || faceFrontZ > .08f ||
                 modelFrontZ > -.005f || modelFrontZ < -.25f) return false;
+            if (!TryRelativeScale(width, out relativeScale)) return false;
 
-            relativeScale = Mathf.Clamp(width / ReferenceFaceWidthMeters, .8f, 1.25f);
             // ARCore's negative Z faces the camera. Align the mask's foremost surface
             // just ahead of the nose, while keeping corrections safely bounded.
             depthOffset = Mathf.Clamp(faceFrontZ - modelFrontZ * relativeScale -
