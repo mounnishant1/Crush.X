@@ -29,8 +29,8 @@ function advancedComments(itemId,parent=null){
       seen.add(c.id);ordered.push({c,depth});if(depth<5)walk(c.id,depth+1);}
   }
   walk(null,0);comments.filter(c=>!seen.has(c.id)).forEach(c=>ordered.push({c,depth:0}));
-  appDialog('Comments · local thread',`<p class="social-disclaimer">Sample replies and reactions stay on this browser; no one is notified.</p>
-    <div class="advanced-thread">${ordered.slice(0,200).map(({c,depth})=>`<div class="advanced-comment" style="--reply-depth:${Math.min(depth,3)}">
+  appDialog('Comments · local thread',`<p class="social-disclaimer">Sample replies, likes and inbox notifications stay in this browser. No real person receives an alert.</p>
+    <div class="advanced-thread">${ordered.slice(0,200).map(({c,depth})=>`<div class="advanced-comment" data-advanced-comment-id="${escapeHTML(c.id)}" style="--reply-depth:${Math.min(depth,3)}">
       <p><strong>@${escapeHTML(c.user)}</strong> ${escapeHTML(c.text)}</p>
       <div class="advanced-actions"><button data-advanced-like="${escapeHTML(c.id)}" aria-pressed="${!!c.liked}">♥ ${c.likes||0}</button>
       <button data-advanced-reply="${escapeHTML(c.id)}">Reply</button>
