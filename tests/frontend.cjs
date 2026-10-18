@@ -131,7 +131,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('#searchInput').inputValue(), 'aanya');
     assert.equal(await page.locator('#searchInput').evaluate(e => e === document.activeElement), true);
     await page.evaluate(() => {const s = getState(); s.reels.push({...s.reels[0],id:'video_test',userId:'user_2',source:'https://example.com/movie.webm?x=1',mediaType:'video'}); saveState(s); navigate('reels');});
-    assert.equal(await page.locator('main video').count(), 1); assert.equal(await page.locator('main video').getAttribute('controls'), '');
+    assert.equal(await page.locator('main video').count(), 1); assert.equal(await page.locator('main video').getAttribute('controls'), null); assert.equal(await page.locator('.reel-slide:has(video) .cx-reel-seek').count(), 1);
     assert.equal(await page.locator('main img[alt^="Sample image reel by"]').count(), 1);
     await page.locator('main video').evaluate(async video => { await video.play(); });
     await page.waitForFunction(() => document.querySelector('main video')?.currentTime > 0.1);
