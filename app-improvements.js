@@ -53,15 +53,29 @@ function openSampleStory(id) {
 }
 renderHome = function(state) {
   const posts = state.posts.filter(post => appFeedFilter !== 'following' || post.userId === state.currentUserId || userById(state, post.userId)?.following);
-  let html = originalHome({...state, posts});
-  html = html.replace('<main class="space-y-5">', `<main class="space-y-5"><div class="flex gap-4" aria-label="Feed filter"><button data-feed-filter="all" aria-pressed="${appFeedFilter === 'all'}" class="font-bold ${appFeedFilter === 'all' ? 'text-pink-500' : ''}">All posts</button><button data-feed-filter="following" aria-pressed="${appFeedFilter === 'following'}" class="font-bold ${appFeedFilter === 'following' ? 'text-pink-500' : ''}">Following</button></div>`);
-  if (!posts.length) html = html.replace('</main>', '<p class="p-6 text-center text-slate-500">No posts here yet. Follow a sample profile to see more.</p></main>');
-  // Give the existing story circles keyboard-accessible viewer actions.
-  let index = 0;
-  const stories = state.stories.filter(story => story.expiresAt > Date.now());
-  html = html.replace(/<div class="min-w-\[76px\] text-center">/g, () => `<div role="button" tabindex="0" data-open-story="${escapeHTML(stories[index++].id)}" aria-label="Open sample story" class="min-w-[76px] text-center cursor-pointer">`);
-  return html;
+  return originalHome({...state, posts}, appFeedFilter);
 };
+function openSampleActivity() {
+  const state = getState();
+  const liked = [...state.posts, ...state.reels].filter(item => item.liked).length;
+  const saved = [...state.posts, ...state.reels].filter(item => item.saved).length;
+  const followed = state.users.filter(user => user.following).length;
+  appDialog('Activity', `<p class="text-sm text-slate-500">This is your local activity preview. Live notifications are not connected.</p><div class="mt-4 space-y-3"><p>❤️ Liked posts and reels: <strong>${liked}</strong></p><p>🔖 Saved posts and reels: <strong>${saved}</strong></p><p>👥 Following sample profiles: <strong>${followed}</strong></p></div><button data-activity-saved class="mt-5 w-full rounded-xl gradient-main p-3 font-bold text-white">View saved posts</button>`, dialog => {
+    dialog.querySelector('[data-activity-saved]').onclick = () => { dialog.close(); appProfileFilter = 'saved'; navigate('profile'); };
+  });
+}
+function openSamplePostOptions(postId) {
+  const state = getState();
+  const post = state.posts.find(item => item.id === postId);
+  if (!post) return;
+  const author = userById(state, post.userId);
+  appDialog('Post options', `<p class="text-sm text-slate-500">Sample content · Actions stay in this browser.</p><div class="mt-4 grid gap-3"><button data-option-save class="rounded-xl border p-3 text-left">${post.saved ? 'Remove from saved' : 'Save post'}</button>${author && author.id !== state.currentUserId ? `<button data-option-follow class="rounded-xl border p-3 text-left">${author.following ? 'Unfollow' : 'Follow'} ${escapeHTML(author.username)}</button>` : ''}<button data-option-share class="rounded-xl border p-3 text-left">Share media link</button></div>`, dialog => {
+    dialog.querySelector('[data-option-save]').onclick = () => { dialog.close(); const s=getState(), p=s.posts.find(item=>item.id===postId); if(p){p.saved=!p.saved;saveState(s);renderApp();} };
+    const follow = dialog.querySelector('[data-option-follow]');
+    if (follow) follow.onclick = () => { dialog.close(); const s=getState(), u=s.users.find(item=>item.id===post.userId); if(u){u.following=!u.following;u.followers=Math.max(0,Number(u.followers)+(u.following?1:-1));saveState(s);renderApp();} };
+    dialog.querySelector('[data-option-share]').onclick = () => { dialog.close(); [...document.querySelectorAll('[data-share]')].find(button=>button.dataset.share===postId)?.click(); };
+  });
+}
 renderProfile = function(state) {
   const me = currentUser(state);
   const own = state.posts.filter(post => post.userId === me.id);
@@ -84,10 +98,17 @@ bindRepairEvents = function() {
   originalRepairEvents();
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
   on('[data-feed-filter]', button => { appFeedFilter = button.dataset.feedFilter; renderApp(); });
+  document.getElementById('activityButton')?.addEventListener('click', openSampleActivity);
+  on('[data-story-create]', () => navigate('create'));
+  on('[data-post-options]', button => openSamplePostOptions(button.dataset.postOptions));
+  document.querySelectorAll('[data-feed-media]').forEach(media => media.addEventListener('dblclick', () => {
+    const post = getState().posts.find(item => item.id === media.dataset.feedMedia);
+    if (!post || post.liked) return;
+    [...document.querySelectorAll('[data-like]')].find(button => button.dataset.like === post.id)?.click();
+  }));
   on('[data-profile-filter]', button => { appProfileFilter = button.dataset.profileFilter; renderApp(); });
   on('[data-open-local-item]', button => showLocalItem(button.dataset.openLocalItem));
   on('[data-open-story]', button => openSampleStory(button.dataset.openStory));
-  document.querySelectorAll('[data-open-story]').forEach(button => button.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); button.click(); } }));
   document.getElementById('sampleModeInfo')?.addEventListener('click', () => appDialog('Sample mode', '<p>Stories, likes, follows, saved items, profile edits and comments use sample data in this browser. Other people using this browser may see them.</p><p class="mt-3">Message drafts are never delivered. Publishing is not connected. Drafts are cleared on logout. Your Cognito account is separate from the sample profile.</p>'));
   document.getElementById('captionInput')?.addEventListener('input', event => { captionDraft = event.target.value.slice(0, 2200); });
   on('[data-edit-sample]', () => {

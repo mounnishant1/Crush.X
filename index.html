@@ -134,6 +134,50 @@
     .app-dialog::backdrop { background:rgba(0,0,0,.65); }
     .app-media-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin-top:20px; }
     .app-media-grid img,.app-media-grid video { width:100%; aspect-ratio:1; object-fit:cover; }
+    .home-stories { overflow:hidden; }
+    .story-track { display:flex; gap:15px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; padding:7px 3px 5px; }
+    .story-track::-webkit-scrollbar { display:none; }
+    .story-tile { position:relative; display:flex; flex:0 0 79px; flex-direction:column; align-items:center; min-width:0; cursor:pointer; }
+    .story-border { width:76px; height:76px; display:grid; place-items:center; padding:3px; border-radius:50%; background:linear-gradient(35deg,#fbbf24 9%,#f43f5e 36%,#c026d3 73%,#7c3aed); }
+    .story-border.is-own { padding:0; background:none; }
+    .story-border img { width:100%; height:100%; border:3px solid var(--strong); border-radius:50%; object-fit:cover; }
+    .story-caption { max-width:91px; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+    .story-add { position:absolute; right:0; top:52px; display:grid; place-items:center; width:27px; height:27px; border:2px solid var(--strong); border-radius:50%; background:#1d9bf0; color:white; }
+    .feed-card { overflow:hidden; }
+    .feed-author { display:flex; align-items:center; gap:10px; padding:12px 14px; }
+    .feed-author-avatar { width:40px; height:40px; flex:none; border-radius:50%; object-fit:cover; }
+    .feed-media { width:100%; position:relative; background:#141414; }
+    .feed-media img,.feed-media video { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; }
+    .feed-action { display:grid; place-items:center; width:44px; height:44px; border-radius:12px; }
+    .feed-action[aria-pressed="true"] { color:#f43f5e; }
+    .feed-save[aria-pressed="true"] { color:#7c3aed; }
+    .feed-filter { display:flex; align-items:center; gap:24px; padding:0 12px; }
+    .feed-filter button[aria-pressed="true"] { color:#ec4899; border-bottom:2px solid currentColor; }
+    .feed-filter button { min-height:38px; font-size:13px; font-weight:750; }
+    .mobile-header { display:none; }
+    @media (max-width: 639px) {
+      body { background:var(--bg); }
+      #app > .app-shell { padding:0 0 calc(78px + env(safe-area-inset-bottom)) !important; }
+      .app-header { position:sticky; top:0; z-index:20; padding:0 !important; }
+      .app-header > .header-shell { border:0; border-bottom:1px solid var(--line); border-radius:0; padding:8px 12px; background:var(--strong); box-shadow:none; }
+      .mobile-header { display:flex; width:100%; align-items:center; justify-content:space-between; }
+      .mobile-header .brand { font-family:Georgia,serif; font-size:29px; font-weight:900; letter-spacing:-1.6px; }
+      .mobile-header .header-icon { width:44px; height:44px; display:grid; place-items:center; }
+      .desktop-header-content { display:none !important; }
+      .sample-hint { margin:4px 12px 7px !important; padding:0 !important; background:none !important; color:var(--muted) !important; font-size:10px !important; }
+      #appStatus { margin:0 12px; }
+      .home-feed { gap:0 !important; max-width:none; }
+      .home-stories { border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--strong); box-shadow:none; padding:11px 0 9px; }
+      .story-track { padding-inline:13px; }
+      .feed-filter { background:var(--strong); border-bottom:1px solid var(--line); }
+      .feed-card { border:0; border-radius:0; background:var(--strong); box-shadow:none; margin-bottom:7px; }
+      .feed-media img,.feed-media video { aspect-ratio:3/4; }
+      .bottom-nav { left:0; bottom:0; width:100%; transform:none; padding:7px 4px calc(7px + env(safe-area-inset-bottom)); border:0; border-top:1px solid var(--line); border-radius:0; background:var(--strong); box-shadow:none; }
+      .bottom-nav .tab-button { flex:1; min-height:48px; max-width:80px; border-radius:20px; }
+      .bottom-nav .tab-button[aria-current="page"] { background:rgba(148,163,184,.13); }
+      .bottom-nav .tab-button svg { width:25px; height:25px; }
+      .bottom-nav .tab-caption { display:none; }
+    }
     @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
   </style>
 </head>
@@ -416,7 +460,8 @@
       const userExists = id => state.users.some(user => user.id === id);
       const comments = value => records(value, []).map(comment => ({ user: localText(comment.user, 128), text: localText(comment.text) }));
       state.posts = unique(records(raw.posts, defaultState.posts).filter(post => userExists(post.userId)).map(post => ({
-        id: post.id, userId: post.userId, image: localText(post.image), location: localText(post.location, 200),
+        id: post.id, userId: post.userId, image: localText(post.image), source: localText(post.source),
+        contentType: localText(post.contentType, 100), mediaType: localText(post.mediaType, 100), location: localText(post.location, 200),
         caption: localText(post.caption), likes: localCount(post.likes), shares: localCount(post.shares),
         liked: post.liked === true, saved: post.saved === true, comments: comments(post.comments)
       })));
@@ -900,24 +945,24 @@
       return data;
     }
 
-    function renderHome(state) {
+    function renderHome(state, feedFilter = 'all') {
       return `
-        <main class="space-y-5">
-          <section class="glass rounded-[2rem] p-3">
-            <div class="flex gap-4 overflow-x-auto">
+        <main class="home-feed space-y-5">
+          <section class="home-stories glass p-3" aria-label="Stories">
+            <div class="story-track">
               ${state.stories
                 .filter(story => story.expiresAt > Date.now())
                 .map(story => {
                   const user = userById(state, story.userId);
-
+                  if (!user) return '';
+                  const own = story.userId === state.currentUserId;
                   return `
-                    <div class="min-w-[76px] text-center">
-                      <div class="story-ring rounded-full">
-                        <img src="${safeMediaUrl(user.avatar)}" class="h-16 w-16 rounded-full border-2 border-white object-cover" />
-                      </div>
-                      <div class="mt-2 truncate text-[10px] font-bold text-slate-500">
-                        ${escapeHTML(user.username.slice(0, 9))}
-                      </div>
+                    <div class="story-tile">
+                      <button class="story-border ${own ? 'is-own' : ''}" data-open-story="${escapeHTML(story.id)}" aria-label="View ${own ? 'your' : escapeHTML(user.username + '\'s')} sample story">
+                        <img src="${safeMediaUrl(user.avatar)}" alt="" loading="lazy" />
+                      </button>
+                      ${own ? '<button class="story-add" data-story-create aria-label="Add to your story"><i data-lucide="plus" class="h-4 w-4"></i></button>' : ''}
+                      <span class="story-caption">${own ? 'Your story' : escapeHTML(user.username)}</span>
                     </div>
                   `;
                 })
@@ -925,76 +970,63 @@
             </div>
           </section>
 
+          <section class="feed-filter" aria-label="Feed filter">
+            <button data-feed-filter="all" aria-pressed="${feedFilter === 'all'}">For you</button>
+            <button data-feed-filter="following" aria-pressed="${feedFilter === 'following'}">Following</button>
+          </section>
+
           ${state.posts.map(post => {
             const author = userById(state, post.userId);
+            if (!author) return '';
+            const media = post.source || post.image;
+            const isVideo = post.mediaType === 'video' || post.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(media || '');
 
             return `
-              <article class="glass rounded-[2rem] p-3 sm:p-4">
-                <div class="mb-3 flex items-center gap-3">
-                  <img src="${safeMediaUrl(author.avatar)}" class="h-11 w-11 rounded-full object-cover ring-2 ring-pink-200" />
-
-                  <div>
-                    <div class="flex items-center gap-1 font-bold">
-                      @${escapeHTML(author.username)}
+              <article class="feed-card glass rounded-[2rem] sm:mx-auto sm:max-w-xl">
+                <div class="feed-author">
+                  <img src="${safeMediaUrl(author.avatar)}" alt="" class="feed-author-avatar ring-2 ring-pink-200" />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1 truncate text-sm font-bold">
+                      ${escapeHTML(author.username)}
                       ${author.verified ? '<i data-lucide="badge-check" class="h-4 w-4 text-blue-500"></i>' : ''}
                     </div>
-                    <div class="text-xs text-slate-500">${escapeHTML(post.location)}</div>
+                    <div class="truncate text-xs text-slate-500">${escapeHTML(post.location || 'Original audio')}</div>
                   </div>
+                  ${author.id !== state.currentUserId ? `<button data-follow-user="${escapeHTML(author.id)}" aria-pressed="${author.following}" class="rounded-xl border border-current px-3 py-2 text-xs font-bold">${author.following ? 'Following' : 'Follow'}</button>` : ''}
+                  <button class="feed-action" data-post-options="${escapeHTML(post.id)}" aria-label="More options for ${escapeHTML(author.username)} post"><i data-lucide="ellipsis" class="h-6 w-6"></i></button>
+                </div>
+                <div class="feed-media" data-feed-media="${escapeHTML(post.id)}" title="Double tap to like">
+                  ${isVideo ? `<video src="${safeMediaUrl(media)}" controls playsinline muted preload="metadata" aria-label="Feed video by ${escapeHTML(author.username)}"></video>` : `<img src="${safeMediaUrl(media)}" alt="Sample post by ${escapeHTML(author.username)}" loading="lazy" />`}
                 </div>
 
-                <img src="${safeMediaUrl(post.image)}" class="h-[420px] w-full rounded-[1.7rem] object-cover" />
-
-                <div class="mt-3 flex justify-between">
-                  <div class="flex gap-4">
-                    <button aria-label="Like locally" data-like="${escapeHTML(post.id)}" aria-pressed="${!!post.liked}"><i data-lucide="heart" class="h-5 w-5"></i></button>
-                    <button aria-label="Add comment locally" data-comment-focus="${escapeHTML(post.id)}"><i data-lucide="message-circle" class="h-5 w-5"></i></button>
-                    <button aria-label="Share" data-share="${escapeHTML(post.id)}"><i data-lucide="send" class="h-5 w-5"></i></button>
+                <div class="flex items-center justify-between px-2 pt-1">
+                  <div class="flex gap-1">
+                    <button class="feed-action" aria-label="Like locally" data-like="${escapeHTML(post.id)}" aria-pressed="${!!post.liked}"><i data-lucide="heart" class="h-6 w-6" ${post.liked ? 'fill="currentColor"' : ''}></i></button>
+                    <button class="feed-action" aria-label="Add comment locally" data-comment-focus="${escapeHTML(post.id)}"><i data-lucide="message-circle" class="h-6 w-6"></i></button>
+                    <button class="feed-action" aria-label="Share" data-share="${escapeHTML(post.id)}"><i data-lucide="send" class="h-6 w-6"></i></button>
                   </div>
-                  <button aria-label="Save locally" data-save="${escapeHTML(post.id)}" aria-pressed="${!!post.saved}"><i data-lucide="bookmark" class="h-5 w-5"></i></button>
+                  <button class="feed-action feed-save" aria-label="Save locally" data-save="${escapeHTML(post.id)}" aria-pressed="${!!post.saved}"><i data-lucide="bookmark" class="h-6 w-6" ${post.saved ? 'fill="currentColor"' : ''}></i></button>
                 </div>
 
-                <div class="mt-3 text-sm font-bold">
+                <div class="px-4 pb-4 pt-1 text-sm font-bold">
                   ${Number(post.likes).toLocaleString()} likes
-                  <span class="ml-2 font-normal text-slate-500">
-                    ${Number(post.shares).toLocaleString()} shares
-                  </span>
-                </div>
-
-                <div class="mt-2 text-sm">
-                  <strong>@${escapeHTML(author.username)}</strong>
-                  <span class="text-slate-600 dark:text-slate-300">
-                    ${formatText(post.caption)}
-                  </span>
-                </div>
-
-                <div class="mt-3 space-y-2">
-                  ${post.comments.map(comment => `
-                    <div class="rounded-2xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
-                      <strong>@${escapeHTML(comment.user)}</strong>
-                      <span class="text-slate-600 dark:text-slate-300">
-                        ${escapeHTML(comment.text)}
-                      </span>
-                    </div>
-                  `).join('')}
-                </div>
-
-                <div class="mt-3 flex gap-2">
-                  <input
-                    data-comment-input="${escapeHTML(post.id)}"
-                    maxlength="2000" placeholder="Add a local comment..."
-                    class="flex-1 rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
-                  />
-
-                  <button
-                    data-comment-send="${escapeHTML(post.id)}"
-                    class="rounded-full gradient-main px-4 py-2 text-sm font-bold text-white"
-                  >
-                    Send
-                  </button>
+                  <div class="mt-2 font-normal"><strong>${escapeHTML(author.username)}</strong> ${formatText(post.caption)}</div>
+                  <div class="mt-3 space-y-2">
+                    ${post.comments.map(comment => `
+                      <div class="text-sm font-normal">
+                        <strong>${escapeHTML(comment.user)}</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHTML(comment.text)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                  <div class="mt-3 flex gap-2">
+                    <input data-comment-input="${escapeHTML(post.id)}" maxlength="2000" placeholder="Add a local comment..." aria-label="Add a local comment" class="flex-1 rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800" />
+                    <button data-comment-send="${escapeHTML(post.id)}" class="rounded-full gradient-main px-4 py-2 text-sm font-bold text-white">Send</button>
+                  </div>
                 </div>
               </article>
             `;
           }).join('')}
+          ${state.posts.length ? '' : '<p class="p-6 text-center text-slate-500">No posts here yet. Follow a sample profile to see more.</p>'}
         </main>
       `;
     }
@@ -1244,6 +1276,13 @@
         ['reels', 'Reels', 'play-square'],
         ['profile', 'Profile', 'user']
       ];
+      const mobileTabs = [
+        ['home', 'Home', 'house'],
+        ['reels', 'Reels', 'play-square'],
+        ['messages', 'Messages', 'send'],
+        ['discover', 'Search', 'search'],
+        ['profile', 'Profile', 'user-round']
+      ];
 
       let view = renderHome(state);
 
@@ -1254,10 +1293,15 @@
       if (state.activeTab === 'profile') view = renderProfile(state);
 
       document.getElementById('app').innerHTML = `
-        <div class="mx-auto max-w-screen-2xl px-3 pb-28 pt-3 sm:px-5">
-          <header class="sticky top-0 z-20 pb-4">
-            <div class="glass-strong rounded-[2rem] px-4 py-3">
-              <div class="flex items-center justify-between gap-3">
+        <div class="app-shell mx-auto max-w-screen-2xl px-3 pb-28 pt-3 sm:px-5">
+          <header class="app-header sticky top-0 z-20 pb-4">
+            <div class="header-shell glass-strong rounded-[2rem] px-4 py-3">
+              <div class="mobile-header">
+                <button class="header-icon" data-tab="create" aria-label="Create a post or story"><i data-lucide="plus" class="h-8 w-8"></i></button>
+                <span class="brand" aria-label="Crush.X">Crush.X</span>
+                <button class="header-icon" id="activityButton" aria-label="Activity and notifications"><i data-lucide="heart" class="h-8 w-8"></i></button>
+              </div>
+              <div class="desktop-header-content flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                   <div class="flex h-11 w-11 items-center justify-center rounded-2xl gradient-main text-xl font-black text-white">
                     C
@@ -1294,23 +1338,24 @@
             </div>
           </header>
 
-          <p class="mb-4 rounded-2xl bg-pink-50 p-3 text-xs text-pink-700">Sample mode · Local only. <button id="sampleModeInfo" class="font-bold underline">What works?</button></p>
+          <p class="sample-hint mb-4 rounded-2xl bg-pink-50 p-3 text-xs text-pink-700">Sample preview · Local actions only. <button id="sampleModeInfo" class="font-bold underline">What works?</button></p>
           <p id="appStatus" role="status" aria-live="polite" class="mb-3 text-sm"></p>
           ${view}
         </div>
 
-        <nav class="bottom-nav glass-strong flex items-center justify-around rounded-[2rem] p-2 xl:hidden">
-          ${tabs.map(([id, label, icon]) => `
+        <nav class="bottom-nav glass-strong flex items-center justify-around rounded-[2rem] p-2 xl:hidden" aria-label="Primary navigation">
+          ${mobileTabs.map(([id, label, icon]) => `
             <button
               data-tab="${id}"
-              class="tab-button flex min-w-[58px] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-bold ${
+              aria-label="${label}" aria-current="${state.activeTab === id ? 'page' : 'false'}"
+              class="tab-button flex min-w-[48px] flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-bold ${
                 state.activeTab === id
-                  ? 'gradient-main text-white'
+                  ? 'text-slate-900 dark:text-white'
                   : 'text-slate-500 dark:text-slate-300'
               }"
             >
-              <i data-lucide="${icon}" class="h-4 w-4"></i>
-              ${label}
+              ${id === 'profile' ? `<img src="${safeMediaUrl(user.avatar)}" alt="" class="h-7 w-7 rounded-full object-cover ${state.activeTab === id ? 'ring-2 ring-pink-500 ring-offset-1' : ''}" />` : `<i data-lucide="${icon}" class="h-5 w-5"></i>`}
+              <span class="tab-caption">${label}</span>
             </button>
           `).join('')}
         </nav>
