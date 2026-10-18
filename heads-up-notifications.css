@@ -1,6 +1,6 @@
 /* Foreground DM / shared reel heads-up, kept clear of notches and application navigation. */
 .cx-heads-up-region{position:fixed;z-index:9999;top:calc(env(safe-area-inset-top,0px) + 9px);left:50%;transform:translateX(-50%);width:min(94vw,440px);pointer-events:none;isolation:isolate}
-.cx-heads-up{display:flex;align-items:center;min-height:76px;padding:7px 7px 7px 10px;border-radius:22px;border:1px solid rgba(255,255,255,.52);background:rgba(255,255,255,.97);color:#1e2130;box-shadow:0 15px 42px rgba(25,20,55,.23),0 2px 10px rgba(35,20,52,.1);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);pointer-events:auto;transform-origin:50% 0}
+.cx-heads-up{position:relative;display:flex;align-items:center;min-height:76px;padding:7px 7px 7px 10px;border-radius:22px;border:1px solid rgba(255,255,255,.52);background:rgba(255,255,255,.97);color:#1e2130;box-shadow:0 15px 42px rgba(25,20,55,.23),0 2px 10px rgba(35,20,52,.1);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);pointer-events:auto;transform-origin:50% 0}
 .dark .cx-heads-up{background:rgba(28,32,48,.98);color:#f8fafc;border-color:rgba(255,255,255,.15);box-shadow:0 16px 44px rgba(0,0,0,.5)}
 .cx-heads-up--enter{animation:cx-heads-up-in .43s cubic-bezier(.16,1,.3,1) both}
 .cx-heads-up--exit{animation:cx-heads-up-out .29s ease-in both;pointer-events:none}
