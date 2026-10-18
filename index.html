@@ -503,7 +503,7 @@
         userExists(event.actorId) && userExists(event.recipientId) && event.actorId !== event.recipientId &&
         validItemIds.has(event.itemId) &&
         [...state.posts,...state.reels].some(item => item.id === event.itemId &&
-          item.comments.some(comment => comment.id === event.commentId)))).slice(-500);
+          item.comments.some(comment => comment.id === event.commentId))).slice(-500);
       state.socialStoryDrafts = unique(records(raw.socialStoryDrafts, []).map(draft => ({
         id: draft.id, itemId: localId(draft.itemId) && validItemIds.has(draft.itemId) ? draft.itemId : '',
         note: localText(draft.note, 200)
