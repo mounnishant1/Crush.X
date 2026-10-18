@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.XR.ARFoundation;
 
 namespace CrushX.LensEngine.Tests
 {
@@ -65,6 +66,26 @@ namespace CrushX.LensEngine.Tests
         {
             Assert.IsFalse(CrushXCameraSwipe.IsTap(Vector2.zero, new Vector2(100, 0), 1));
             Assert.AreEqual(0, CrushXCameraSwipe.SwipeStep(Vector2.zero, new Vector2(90, 200), 440));
+        }
+
+        [Test]
+        public void CameraFlip_UsesActualFacingDirectionAndRejectsUnknownDirections()
+        {
+            Assert.AreEqual(CameraFacingDirection.World, NativeLensUI.OppositeFacing(CameraFacingDirection.User));
+            Assert.AreEqual(CameraFacingDirection.User, NativeLensUI.OppositeFacing(CameraFacingDirection.World));
+            Assert.AreEqual(CameraFacingDirection.None, NativeLensUI.OppositeFacing(CameraFacingDirection.None));
+        }
+
+        [Test]
+        public void AutoSliding_StopsDuringUserInputAndDoesNotCycleFaceLensesOnRearCamera()
+        {
+            Assert.IsTrue(CrushXSmartCarousel.CanAutoAdvance(3, true, false, false, false, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(1, true, false, false, false, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(3, false, false, false, false, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(3, true, true, false, false, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(3, true, false, true, false, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(3, true, false, false, true, false));
+            Assert.IsFalse(CrushXSmartCarousel.CanAutoAdvance(3, true, false, false, false, true));
         }
 
         [TestCase("", MediaCaptureState.Idle, "Ready", "")]
