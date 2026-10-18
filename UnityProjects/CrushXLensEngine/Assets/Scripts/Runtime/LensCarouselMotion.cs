@@ -48,11 +48,16 @@ namespace CrushX.LensEngine
         }
 
         /// <summary>Returns one selection on release, and never while dragging or after a second release.</summary>
-        public int EndDrag()
+        public int EndDrag(double releaseVelocityCellsPerSecond = 0)
         {
             if (!IsDragging) return -1;
             IsDragging = false;
-            Target = Math.Floor(Position + .5);
+            // Project a small amount of momentum in the finger's direction. Keep flicks
+            // bounded so even a very fast gesture cannot skip an entire lens catalog.
+            if (double.IsNaN(releaseVelocityCellsPerSecond) || double.IsInfinity(releaseVelocityCellsPerSecond))
+                releaseVelocityCellsPerSecond = 0;
+            double projected = Math.Max(-2.2, Math.Min(2.2, releaseVelocityCellsPerSecond * .14));
+            Target = Math.Floor(Position + projected + .5);
             if (!Loops) Target = Math.Max(0, Math.Min(Count - 1, Target));
             velocity = 0;
             return WrappedIndex(Target, Count);
