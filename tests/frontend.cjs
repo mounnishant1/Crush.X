@@ -279,11 +279,11 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.evaluate(()=>{appFeedFilter='all';appProfileFilter='posts';saveState(clone(defaultState));navigate('home');});
     await page.locator('[data-open-story]').first().focus();
     await page.locator('[data-open-story]').first().press('Enter');
-    assert.equal(await page.locator('dialog[data-app-dialog]').count(),1);
-    await page.locator('[data-next-story]').click();
-    assert.match(await page.locator('dialog').textContent(),/2 \/ 3/);
+    assert.equal(await page.locator('dialog.story-viewer').count(),1);
+    await page.locator('[data-sv="next"]').click();
+    assert.match(await page.locator('dialog.story-viewer').textContent(),/2\/3/);
     await page.keyboard.press('Escape');
-    await page.waitForFunction(()=>!document.querySelector('dialog[data-app-dialog]'));
+    await page.waitForFunction(()=>!document.querySelector('dialog.story-viewer'));
     await page.locator('[data-feed-filter="following"]').click();
     assert.equal(await page.locator('[data-feed-filter="following"]').getAttribute('aria-pressed'),'true');
     await page.locator('[data-feed-filter="all"]').click();
