@@ -129,3 +129,34 @@ openSamplePostOptions=function(id){
   const share=document.querySelector('dialog[data-app-dialog] [data-option-share]');
   if(share)share.onclick=()=>socialOpenShare(id);
 };
+
+showLocalItem=function(id){
+  const s=getState(),item=socialItem(s,id);if(!item)return;
+  const author=userById(s,item.userId);
+  appDialog('Sample '+socialKind(s,item),`
+    ${localItemMedia(item)}
+    <p class="social-item-caption"><strong>@${escapeHTML(author?.username||'sample')}</strong> ${formatText(item.caption||'')}</p>
+    ${socialBubble(s,item)}
+    <div class="social-item-actions">
+      <button data-social-item-like type="button" aria-pressed="${!!item.liked}">${item.liked?'Unlike':'Like'} · ${Number(item.likes||0).toLocaleString()}</button>
+      <button data-social-item-save type="button" aria-pressed="${!!item.saved}">${item.saved?'Saved':'Save'}</button>
+      <button data-social-item-comments type="button">Comments</button>
+      <button data-social-item-share type="button">Share</button>
+    </div>
+    <p class="social-disclaimer">All engagement stays in this browser. No real account or notification is changed.</p>`,dialog=>{
+    const like=dialog.querySelector('[data-social-item-like]');
+    like.onclick=()=>{
+      const state=getState(),found=socialItem(state,id);if(!found)return;
+      found.liked=!found.liked;found.likes=Math.max(0,Number(found.likes||0)+(found.liked?1:-1));
+      saveState(state);like.setAttribute('aria-pressed',String(found.liked));like.textContent=(found.liked?'Unlike':'Like')+' · '+Number(found.likes).toLocaleString();
+    };
+    const save=dialog.querySelector('[data-social-item-save]');
+    save.onclick=()=>{
+      const state=getState(),found=socialItem(state,id);if(!found)return;
+      found.saved=!found.saved;saveState(state);save.setAttribute('aria-pressed',String(found.saved));save.textContent=found.saved?'Saved':'Save';
+    };
+    dialog.querySelector('[data-social-item-comments]').onclick=()=>socialOpenComments(id);
+    dialog.querySelector('[data-social-item-share]').onclick=()=>socialOpenShare(id);
+    dialog.querySelectorAll('[data-social-friends]').forEach(button=>button.addEventListener('click',()=>socialOpenFriends(id)));
+  });
+};
