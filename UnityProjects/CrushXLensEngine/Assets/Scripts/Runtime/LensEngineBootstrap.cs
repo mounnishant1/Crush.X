@@ -8,6 +8,9 @@ namespace CrushX.LensEngine
     // Minimal demonstrator. Real native release should substitute a Canvas UI and configured XR scene.
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
+        // Procedural lenses were authored around a ~0.54-unit-wide demo face.
+        // Real AR faces are about 0.15 m wide: keep prefab assets at their own authored scale.
+        private const float ProceduralRealFaceScale = .28f;
         // Keep imported resource prototypes available without replacing animated procedural lenses by default.
         public bool PreferResourcePrefabs;
         private FaceTrackingManager tracking;
@@ -247,6 +250,10 @@ namespace CrushX.LensEngine
             if (premiumLensInstance != null) { premiumLensInstance.SetActive(false); Destroy(premiumLensInstance); }
             effect = candidateEffect;
             premiumLensInstance = candidateEffect == null ? candidate : null;
+            // Imported assets (including FoxMask_AR) already have meter-calibrated scales.
+            // Only the oversized procedural demo geometry needs conversion on real AR.
+            effectRoot.localScale = !usingMock && candidateEffect != null
+                ? Vector3.one * ProceduralRealFaceScale : Vector3.one;
             activeId = id;
             selectionRestoreFailed = false;
             if (candidate != null) candidate.SetActive(true);
