@@ -10,6 +10,7 @@ namespace CrushX.LensEngine
     public sealed class CrushXCameraPermissionGate : MonoBehaviour
     {
         private const string AskedKey = "CrushX.CameraPermissionRequested.v1";
+        private const string PreviouslyGrantedKey = "CrushX.CameraPermissionGranted.v1";
         public bool RequestPending { get; private set; }
         public bool WasAsked { get { return PlayerPrefs.GetInt(AskedKey, 0) != 0; } }
         public bool Granted
@@ -17,9 +18,41 @@ namespace CrushX.LensEngine
             get
             {
 #if UNITY_ANDROID && !UNITY_EDITOR
-                return Permission.HasUserAuthorizedPermission(Permission.Camera);
+                bool allowed = Permission.HasUserAuthorizedPermission(Permission.Camera);
+                if (allowed && PlayerPrefs.GetInt(PreviouslyGrantedKey, 0) == 0)
+                {
+                    PlayerPrefs.SetInt(PreviouslyGrantedKey, 1);
+                    PlayerPrefs.Save();
+                }
+                return allowed;
 #else
                 return true;
+#endif
+            }
+        }
+
+        // One-time grants may expire after leaving the app. A previous grant must
+        // never permanently strand the user on the Settings recovery screen.
+        public bool CanAskAgain
+        {
+            get
+            {
+#if UNITY_ANDROID && !UNITY_EDITOR
+                if (Granted) return false;
+                if (!WasAsked || PlayerPrefs.GetInt(PreviouslyGrantedKey, 0) != 0) return true;
+                try
+                {
+                    using (var unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                    using (var activity = unity.GetStatic<AndroidJavaObject>("currentActivity"))
+                        return activity.Call<bool>("shouldShowRequestPermissionRationale", Permission.Camera);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning("[CrushX] Cannot read Android permission rationale: " + ex.Message);
+                    return false;
+                }
+#else
+                return false;
 #endif
             }
         }
@@ -27,7 +60,7 @@ namespace CrushX.LensEngine
         public void AskFromUserAction()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (RequestPending || Granted || WasAsked) return;
+            if (RequestPending || Granted || !CanAskAgain) return;
             RequestPending = true;
             PlayerPrefs.SetInt(AskedKey, 1);
             PlayerPrefs.Save();
