@@ -3,9 +3,9 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 for(const asset of ['social-advanced.js','social-advanced.css'])assert.ok(html.includes('./'+asset),asset);
-const empty={addEventListener(){}},document={
+const app={innerHTML:''},empty={addEventListener(){}},document={
   activeElement:null,body:{classList:{toggle(){}}},
-  getElementById(id){return ['cancelConfirmation','authForm','switchAuthButton','confirmButton','resendButton','forgotButton'].includes(id)?empty:null;},
+  getElementById(id){return id==='app'?app:['cancelConfirmation','authForm','switchAuthButton','confirmButton','resendButton','forgotButton'].includes(id)?empty:null;},
   querySelectorAll(){return [];},querySelector(){return null;},addEventListener(){}
 };
 let stored=null;
