@@ -2,9 +2,19 @@
 const ssFilters = { Original:'none', Vivid:'saturate(1.65) contrast(1.12)', Mono:'grayscale(1)', Vintage:'sepia(.6) contrast(.92)', Glow:'saturate(1.3) brightness(1.2)', Film:'contrast(1.2) sepia(.2)', Cool:'hue-rotate(24deg) saturate(1.2)' };
 const ssBackgrounds = { Sunset:'linear-gradient(140deg,#9234ac,#f43f8a 48%,#f9b44d)', Night:'linear-gradient(140deg,#100a37,#323f9b,#ac5ac4)', Mint:'linear-gradient(140deg,#064e3b,#0d9488,#a7f3d0)', Classic:'linear-gradient(140deg,#27272a,#52525b,#18181b)' };
 const ssColors = ['#ffffff','#000000','#fe3c72','#ff9e36','#f8e94a','#59ed9c','#4fc3ff','#a67bff'];
+const ssFonts = {
+  Classic:['Arial,sans-serif','800','normal','0'], Signature:['cursive','600','italic','0'], Editor:['Georgia,serif','400','normal','0'], Poster:['Impact,sans-serif','900','normal','1px'],
+  Modern:['Arial,sans-serif','500','normal','2px'], Elegant:['Georgia,serif','400','italic','1px'], Serif:['Times New Roman,serif','700','normal','0'], Typewriter:['Courier New,monospace','700','normal','0'],
+  Handwritten:['Comic Sans MS,cursive','600','italic','0'], Rounded:['Trebuchet MS,sans-serif','800','normal','0'], Condensed:['Arial Narrow,sans-serif','900','normal','-1px'], Monospace:['monospace','600','normal','1px'],
+  Neon:['Arial,sans-serif','800','normal','1px'], Outline:['Impact,sans-serif','900','normal','1px'], Shadow:['Georgia,serif','900','normal','0'], Bold:['Arial,sans-serif','900','normal','0'],
+  Italic:['Georgia,serif','700','italic','0'], Minimal:['Arial,sans-serif','300','normal','2px'], Comic:['Comic Sans MS,cursive','800','normal','0'], Stencil:['Impact,sans-serif','700','normal','3px'],
+  Retro:['Courier New,monospace','900','normal','2px'], Luxe:['Times New Roman,serif','400','italic','4px'], Brush:['cursive','900','italic','-1px'], Gradient:['Arial,sans-serif','900','normal','0']
+};
+const ssLanguages = {English:{lang:'en',ideas:['Living my best story ✨','A little moment, a big memory 💫','Today feels different 🌈','Good vibes only 💜']},Hindi:{lang:'hi',ideas:['आज की खूबसूरत याद ✨','हर पल खास है 💜','अपनी कहानी, अपनी पहचान','खुशियाँ बाँटते चलो 🌸']},Hinglish:{lang:'hi-Latn',ideas:['Aaj ka mood ekdum mast ✨','Apni story, apna style 💜','Yeh pal yaad rahega','Dil se happy vibes 🌈']},Punjabi:{lang:'pa',ideas:['ਅੱਜ ਦਾ ਦਿਨ ਬਹੁਤ ਸੋਹਣਾ ✨','ਆਪਣੀ ਕਹਾਣੀ ਆਪਣਾ ਅੰਦਾਜ਼','ਖੁਸ਼ੀਆਂ ਵੰਡਦੇ ਰਹੋ 💜','ਚੜ੍ਹਦੀ ਕਲਾ ਵਿੱਚ ਰਹੋ 🌟']},Haryanvi:{lang:'hi',ideas:['आज तो माहौल बढ़िया सै 🔥','अपणा अंदाज़ सबतै न्यारा','के हाल सै भाई 💪','दिल तै खुश रहो ❤️']}};
 let ssSession = null;
 let ssDialog = null;
 let ssToastTimer = null;
+let ssTicker = null;
 const ssE = value => escapeHTML(String(value ?? ''));
 
 function ssSamples() {
@@ -15,7 +25,7 @@ function ssSamples() {
     .slice(0,24).map((m,i) => ({...m,id:`sample-${i}`,sample:true}));
 }
 function ssFresh() {
-  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textY:46,textColor:'#ffffff',textAlign:'center',textBg:false,sticker:'',musicUrl:'',musicName:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
+  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textX:50,textY:46,textRotation:0,textScale:100,textColor:'#ffffff',textAlign:'center',textBg:false,textBold:false,textItalic:false,textOutline:false,textShadow:true,textGradient:false,textNeon:false,textAnimation:'None',language:'English',sticker:'',stickerKind:'',stickerTitle:'',stickerOptions:['Yes','No','Maybe','Sure'],stickerCorrect:0,stickerVote:null,stickerReply:'',stickerReplyText:'',stickerDeadline:'',stickerLink:'',stickerGifUrl:'',stickerGifName:'',musicUrl:'',musicName:'',lyrics:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
 }
 function ssNotice(message) {
   if (!ssSession) return;
@@ -26,8 +36,10 @@ function ssNotice(message) {
 }
 function ssClean() {
   if (ssToastTimer) clearTimeout(ssToastTimer);
+  if (ssTicker) clearInterval(ssTicker);
   if (ssSession) for (const media of ssSession.media) if (!media.sample && media.url) URL.revokeObjectURL(media.url);
   if (ssSession?.musicUrl) URL.revokeObjectURL(ssSession.musicUrl);
+  if (ssSession?.stickerGifUrl) URL.revokeObjectURL(ssSession.stickerGifUrl);
   ssSession = null;
   ssDialog = null;
 }
@@ -50,6 +62,7 @@ function openStoryStudio() {
   ssDialog = dialog;
   ssRender();
   dialog.showModal();
+  ssTicker = setInterval(() => { if (ssSession?.stickerKind==='Countdown') { const clock=ssDialog?.querySelector('.ss-countdown');if(clock)clock.textContent=ssTimeLeft(ssSession.stickerDeadline); } },1000);
 }
 function ssIcon(label, action, glyph, extra='') { return `<button class="ss-icon" data-ss="${action}" aria-label="${ssE(label)}" title="${ssE(label)}" ${extra}>${glyph}</button>`; }
 function ssMediaHTML(m) {
@@ -57,16 +70,45 @@ function ssMediaHTML(m) {
   const src = ssE(m.url);
   return m.type.startsWith('video/') ? `<video src="${src}" muted autoplay loop playsinline aria-label="Story video preview"></video>` : `<img src="${src}" alt="${ssE(m.name || 'Story media')}">`;
 }
+function ssFontCss() {
+  const s=ssSession,f=ssFonts[s.font]||ssFonts.Classic;
+  return `font-family:${f[0]};font-weight:${s.textBold?'900':f[1]};font-style:${s.textItalic?'italic':f[2]};letter-spacing:${f[3]};${s.textOutline||s.font==='Outline'?'-webkit-text-stroke:1.5px #15151a;':''}${s.textShadow||s.font==='Shadow'?'text-shadow:0 3px 9px #000c;':'text-shadow:none;'}${s.textNeon||s.font==='Neon'?`text-shadow:0 0 9px ${s.textColor},0 0 25px ${s.textColor};`:''}${s.textGradient||s.font==='Gradient'?'background:linear-gradient(90deg,#ff4fa3,#fef08a,#38bdf8);background-clip:text;-webkit-background-clip:text;color:transparent;':''}`;
+}
+function ssTimeLeft(value) {
+  const time=new Date(value).getTime();
+  if(!Number.isFinite(time))return 'Set date and time';
+  const seconds=Math.max(0,Math.floor((time-Date.now())/1000));
+  if(!seconds)return 'Countdown finished';
+  const days=Math.floor(seconds/86400),hours=Math.floor(seconds%86400/3600),minutes=Math.floor(seconds%3600/60),secs=seconds%60;
+  return `${days}d ${hours}h ${minutes}m ${secs}s`;
+}
+function ssSafeLink(value) {
+  try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch{return '';}
+}
+function ssStickerCard() {
+  const s=ssSession,kind=s.stickerKind;
+  if(!kind)return '';
+  const title=ssE(s.stickerTitle||({Poll:'Your vote?',Questions:'Ask me a question',Quiz:'Choose the answer',Countdown:'Coming soon',Link:'Link',GIF:'GIF'})[kind]);
+  let inner='';
+  if(kind==='Poll')inner=`<strong>${title}</strong><div class="ss-card-choices">${s.stickerOptions.slice(0,2).map((v,i)=>`<button data-ss-vote="${i}" aria-pressed="${s.stickerVote===i}">${ssE(v||`Option ${i+1}`)} ${s.stickerVote===i?'✓':''}</button>`).join('')}</div><small>${s.stickerVote===null?'Try a local preview vote':'Preview vote recorded on this device'}</small>`;
+  if(kind==='Quiz')inner=`<strong>${title}</strong><div class="ss-card-choices">${s.stickerOptions.slice(0,4).map((v,i)=>`<button data-ss-vote="${i}" aria-pressed="${s.stickerVote===i}">${ssE(v||`Option ${i+1}`)} ${s.stickerVote===i?(i===s.stickerCorrect?'✓':'✕'):''}</button>`).join('')}</div>${s.stickerVote!==null?`<small>${s.stickerVote===s.stickerCorrect?'Correct!':'Try again'}</small>`:'<small>Tap an answer to preview</small>'}`;
+  if(kind==='Questions')inner=`<strong>${title}</strong><input class="ss-card-reply" data-ss-question-reply maxlength="180" placeholder="Type a local answer…" value="${ssE(s.stickerReplyText)}"><button class="ss-card-send" data-ss="send-reply">Reply</button>${s.stickerReply?`<small>Preview reply: ${ssE(s.stickerReply)}</small>`:''}`;
+  if(kind==='Countdown')inner=`<strong>${title}</strong><div class="ss-countdown">${ssTimeLeft(s.stickerDeadline)}</div>`;
+  if(kind==='Link'){const href=ssSafeLink(s.stickerLink);inner=`<strong>🔗 ${title}</strong>${href?`<a href="${ssE(href)}" target="_blank" rel="noopener noreferrer">Visit ${ssE(new URL(href).hostname)} ↗</a>`:'<small>Add a valid HTTPS link</small>'}`;}
+  if(kind==='GIF')inner=s.stickerGifUrl?`<img class="ss-gif-sticker" src="${ssE(s.stickerGifUrl)}" alt="Animated GIF sticker">`:'<strong>Choose a GIF from your device</strong>';
+  return `<div class="ss-sticker-card ss-card-${kind.toLowerCase()}" aria-label="${ssE(kind)} sticker">${inner}</div>`;
+}
 function ssStage() {
   const s=ssSession, selected=s.selected.map(id => s.media.find(m => m.id===id)).filter(Boolean);
   const collage=selected.length>1;
   const pictures=collage ? `<div class="ss-collage" data-count="${selected.length}" style="filter:${ssFilters[s.filter]}">${selected.map(ssMediaHTML).join('')}</div>` : selected.length ? `<div style="position:absolute;inset:0;filter:${ssFilters[s.filter]}">${ssMediaHTML(selected[0])}</div>` : '';
-  const style=s.font==='Signature'?'font-family:cursive;font-style:italic':s.font==='Poster'?'font-family:Impact,sans-serif;text-transform:uppercase':s.font==='Editor'?'font-family:Georgia,serif;font-weight:400':'font-family:inherit';
   return `<div class="ss-stage" style="background:${ssBackgrounds[s.bg]}">
     ${pictures}
-    ${s.text ? `<div class="ss-overlay-text ${s.textBg?'is-backed':''}" style="top:${s.textY}%;font-size:${s.textSize}px;color:${s.textColor};text-align:${s.textAlign};${style}">${ssE(s.text)}</div>` : ''}
+    ${s.text ? `<div data-ss-textlayer tabindex="0" lang="${ssLanguages[s.language].lang}" class="ss-overlay-text ss-animate-${s.textAnimation.toLowerCase()} ${s.textBg?'is-backed':''}" title="Drag to position text" style="left:${s.textX}%;top:${s.textY}%;font-size:${s.textSize}px;color:${s.textColor};text-align:${s.textAlign};transform:translate(-50%,-50%) rotate(${s.textRotation}deg) scale(${s.textScale/100});${ssFontCss()}">${ssE(s.text)}</div>` : ''}
     ${s.sticker ? `<div class="ss-stickers">${ssE(s.sticker)}</div>` : ''}
+    ${ssStickerCard()}
     ${s.mentions.length ? `<div class="ss-mentions">${s.mentions.map(id=>ssE('@'+(getState().users.find(u=>u.id===id)?.username||''))).join(' ')}</div>` : ''}
+    ${s.lyrics?`<div class="ss-lyrics" aria-label="Manual music lyrics">♫ ${ssE(s.lyrics)}</div>`:''}
     <canvas width="720" height="1280" class="${s.drawing?'is-drawing':''}" data-ss-canvas aria-label="Draw on story"></canvas>
   </div>`;
 }
@@ -115,7 +157,10 @@ function ssReview() {
 }
 function ssRender() {
   if (!ssDialog||!ssSession) return;
+  const previousPanel=ssDialog.querySelector?.('.ss-surface');
+  const previousScroll=previousPanel?.scrollTop||0;
   ssDialog.innerHTML=ssSession.view==='gallery'?ssGallery():ssSession.view==='review'?ssReview():ssEditor();
+  if(previousPanel&&ssSession.panel){const next=ssDialog.querySelector?.('.ss-surface');if(next)next.scrollTop=previousScroll;}
   ssRedraw();
 }
 
@@ -125,18 +170,38 @@ function ssUserRows() {
   const users=getState().users.filter(u=>u.id!==getState().currentUserId && (`${u.username} ${u.fullName}`).toLowerCase().includes(q)).slice(0,25);
   return users.length?users.map(u=>`<button class="ss-user" data-ss-user="${ssE(u.id)}" aria-pressed="${s.mentions.includes(u.id)}"><img src="${safeMediaUrl(u.avatar)}" alt=""><span><b>${ssE(u.username)}</b><br><small>${ssE(u.fullName)}</small></span><span class="ss-check">${s.mentions.includes(u.id)?'✓':''}</span></button>`).join(''):'<p class="ss-note">No matching sample profiles.</p>';
 }
+function ssStickerOptionsPanel() {
+  const s=ssSession,k=s.stickerKind;
+  if(!k)return '<p class="ss-note">Choose a sticker type to customize its preview.</p>';
+  if(k==='GIF')return `<label class="ss-action">Choose GIF <input data-ss-gif type="file" accept="image/gif" hidden></label>${s.stickerGifName?`<p>${ssE(s.stickerGifName)}</p>`:''}<p class="ss-note">Use a GIF you own or have rights to. PNG saves only a still frame.</p>`;
+  let fields=`<label>${k==='Link'?'Link label':'Sticker title / question'}<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="${k==='Questions'?'Ask me anything…':'Write your text…'}"></label>`;
+  if(k==='Poll'||k==='Quiz')fields+=`<div class="ss-sticker-form">${s.stickerOptions.slice(0,k==='Poll'?2:4).map((option,i)=>`<label>${k==='Quiz'?`<input type="radio" name="ss-correct" data-ss-correct="${i}" ${s.stickerCorrect===i?'checked':''} aria-label="Correct answer ${i+1}">`:''}Option ${i+1}<input class="ss-field" data-ss-option="${i}" maxlength="45" value="${ssE(option)}"></label>`).join('')}</div><p class="ss-note">${k==='Quiz'?'Choose the correct-answer radio button.':'Poll votes are preview-only and not shared.'}</p>`;
+  if(k==='Countdown')fields+=`<label>Countdown date and time <input class="ss-field" type="datetime-local" data-ss-deadline value="${ssE(s.stickerDeadline)}"></label>`;
+  if(k==='Link')fields+=`<label>HTTPS link <input class="ss-field" type="url" inputmode="url" data-ss-sticker-field="stickerLink" value="${ssE(s.stickerLink)}" placeholder="https://example.com"></label>`;
+  return fields;
+}
 function ssPanel() {
   const s=ssSession,p=s.panel;
   if (!p) return '';
   let body='';
-  if (p==='text') body=`<textarea class="ss-field" data-ss-text rows="3" maxlength="280" placeholder="Type your story text…">${ssE(s.text)}</textarea>
-    <div class="ss-pills">${['Classic','Signature','Editor','Poster'].map(f=>`<button class="ss-pill ${f===s.font?'is-on':''}" data-ss-font="${f}">${f}</button>`).join('')}</div>
-    <label>Text size <output>${s.textSize}</output><input data-ss-range="textSize" type="range" min="18" max="82" value="${s.textSize}"></label>
-    <label>Vertical position <input data-ss-range="textY" type="range" min="12" max="80" value="${s.textY}"></label>
+  if (p==='text') body=`<textarea class="ss-field" data-ss-text rows="3" maxlength="280" spellcheck="true" lang="${ssLanguages[s.language].lang}" placeholder="Type your story text…">${ssE(s.text)}</textarea>
+    <label class="ss-line-label">Writing language<select class="ss-field" data-ss-language>${Object.keys(ssLanguages).map(lang=>`<option ${s.language===lang?'selected':''}>${lang}</option>`).join('')}</select></label>
+    <p class="ss-note">AURA-X writing ideas (offline examples; no AI model or translation call)</p><div class="ss-pills">${ssLanguages[s.language].ideas.map((idea,i)=>`<button class="ss-pill" data-ss-idea="${i}">${ssE(idea)}</button>`).join('')}</div>
+    <h4>24 writing styles</h4><div class="ss-font-grid">${Object.keys(ssFonts).map(f=>`<button class="ss-pill ${f===s.font?'is-on':''}" data-ss-font="${f}" style="font-family:${ssFonts[f][0]}">${f}</button>`).join('')}</div>
+    <div class="ss-pills">${['Bold','Italic','Outline','Shadow','Gradient','Neon'].map(kind=>`<button class="ss-pill ${s['text'+kind]?'is-on':''}" data-ss-typography="${kind}" aria-pressed="${s['text'+kind]}">${kind}</button>`).join('')}</div>
+    <label class="ss-line-label">Animation<select class="ss-field" data-ss-animation>${['None','Typing','Bounce','Fade','Slide'].map(name=>`<option ${s.textAnimation===name?'selected':''}>${name}</option>`).join('')}</select></label>
+    <label>Size (${s.textSize}px) <input data-ss-range="textSize" type="range" min="18" max="82" value="${s.textSize}"></label>
+    <label>Horizontal position (${s.textX}%) <input data-ss-range="textX" type="range" min="8" max="92" value="${s.textX}"></label>
+    <label>Vertical position (${s.textY}%) <input data-ss-range="textY" type="range" min="12" max="88" value="${s.textY}"></label>
+    <label>Rotation (${s.textRotation}°) <input data-ss-range="textRotation" type="range" min="-180" max="180" value="${s.textRotation}"></label>
+    <label>Scale (${s.textScale}%) <input data-ss-range="textScale" type="range" min="50" max="180" value="${s.textScale}"></label>
     <div class="ss-swatches">${ssColors.map(c=>`<button class="ss-swatch" style="background:${c}" data-ss-color="${c}" aria-label="Text color ${c}" aria-pressed="${s.textColor===c}"></button>`).join('')}</div>
-    <div class="ss-pills"><button class="ss-pill" data-ss="text-align">Align: ${s.textAlign}</button><button class="ss-pill ${s.textBg?'is-on':''}" data-ss="text-bg">Background ${s.textBg?'On':'Off'}</button><button class="ss-pill" data-ss="text-clear">Clear text</button></div>`;
-  else if (p==='stickers') body=`<p class="ss-note">Tap a sticker to place it on the story.</p><div class="ss-pills">${['❤️','🔥','✨','😍','🎉','💫','😊','💜','🌈','📍'].map(e=>`<button data-ss-sticker="${e}" class="ss-pill" style="font-size:27px">${e}</button>`).join('')}</div><label>Location sticker (manual)<input data-ss-location class="ss-field" maxlength="50" placeholder="Enter a place"></label><button class="ss-action" data-ss="add-location">Add location</button><button class="ss-action" data-ss="remove-sticker">Remove sticker</button>`;
-  else if (p==='music') body=`<p class="ss-note">Choose audio from your device. We don't provide a licensed music catalog, and audio cannot be embedded in a PNG.</p><label class="ss-action" style="display:inline-block">Choose audio <input type="file" data-ss-audio accept="audio/*" hidden></label>${s.musicUrl?`<p style="margin:14px 0">♫ ${ssE(s.musicName)}</p><audio src="${ssE(s.musicUrl)}" controls style="width:100%"></audio><button class="ss-action" data-ss="remove-music">Remove music</button>`:''}`;
+    <div class="ss-pills"><button class="ss-pill" data-ss="text-align">Align: ${s.textAlign}</button><button class="ss-pill ${s.textBg?'is-on':''}" data-ss="text-bg">Background ${s.textBg?'On':'Off'}</button><button class="ss-pill" data-ss="text-clear">Clear text</button></div><p class="ss-note">You can drag text directly on the preview. Animated effects are preview-only; PNG captures a still frame.</p>`;
+  else if (p==='stickers') body=`<p class="ss-note">Choose a sticker. Poll, quiz and question responses stay only in this preview.</p><div class="ss-pills">${['❤️','🔥','✨','😍','🎉','💫','😊','💜','🌈','📍'].map(e=>`<button data-ss-sticker="${e}" class="ss-pill" style="font-size:27px">${e}</button>`).join('')}</div>
+    <div class="ss-sticker-types">${['GIF','Poll','Questions','Quiz','Countdown','Link'].map(k=>`<button class="ss-pill ${s.stickerKind===k?'is-on':''}" data-ss-sticker-kind="${k}">${k}</button>`).join('')}</div>
+    <div class="ss-sticker-form">${ssStickerOptionsPanel()}</div>
+    <label>Location sticker (manual)<input data-ss-location class="ss-field" maxlength="50" placeholder="Enter a place"></label><div class="ss-pills"><button class="ss-action" data-ss="add-location">Add location</button><button class="ss-action" data-ss="remove-sticker">Remove stickers</button></div>`;
+  else if (p==='music') body=`<p class="ss-note">Choose audio from your device. No licensed music catalog is connected. Audio cannot be embedded in a PNG.</p><label class="ss-action" style="display:inline-block">Choose audio <input type="file" data-ss-audio accept="audio/*" hidden></label>${s.musicUrl?`<p style="margin:14px 0">♫ ${ssE(s.musicName)}</p><audio src="${ssE(s.musicUrl)}" controls style="width:100%"></audio><button class="ss-action" data-ss="remove-music">Remove music</button>`:''}<label class="ss-line-label">Manual lyrics (only use lyrics you have rights to)<textarea class="ss-field" data-ss-lyrics rows="2" maxlength="160" placeholder="Enter lyrics or your own words">${ssE(s.lyrics)}</textarea></label><p class="ss-note">Automatic synced lyrics and commercial music search require a licensed catalog/provider.</p>`;
   else if (p==='effects') {
     const category=s.effectCat;
     const effects=ssVisibleEffects();
@@ -159,6 +224,8 @@ function ssVisibleEffects() {
 function ssClick(event) {
   const s=ssSession;
   if (!s) return;
+  const vote=event.target.closest('[data-ss-vote]');
+  if(vote){s.stickerVote=Number(vote.dataset.ssVote);return ssRender();}
   const mediaButton=event.target.closest('[data-ss-media]');
   if (mediaButton) {
     const id=mediaButton.dataset.ssMedia;
@@ -184,6 +251,9 @@ function ssClick(event) {
   const color=event.target.closest('[data-ss-color]');if(color){s.textColor=color.dataset.ssColor;return ssRender();}
   const drawcolor=event.target.closest('[data-ss-drawcolor]');if(drawcolor){s.drawColor=drawcolor.dataset.ssDrawcolor;return ssRender();}
   const sticker=event.target.closest('[data-ss-sticker]');if(sticker){s.sticker=sticker.dataset.ssSticker;s.panel='';return ssRender();}
+  const kind=event.target.closest('[data-ss-sticker-kind]');if(kind){s.stickerKind=kind.dataset.ssStickerKind;s.stickerVote=null;s.stickerTitle='';return ssRender();}
+  const typography=event.target.closest('[data-ss-typography]');if(typography){const key='text'+typography.dataset.ssTypography;s[key]=!s[key];return ssRender();}
+  const idea=event.target.closest('[data-ss-idea]');if(idea){const line=ssLanguages[s.language].ideas[Number(idea.dataset.ssIdea)];if(line)s.text=s.text?`${s.text}\n${line}`:line;return ssRender();}
   const filter=event.target.closest('[data-ss-filter]');if(filter){s.filter=filter.dataset.ssFilter;return ssRender();}
   const bg=event.target.closest('[data-ss-bg]');if(bg){s.bg=bg.dataset.ssBg;return ssRender();}
   const cat=event.target.closest('[data-ss-cat]');if(cat){s.effectCat=cat.dataset.ssCat;return ssRender();}
@@ -197,6 +267,7 @@ function ssClick(event) {
   if(action==='collage'){s.multi=true;s.selected=[];return ssNotice('Select 2–4 tiles, then tap Next to make a collage.');}
   if(action==='edit-selected'){if(s.selected.length<2)return;s.view='editor';s.panel='';return ssRender();}
   if(action==='templates'){s.view='editor';s.selected=[];s.panel='restyle';return ssRender();}
+  if(action==='quick-effects'&&!s.selected.length)return ssNotice('Choose a photo or video, then open Effects in the editor. Live camera effects are not connected.');
   if(action==='quick-effects'||action==='quick-music'){s.view='editor';s.panel=action==='quick-effects'?'effects':'music';return ssRender();}
   if(action==='back') {if(s.view==='review')s.view='editor';else{s.view='gallery';s.panel='';s.drawing=false;}return ssRender();}
   if(action==='panel-close'){s.panel='';s.drawing=false;return ssRender();}
@@ -206,13 +277,14 @@ function ssClick(event) {
   if(action==='text-align'){s.textAlign={center:'left',left:'right',right:'center'}[s.textAlign];return ssRender();}
   if(action==='text-bg'){s.textBg=!s.textBg;return ssRender();}
   if(action==='text-clear'){s.text='';return ssRender();}
-  if(action==='remove-sticker'){s.sticker='';return ssRender();}
+  if(action==='remove-sticker'){s.sticker='';s.stickerKind='';s.stickerVote=null;return ssRender();}
   if(action==='add-location'){const location=ssDialog.querySelector('[data-ss-location]')?.value.trim();if(!location)return ssNotice('Enter a location first.');s.sticker='📍 '+location.slice(0,50);s.panel='';return ssRender();}
   if(action==='mention-done'){if(!s.mentions.length)return;s.panel='';return ssRender();}
+  if(action==='send-reply'){const reply=s.stickerReplyText.trim();if(!reply)return ssNotice('Type a preview reply first.');s.stickerReply=reply.slice(0,180);return ssRender();}
   if(action==='toggle-draw'){s.drawing=!s.drawing;return ssRender();}
   if(action==='undo-draw'){s.strokes.pop();return ssRender();}
   if(action==='clear-draw'){s.strokes=[];return ssRender();}
-  if(action==='clear-overlays'){s.text='';s.sticker='';s.mentions=[];s.strokes=[];s.panel='';return ssRender();}
+  if(action==='clear-overlays'){s.text='';s.sticker='';s.stickerKind='';s.lyrics='';s.mentions=[];s.strokes=[];s.panel='';return ssRender();}
   if(action==='audience-story'||action==='audience-close'){s.audience=action==='audience-story'?'Your story':'Close Friends';return ssRender();}
   if(action==='review'){s.drawing=false;s.panel='';s.view='review';return ssRender();}
   if(action==='check-publish')return ssNotice('Live sharing is not connected. This story is not published. You can save a PNG preview.');
@@ -223,6 +295,13 @@ function ssInput(event) {
   const s=ssSession; if(!s)return;
   const target=event.target;
   if(target.matches('[data-ss-text]'))s.text=target.value.slice(0,280);
+  else if(target.matches('[data-ss-lyrics]'))s.lyrics=target.value.slice(0,160);
+  else if(target.matches('[data-ss-sticker-field]')){
+    const field=target.dataset.ssStickerField;
+    if(['stickerTitle','stickerLink'].includes(field))s[field]=target.value.slice(0,field==='stickerLink'?500:120);
+  }
+  else if(target.matches('[data-ss-option]'))s.stickerOptions[Number(target.dataset.ssOption)]=target.value.slice(0,45);
+  else if(target.matches('[data-ss-question-reply]')){s.stickerReplyText=target.value.slice(0,180);return;}
   else if(target.matches('[data-ss-range]'))s[target.dataset.ssRange]=Number(target.value);
   else if(target.matches('[data-ss-search]')) {s.mentionQuery=target.value.slice(0,80);const users=ssDialog.querySelector('.ss-users');if(users)users.innerHTML=ssUserRows();return;}
   else if(target.matches('[data-ss-effect-search]')){
@@ -259,6 +338,16 @@ function ssChange(event) {
     if(s.musicUrl)URL.revokeObjectURL(s.musicUrl);
     s.musicUrl=URL.createObjectURL(file);s.musicName=file.name;return ssRender();
   }
+  if(target.matches('[data-ss-gif]')){
+    const file=target.files?.[0];if(!file)return;
+    if(file.type!=='image/gif'||file.size>12*1024*1024||file.size<=0)return ssNotice('Choose a GIF file up to 12 MB.');
+    if(s.stickerGifUrl)URL.revokeObjectURL(s.stickerGifUrl);
+    s.stickerGifUrl=URL.createObjectURL(file);s.stickerGifName=file.name;s.stickerKind='GIF';return ssRender();
+  }
+  if(target.matches('[data-ss-language]')){s.language=target.value in ssLanguages?target.value:'English';return ssRender();}
+  if(target.matches('[data-ss-animation]')){s.textAnimation=['None','Typing','Bounce','Fade','Slide'].includes(target.value)?target.value:'None';return ssRender();}
+  if(target.matches('[data-ss-correct]')){s.stickerCorrect=Number(target.dataset.ssCorrect);return ssRender();}
+  if(target.matches('[data-ss-deadline]')){s.stickerDeadline=target.value;return ssRender();}
   if(target.matches('[data-ss-reshare]'))s.allowReshare=target.checked;
   if(target.matches('[data-ss-ai]'))s.aiLabel=target.checked;
   if(target.matches('[data-ss-audience]'))s.audience=target.value;
@@ -269,8 +358,17 @@ function ssCanvasPoint(event,canvas) {
   return {x:Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),y:Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))};
 }
 function ssDrawStart(event) {
+  const s=ssSession;
+  const textLayer=event.target.closest('[data-ss-textlayer]');
+  if(textLayer&&s?.view==='editor'&&!s.drawing){
+    const stage=textLayer.closest('.ss-stage');if(!stage)return;
+    event.preventDefault();
+    s.textDragPointer=event.pointerId;
+    textLayer.setPointerCapture?.(event.pointerId);
+    return;
+  }
   const canvas=event.target.closest('canvas[data-ss-canvas]');
-  if(!canvas||!ssSession?.drawing||ssSession.view!=='editor')return;
+  if(!canvas||!s?.drawing||s.view!=='editor')return;
   event.preventDefault();
   ssSession.activePointer=event.pointerId;
   ssSession.strokes.push({color:ssSession.drawColor,width:ssSession.drawWidth,points:[ssCanvasPoint(event,canvas)]});
@@ -279,6 +377,15 @@ function ssDrawStart(event) {
 }
 function ssDrawMove(event) {
   const s=ssSession;
+  if(s?.textDragPointer===event.pointerId){
+    const layer=ssDialog?.querySelector('[data-ss-textlayer]');const stage=layer?.closest('.ss-stage');
+    if(!layer||!stage)return;
+    const rect=stage.getBoundingClientRect();
+    s.textX=Math.round(Math.max(8,Math.min(92,(event.clientX-rect.left)/rect.width*100)));
+    s.textY=Math.round(Math.max(12,Math.min(88,(event.clientY-rect.top)/rect.height*100)));
+    layer.style.left=s.textX+'%';layer.style.top=s.textY+'%';
+    event.preventDefault();return;
+  }
   if(!s||s.activePointer!==event.pointerId)return;
   const canvas=ssDialog?.querySelector('canvas[data-ss-canvas]');
   if(!canvas)return;
@@ -286,7 +393,10 @@ function ssDrawMove(event) {
   s.strokes[s.strokes.length-1]?.points.push(ssCanvasPoint(event,canvas));
   ssRedraw();
 }
-function ssDrawEnd(event) {if(ssSession?.activePointer===event.pointerId)ssSession.activePointer=null;}
+function ssDrawEnd(event) {
+  if(ssSession?.activePointer===event.pointerId)ssSession.activePointer=null;
+  if(ssSession?.textDragPointer===event.pointerId){ssSession.textDragPointer=null;ssRender();}
+}
 function ssPaintStrokes(ctx,width,height) {
   const strokes=ssSession?.strokes||[];
   ctx.lineCap='round';ctx.lineJoin='round';
@@ -335,7 +445,7 @@ function ssFillBackground(ctx,w,h,name) {
   const [a,b]=pairs[name]||pairs.Sunset;
   const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,a);g.addColorStop(1,b);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
 }
-function ssWrappedText(ctx,text,x,y,maxWidth,lineHeight) {
+function ssWrappedText(ctx,text,x,y,maxWidth,lineHeight,outline=false) {
   const lines=[];
   for(const paragraph of text.split('\n')) {
     let line='';
@@ -347,7 +457,35 @@ function ssWrappedText(ctx,text,x,y,maxWidth,lineHeight) {
     lines.push(line);
   }
   const firstY=y-(lines.length-1)*lineHeight/2;
-  lines.forEach((line,i)=>ctx.fillText(line,x,firstY+i*lineHeight,maxWidth));
+  lines.forEach((line,i)=>{if(outline)ctx.strokeText(line,x,firstY+i*lineHeight,maxWidth);ctx.fillText(line,x,firstY+i*lineHeight,maxWidth);});
+}
+function ssRoundRect(ctx,x,y,w,h,r) {if(typeof ctx.roundRect==='function')ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h);}
+async function ssDrawCard(ctx) {
+  const s=ssSession,k=s?.stickerKind;if(!k)return;
+  const x=84,y=720,w=552;
+  if(k==='GIF'){
+    if(!s.stickerGifUrl)return;
+    const img=await ssLoadImage({url:s.stickerGifUrl,type:'image/gif'});
+    ctx.save();ctx.beginPath();ssRoundRect(ctx,x,y,w,320,18);ctx.clip();ssCover(ctx,img,x,y,w,320);ctx.restore();return;
+  }
+  ctx.save();ctx.fillStyle='#fffc';ctx.beginPath();ssRoundRect(ctx,x,y,w,k==='Quiz'?365:275,20);ctx.fill();
+  ctx.fillStyle='#15151a';ctx.font='bold 35px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(s.stickerTitle||({Poll:'Your vote?',Quiz:'Choose the answer',Questions:'Ask me a question',Countdown:'Coming soon',Link:'Link'})[k],360,y+55,490);
+  if(k==='Poll'||k==='Quiz'){
+    const total=k==='Poll'?2:4;
+    for(let i=0;i<total;i++){
+      const row=Math.floor(i/2),col=i%2,px=x+18+col*260,py=y+105+row*110;
+      ctx.fillStyle=s.stickerVote===i?'#2563eb':'#e9e6ff';ctx.beginPath();ssRoundRect(ctx,px,py,247,87,12);ctx.fill();
+      ctx.fillStyle=s.stickerVote===i?'#fff':'#27272a';ctx.font='bold 28px Arial,sans-serif';ctx.fillText(s.stickerOptions[i]||`Option ${i+1}`,px+123,py+45,215);
+    }
+  }else if(k==='Questions'){
+    ctx.fillStyle='#f5d0fe';ctx.fillRect(x+22,y+95,w-44,120);ctx.fillStyle='#4a044e';ctx.font='28px Arial,sans-serif';ctx.fillText(s.stickerReply||'Type a preview reply',360,y+155,w-75);
+  }else if(k==='Countdown'){
+    ctx.font='bold 37px Arial,sans-serif';ctx.fillStyle='#a21caf';ctx.fillText(ssTimeLeft(s.stickerDeadline),360,y+150,w-45);
+  }else if(k==='Link'){
+    ctx.font='bold 28px Arial,sans-serif';ctx.fillStyle='#2563eb';ctx.fillText(ssSafeLink(s.stickerLink)?new URL(ssSafeLink(s.stickerLink)).hostname:'Add a valid HTTPS link',360,y+150,w-55);
+  }
+  ctx.restore();
 }
 async function ssExport() {
   const s=ssSession;if(!s)return;
@@ -367,17 +505,25 @@ async function ssExport() {
       ctx.restore();
     }
     if(s.text){
-      const size=s.textSize*2;
-      ctx.font=`${s.font==='Editor'?'400': '800'} ${size}px ${s.font==='Signature'?'cursive':s.font==='Poster'?'Impact':s.font==='Editor'?'Georgia':'sans-serif'}`;
+      ctx.save();
+      const size=s.textSize*2,f=ssFonts[s.font]||ssFonts.Classic;
+      ctx.translate(720*s.textX/100,1280*s.textY/100);ctx.rotate(s.textRotation*Math.PI/180);ctx.scale(s.textScale/100,s.textScale/100);
+      ctx.font=`${s.textItalic?'italic':f[2]} ${s.textBold?'900':f[1]} ${size}px ${f[0]}`;
       ctx.textAlign=s.textAlign;ctx.textBaseline='middle';
-      const x=s.textAlign==='left'?38:s.textAlign==='right'?682:360;
-      const y=1280*s.textY/100;
+      const x=s.textAlign==='left'?-280:s.textAlign==='right'?280:0;
+      if(s.textBg){ctx.fillStyle='#0009';ctx.fillRect(-330,-size*1.5,660,size*3);}
       ctx.fillStyle=s.textColor;
-      if(s.textBg){ctx.fillStyle='#0009';ctx.fillRect(20,y-size*1.4,680,size*2.8);ctx.fillStyle=s.textColor;}
-      ctx.shadowColor='#0009';ctx.shadowBlur=13;ssWrappedText(ctx,s.text,x,y,640,size*1.15);ctx.shadowBlur=0;
+      if(s.textGradient||s.font==='Gradient'){const g=ctx.createLinearGradient(-260,0,260,0);g.addColorStop(0,'#ff4fa3');g.addColorStop(.5,'#fef08a');g.addColorStop(1,'#38bdf8');ctx.fillStyle=g;}
+      if(s.textNeon||s.font==='Neon'){ctx.shadowColor=s.textColor;ctx.shadowBlur=32;}
+      else if(s.textShadow||s.font==='Shadow'){ctx.shadowColor='#000b';ctx.shadowBlur=13;}
+      ctx.strokeStyle='#15151a';ctx.lineWidth=4;
+      ssWrappedText(ctx,s.text,x,0,620,size*1.15,s.textOutline||s.font==='Outline');
+      ctx.restore();
     }
     if(s.sticker){ctx.font='95px sans-serif';ctx.textAlign='center';ctx.fillStyle='white';ctx.fillText(s.sticker,360,1280*.65,680);}
+    await ssDrawCard(ctx);
     if(s.mentions.length){ctx.font='bold 35px sans-serif';ctx.textAlign='center';ctx.fillStyle='white';ctx.fillText(s.mentions.map(id=>'@'+(getState().users.find(u=>u.id===id)?.username||'')).join(' '),360,1280*.8,680);}
+    if(s.lyrics){ctx.font='bold 34px Arial,sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=8;ssWrappedText(ctx,'♫ '+s.lyrics,360,1170,650,39);ctx.shadowBlur=0;}
     ssPaintStrokes(ctx,720,1280);
     const blob=await new Promise((resolve,reject)=>{try{canvas.toBlob(b=>b?resolve(b):reject(new Error('PNG export failed.')),'image/png');}catch(err){reject(err);}});
     const url=URL.createObjectURL(blob),anchor=document.createElement('a');
