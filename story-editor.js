@@ -13,8 +13,8 @@ const ssFonts = {
 const ssLanguages = {English:{lang:'en',ideas:['Living my best story ✨','A little moment, a big memory 💫','Today feels different 🌈','Good vibes only 💜']},Hindi:{lang:'hi',ideas:['आज की खूबसूरत याद ✨','हर पल खास है 💜','अपनी कहानी, अपनी पहचान','खुशियाँ बाँटते चलो 🌸']},Hinglish:{lang:'hi-Latn',ideas:['Aaj ka mood ekdum mast ✨','Apni story, apna style 💜','Yeh pal yaad rahega','Dil se happy vibes 🌈']},Punjabi:{lang:'pa',ideas:['ਅੱਜ ਦਾ ਦਿਨ ਬਹੁਤ ਸੋਹਣਾ ✨','ਆਪਣੀ ਕਹਾਣੀ ਆਪਣਾ ਅੰਦਾਜ਼','ਖੁਸ਼ੀਆਂ ਵੰਡਦੇ ਰਹੋ 💜','ਚੜ੍ਹਦੀ ਕਲਾ ਵਿੱਚ ਰਹੋ 🌟']},Haryanvi:{lang:'hi',ideas:['आज तो माहौल बढ़िया सै 🔥','अपणा अंदाज़ सबतै न्यारा','के हाल सै भाई 💪','दिल तै खुश रहो ❤️']}};
 let ssSession = null;
 const ssIconNames = {close:'x',settings:'settings',back:'arrow-left',text:'type',stickers:'smile-plus',music:'music-2',restyle:'wand-sparkles',effects:'sparkles',mention:'at-sign',draw:'pencil-line',save:'download',label:'badge-check',more:'ellipsis',camera:'camera',file:'image-plus',templates:'layout-template',collage:'layout-grid',multi:'list-checks',review:'arrow-right'};
-const ssStickerTypes = [['GIF','GIF'],['Poll','Poll'],['Questions','Questions'],['Quiz','Quiz'],['Countdown','Countdown'],['Link','Link'],['AddYours','Add Yours'],['EmojiSlider','Emoji Slider'],['Hashtag','Hashtag'],['DateTime','Date / Time'],['Photo','Photo'],['Frame','Frame']];
-const ssStickerIcons = {GIF:'film',Poll:'chart-column',Questions:'message-circle-question',Quiz:'list-checks',Countdown:'hourglass',Link:'link',AddYours:'users-round',EmojiSlider:'sliders-horizontal',Hashtag:'hash',DateTime:'calendar-days',Photo:'image-plus',Frame:'scan'};
+const ssStickerTypes = [['Location','Location'],['Mention','Mention'],['Music','Music'],['GIF','GIF'],['AddYours','Add Yours'],['AddYoursMusic','Add Yours Music'],['Frame','Frame'],['Photo','Photo'],['Cutouts','Cutouts'],['Avatar','Avatar'],['Questions','Questions'],['Poll','Poll'],['Quiz','Quiz'],['Countdown','Countdown'],['Link','Link'],['EmojiSlider','Emoji Slider'],['Hashtag','Hashtag'],['DateTime','Date / Time']];
+const ssStickerIcons = {Location:'map-pin',Mention:'at-sign',Music:'music-2',GIF:'film',AddYours:'users-round',AddYoursMusic:'music-3',Frame:'scan',Photo:'image-plus',Cutouts:'scissors',Avatar:'user-round',Questions:'message-circle-question',Poll:'chart-column',Quiz:'list-checks',Countdown:'hourglass',Link:'link',EmojiSlider:'sliders-horizontal',Hashtag:'hash',DateTime:'calendar-days'};
 let ssDialog = null;
 let ssToastTimer = null;
 let ssTicker = null;
@@ -28,7 +28,7 @@ function ssSamples() {
     .slice(0,24).map((m,i) => ({...m,id:`sample-${i}`,sample:true}));
 }
 function ssFresh() {
-  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textX:50,textY:46,textRotation:0,textScale:100,textColor:'#ffffff',textAlign:'center',textBg:false,textBold:false,textItalic:false,textOutline:false,textShadow:true,textGradient:false,textNeon:false,textAnimation:'None',language:'English',sticker:'',stickerKind:'',stickerTitle:'',stickerOptions:['Yes','No','Maybe','Sure'],stickerCorrect:0,stickerVote:null,stickerReply:'',stickerReplyText:'',stickerDeadline:'',stickerLink:'',stickerGifUrl:'',stickerGifName:'',stickerPhotoUrl:'',stickerPhotoName:'',stickerEmoji:'😍',stickerSliderValue:50,stickerDateMode:'Both',stickerFrame:'Classic',musicUrl:'',musicName:'',lyrics:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
+  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textX:50,textY:46,textRotation:0,textScale:100,textColor:'#ffffff',textAlign:'center',textBg:false,textBold:false,textItalic:false,textOutline:false,textShadow:true,textGradient:false,textNeon:false,textAnimation:'None',language:'English',sticker:'',stickerKind:'',stickerTitle:'',stickerLocation:'',stickerAvatar:'🙂',stickerCutoutShape:'Circle',stickerOptions:['Yes','No','Maybe','Sure'],stickerCorrect:0,stickerVote:null,stickerReply:'',stickerReplyText:'',stickerDeadline:'',stickerLink:'',stickerGifUrl:'',stickerGifName:'',stickerPhotoUrl:'',stickerPhotoName:'',stickerEmoji:'😍',stickerSliderValue:50,stickerDateMode:'Both',stickerFrame:'Classic',musicUrl:'',musicName:'',lyrics:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
 }
 function ssNotice(message) {
   if (!ssSession) return;
@@ -107,6 +107,10 @@ function ssStickerCard() {
   if(kind==='Countdown')inner=`<strong>${title}</strong><div class="ss-countdown">${ssTimeLeft(s.stickerDeadline)}</div>`;
   if(kind==='Link'){const href=ssSafeLink(s.stickerLink);inner=`<strong>🔗 ${title}</strong>${href?`<a href="${ssE(href)}" target="_blank" rel="noopener noreferrer">Visit ${ssE(new URL(href).hostname)} ↗</a>`:'<small>Add a valid HTTPS link</small>'}`;}
   if(kind==='GIF')inner=s.stickerGifUrl?`<img class="ss-gif-sticker" src="${ssE(s.stickerGifUrl)}" alt="Animated GIF sticker">`:'<strong>Choose a GIF from your device</strong>';
+  if(kind==='Location')inner=`<strong>📍 ${ssE(s.stickerLocation||'Add a place')}</strong><small>Manual place label · No location lookup or geotag is sent.</small>`;
+  if(kind==='Cutouts')inner=s.stickerPhotoUrl?`<img class="ss-cutout-${s.stickerCutoutShape.toLowerCase()}" src="${ssE(s.stickerPhotoUrl)}" alt="Cutout from your chosen photo">`:'<strong>Choose a local photo for a cutout</strong>';
+  if(kind==='Avatar')inner=`<strong class="ss-avatar-preview" aria-label="Emoji avatar preview">${ssE(s.stickerAvatar)}</strong><small>Emoji avatar preview · Not a generated personal avatar.</small>`;
+  if(kind==='AddYoursMusic')inner=`<strong>♫ ${title}</strong><span>${ssE(s.musicName||'Choose your own audio')}</span><small>Local invitation preview · No shared music challenge is created.</small>`;
   if(kind==='AddYours')inner=`<strong>📷 ${title}</strong><button data-ss="add-yours" class="ss-card-send">${s.stickerPhotoUrl?'Change your photo':'Add a local photo'}</button>${s.stickerPhotoUrl?`<img class="ss-photo-sticker" src="${ssE(s.stickerPhotoUrl)}" alt="Local Add Yours photo">`:''}<small>Draft-only invitation; no other users are notified.</small>`;
   if(kind==='EmojiSlider')inner=`<strong>${title}</strong><div style="font-size:30px">${ssE(s.stickerEmoji)}</div><input type="range" data-ss-slider min="0" max="100" value="${s.stickerSliderValue}" aria-label="Emoji slider preview"><output data-ss-slider-value>${s.stickerSliderValue}%</output>`;
   if(kind==='Hashtag')inner=`<button class="ss-hashtag" data-ss="preview-hashtag">#${ssE((s.stickerTitle||'CrushX').replace(/^#+/,''))}</button>`;
@@ -193,6 +197,10 @@ function ssStickerOptionsPanel() {
   const s=ssSession,k=s.stickerKind;
   if(!k)return '<p class="ss-note">Choose a sticker type to customize its preview.</p>';
   if(k==='GIF')return `<label class="ss-action">Choose GIF <input data-ss-gif type="file" accept="image/gif" hidden></label>${s.stickerGifName?`<p>${ssE(s.stickerGifName)}</p>`:''}<p class="ss-note">Use a GIF you own or have rights to. PNG saves only a still frame.</p>`;
+  if(k==='Location')return `<label>Place label<input class="ss-field" data-ss-sticker-field="stickerLocation" maxlength="80" value="${ssE(s.stickerLocation)}" placeholder="Where was this moment?"></label><p class="ss-note">Manual label only. No GPS, place search or location sharing occurs.</p>`;
+  if(k==='Cutouts')return `<button class="ss-action" data-ss="add-yours">Choose image to cut out</button><label>Shape<select class="ss-field" data-ss-cutout-shape>${['Circle','Square','Rounded'].map(name=>`<option ${s.stickerCutoutShape===name?'selected':''}>${name}</option>`).join('')}</select></label><p class="ss-note">Simple clipped photo shape only; automatic background removal requires a segmentation model.</p>`;
+  if(k==='Avatar')return `<p class="ss-note">Choose an emoji avatar for this draft; a 3D or account avatar generator is not connected.</p><div class="ss-pills">${['🙂','😎','🥰','🤩','🥳','🦊','🐱','💜'].map(emoji=>`<button class="ss-pill ${s.stickerAvatar===emoji?'is-on':''}" data-ss-avatar="${emoji}" aria-label="Avatar ${emoji}" aria-pressed="${s.stickerAvatar===emoji}">${emoji}</button>`).join('')}</div>`;
+  if(k==='AddYoursMusic')return `<label>Music prompt<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="A song for this moment"></label><label class="ss-action">Choose your audio <input data-ss-audio type="file" accept="audio/*" hidden></label>${s.musicName?`<p>♫ ${ssE(s.musicName)}</p>`:''}<p class="ss-note">Preview only. No Instagram audio catalog or shared challenge is connected.</p>`;
   if(k==='Photo'||k==='AddYours')return `${k==='AddYours'?`<label>Invitation prompt<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="Add yours"></label>`:''}<button class="ss-action" data-ss="add-yours">Choose local photo</button>${s.stickerPhotoName?`<p>${ssE(s.stickerPhotoName)}</p>`:''}<p class="ss-note">This is a local photo sticker. Add Yours cannot invite other accounts without a verified backend.</p>`;
   if(k==='DateTime')return `<label>Date and time format<select class="ss-field" data-ss-date-mode>${['Both','Date','Time'].map(mode=>`<option ${s.stickerDateMode===mode?'selected':''}>${mode}</option>`).join('')}</select></label>`;
   if(k==='Frame')return `<label>Frame style<select class="ss-field" data-ss-frame>${['Classic','Polaroid','Neon'].map(mode=>`<option ${s.stickerFrame===mode?'selected':''}>${mode}</option>`).join('')}</select></label><p class="ss-note">Frame is rendered around the whole story and saved in PNG.</p>`;
@@ -272,9 +280,13 @@ function ssClick(event) {
   if (user) { const id=user.dataset.ssUser; s.mentions=s.mentions.includes(id)?s.mentions.filter(x=>x!==id):[...s.mentions,id]; return ssRender(); }
   const font=event.target.closest('[data-ss-font]'); if(font){s.font=font.dataset.ssFont;return ssRender();}
   const color=event.target.closest('[data-ss-color]');if(color){s.textColor=color.dataset.ssColor;return ssRender();}
+  const avatar=event.target.closest('[data-ss-avatar]');if(avatar){s.stickerAvatar=avatar.dataset.ssAvatar;return ssRender();}
   const drawcolor=event.target.closest('[data-ss-drawcolor]');if(drawcolor){s.drawColor=drawcolor.dataset.ssDrawcolor;return ssRender();}
   const sticker=event.target.closest('[data-ss-sticker]');if(sticker){s.sticker=sticker.dataset.ssSticker;s.panel='';return ssRender();}
-  const kind=event.target.closest('[data-ss-sticker-kind]');if(kind){s.stickerKind=kind.dataset.ssStickerKind;s.stickerVote=null;s.stickerTitle='';return ssRender();}
+  const kind=event.target.closest('[data-ss-sticker-kind]');if(kind){
+    if(kind.dataset.ssStickerKind==='Music'||kind.dataset.ssStickerKind==='Mention'){s.panel=kind.dataset.ssStickerKind==='Music'?'music':'mention';return ssRender();}
+    s.stickerKind=kind.dataset.ssStickerKind;s.stickerVote=null;s.stickerTitle='';return ssRender();
+  }
   const typography=event.target.closest('[data-ss-typography]');if(typography){const key='text'+typography.dataset.ssTypography;s[key]=!s[key];return ssRender();}
   const idea=event.target.closest('[data-ss-idea]');if(idea){const line=ssLanguages[s.language].ideas[Number(idea.dataset.ssIdea)];if(line)s.text=s.text?`${s.text}\n${line}`:line;return ssRender();}
   const filter=event.target.closest('[data-ss-filter]');if(filter){s.filter=filter.dataset.ssFilter;return ssRender();}
@@ -323,7 +335,7 @@ function ssInput(event) {
   else if(target.matches('[data-ss-lyrics]'))s.lyrics=target.value.slice(0,160);
   else if(target.matches('[data-ss-sticker-field]')){
     const field=target.dataset.ssStickerField;
-    if(['stickerTitle','stickerLink'].includes(field))s[field]=target.value.slice(0,field==='stickerLink'?500:120);
+    if(['stickerTitle','stickerLink','stickerLocation'].includes(field))s[field]=target.value.slice(0,field==='stickerLink'?500:field==='stickerLocation'?80:120);
   }
   else if(target.matches('[data-ss-option]'))s.stickerOptions[Number(target.dataset.ssOption)]=target.value.slice(0,45);
   else if(target.matches('[data-ss-question-reply]')){s.stickerReplyText=target.value.slice(0,180);return;}
@@ -384,6 +396,7 @@ function ssChange(event) {
   }
   if(target.matches('[data-ss-date-mode]')){s.stickerDateMode=['Both','Date','Time'].includes(target.value)?target.value:'Both';return ssRender();}
   if(target.matches('[data-ss-frame]')){s.stickerFrame=['Classic','Polaroid','Neon'].includes(target.value)?target.value:'Classic';return ssRender();}
+  if(target.matches('[data-ss-cutout-shape]')){s.stickerCutoutShape=['Circle','Square','Rounded'].includes(target.value)?target.value:'Circle';return ssRender();}
   if(target.matches('[data-ss-emoji]')){s.stickerEmoji=['😍','🔥','❤️','😂','💜','✨'].includes(target.value)?target.value:'😍';return ssRender();}
   if(target.matches('[data-ss-language]')){s.language=target.value in ssLanguages?target.value:'English';return ssRender();}
   if(target.matches('[data-ss-animation]')){s.textAnimation=['None','Typing','Bounce','Fade','Slide'].includes(target.value)?target.value:'None';return ssRender();}
@@ -536,6 +549,21 @@ async function ssDrawCard(ctx) {
   }
   if(k==='DateTime'){
     ctx.save();ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=15;ctx.font='bold 45px Arial,sans-serif';ctx.textAlign='center';ctx.fillText('📅 '+ssDateLabel(s),360,830,650);ctx.restore();return;
+  }
+  if(k==='Cutouts'){
+    if(!s.stickerPhotoUrl)return;
+    const img=await ssLoadImage({url:s.stickerPhotoUrl,type:'image/jpeg'});
+    ctx.save();ctx.beginPath();
+    if(s.stickerCutoutShape==='Circle')ctx.arc(360,860,145,0,Math.PI*2);
+    else ssRoundRect(ctx,215,715,290,290,s.stickerCutoutShape==='Rounded'?40:0);
+    ctx.clip();ssCover(ctx,img,215,715,290,290);ctx.restore();return;
+  }
+  if(k==='Location'||k==='Avatar'||k==='AddYoursMusic'){
+    ctx.save();ctx.fillStyle='#ffffffec';ctx.beginPath();ssRoundRect(ctx,x,y,w,200,22);ctx.fill();ctx.fillStyle='#18181b';ctx.textAlign='center';ctx.font='bold 36px Arial,sans-serif';
+    const label=k==='Location'?`📍 ${s.stickerLocation||'Add a place'}`:k==='Avatar'?s.stickerAvatar:`♫ ${s.stickerTitle||'Add yours music'}`;
+    ctx.fillText(label,360,y+75,500);
+    if(k==='AddYoursMusic'){ctx.font='25px Arial,sans-serif';ctx.fillText(s.musicName||'Choose your own audio',360,y+140,490);}
+    ctx.restore();return;
   }
   ctx.save();ctx.fillStyle='#fffc';ctx.beginPath();ssRoundRect(ctx,x,y,w,k==='Quiz'?365:275,20);ctx.fill();
   ctx.fillStyle='#15151a';ctx.font='bold 35px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';

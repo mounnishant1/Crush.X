@@ -24,6 +24,10 @@ const originalCreate = renderCreate;
 const originalRepairEvents = bindRepairEvents;
 const originalLogout = logout;
 const originalRenderApp = renderApp;
+const pcFilters = {Original:'none',Vivid:'saturate(1.55) contrast(1.12)',Warm:'sepia(.22) saturate(1.18)',Mono:'grayscale(1)'};
+const pcRatios = {Original:'auto',Square:'1 / 1',Portrait:'4 / 5',Story:'9 / 16'};
+function pcFresh() { return {filter:'Original',ratio:'Original',audience:'Everyone',location:'',tags:'',audioName:'',audioUrl:'',poll:false,pollQuestion:'',pollOne:'Yes',pollTwo:'No',hideLikes:false,hideComments:false,onlyProfile:false,aiLabel:false,moreOpen:false}; }
+let pcDraft = pcFresh();
 
 function closeAppDialog() {
   closeStoryViewer();
@@ -293,8 +297,38 @@ function bindReelControls() {
   }));
 }
 renderCreate = function() {
-  return originalCreate().replace('id="captionInput"', 'id="captionInput" maxlength="2200"').replace('</textarea>', `${escapeHTML(captionDraft)}</textarea>`);
+  const field=(name,label,value,limit)=>`<label class="pc-field">${label}<input data-pc-field="${name}" maxlength="${limit}" value="${escapeHTML(value)}" class="w-full border rounded-xl px-3 py-2 bg-transparent" /></label>`;
+  const toggle=(name,label)=>`<label class="pc-toggle"><span>${label}</span><input type="checkbox" data-pc-toggle="${name}" ${pcDraft[name]?'checked':''}></label>`;
+  const controls=`<section class="pc-options" aria-label="Post editor options">
+    <p class="pc-disclaimer">Reference-inspired draft options · Local preview only; these settings are not sent to a publishing service.</p>
+    <h2>Photo and video adjustment</h2>
+    <nav class="pc-chips" aria-label="Preview filters">${Object.keys(pcFilters).map(name=>`<button data-pc-filter="${name}" aria-pressed="${pcDraft.filter===name}">${name}</button>`).join('')}</nav>
+    <nav class="pc-chips" aria-label="Crop preview ratio">${Object.keys(pcRatios).map(name=>`<button data-pc-ratio="${name}" aria-pressed="${pcDraft.ratio===name}">${name==='Story'?'9:16':name==='Portrait'?'4:5':name==='Square'?'1:1':'Original'}</button>`).join('')}</nav>
+    <h2>Details</h2>
+    ${field('location','Add location (manual)',pcDraft.location,90)}
+    ${field('tags','Tag people (sample @handles, comma-separated)',pcDraft.tags,200)}
+    <label class="pc-field">Add audio from this device <input type="file" data-pc-audio accept="audio/*" aria-label="Choose optional local audio"></label>
+    <div data-pc-audio-preview>${pcDraft.audioUrl?`<p>♫ ${escapeHTML(pcDraft.audioName)}</p><audio src="${pcDraft.audioUrl}" controls></audio><button data-pc-remove-audio type="button">Remove audio</button>`:'<p class="pc-disclaimer">No audio selected. This audio is for review only; it is not mixed into the post.</p>'}</div>
+    <label class="pc-field">Audience<select data-pc-audience class="w-full border rounded-xl px-3 py-2 bg-transparent">${['Everyone','Followers','Close Friends'].map(value=>`<option ${pcDraft.audience===value?'selected':''}>${value}</option>`).join('')}</select></label>
+    <label class="pc-toggle"><span>Add a poll to this draft</span><input type="checkbox" data-pc-toggle="poll" ${pcDraft.poll?'checked':''}></label>
+    <div data-pc-poll class="pc-poll ${pcDraft.poll?'':'hidden'}">${field('pollQuestion','Poll question',pcDraft.pollQuestion,120)}${field('pollOne','Option 1',pcDraft.pollOne,45)}${field('pollTwo','Option 2',pcDraft.pollTwo,45)}<p class="pc-disclaimer">No votes are collected.</p></div>
+    <button data-pc-more aria-expanded="${pcDraft.moreOpen}" class="pc-more">More options <i data-lucide="chevron-down" aria-hidden="true"></i></button>
+    <div data-pc-advanced class="${pcDraft.moreOpen?'':'hidden'}">${toggle('hideLikes','Hide like and view counts in draft')}${toggle('hideComments','Turn off comments (preview only)')}${toggle('onlyProfile','Only show on sample profile')}${toggle('aiLabel','Add AI-generated content label')}<p class="pc-disclaimer">Actual distribution, privacy and moderation need backend support.</p></div>
+    <button data-pc-review class="pc-review" type="button">Review selected options</button>
+  </section>`;
+  return originalCreate().replace('id="captionInput"', 'id="captionInput" maxlength="2200"').replace('</textarea>', `${escapeHTML(captionDraft)}</textarea>`).replace('</section>', `${controls}</section>`);
 };
+function pcApplyPreview() {
+  const preview=document.getElementById('mediaPreview');if(!preview)return;
+  preview.style.filter=pcFilters[pcDraft.filter];
+  preview.style.aspectRatio=pcRatios[pcDraft.ratio];
+  preview.style.maxHeight=pcDraft.ratio==='Original'?'':'min(65vh,540px)';
+  const media=preview.querySelector('img,video');if(media){media.style.width='100%';media.style.height=pcDraft.ratio==='Original'?'auto':'100%';media.style.objectFit='cover';media.style.maxHeight='100%';}
+}
+function pcReview() {
+  const options=[`Audience: ${pcDraft.audience}`,`Preview filter: ${pcDraft.filter}`,`Crop: ${pcDraft.ratio}`,`Location: ${pcDraft.location||'None'}`,`Tagged sample handles: ${pcDraft.tags||'None'}`,`Audio: ${pcDraft.audioName||'None'}`,`Poll: ${pcDraft.poll?(pcDraft.pollQuestion||'Untitled'):'Off'}`,`Hide counts: ${pcDraft.hideLikes?'On':'Off'}`,`Comments: ${pcDraft.hideComments?'Off':'On'}`,`Profile only: ${pcDraft.onlyProfile?'Yes':'No'}`,`AI label: ${pcDraft.aiLabel?'On':'Off'}`];
+  appDialog('Review post draft',`<ul class="space-y-2">${options.map(value=>`<li>${escapeHTML(value)}</li>`).join('')}</ul><p class="mt-4 text-sm text-slate-500">These are local draft options. No post, poll, tag notification, location or audience change is published.</p>`);
+}
 bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
@@ -315,6 +349,24 @@ bindRepairEvents = function() {
   on('[data-open-story]', button => openSampleStory(button.dataset.openStory));
   document.getElementById('sampleModeInfo')?.addEventListener('click', () => appDialog('Sample mode', '<p>Stories, likes, follows, saved items, profile edits and comments use sample data in this browser. Other people using this browser may see them.</p><p class="mt-3">Message drafts are never delivered. Publishing is not connected. Drafts are cleared on logout. Your Cognito account is separate from the sample profile.</p>'));
   document.getElementById('captionInput')?.addEventListener('input', event => { captionDraft = event.target.value.slice(0, 2200); });
+  document.getElementById('mediaInput')?.addEventListener('change', pcApplyPreview);
+  document.querySelector?.('[data-pc-audio]')?.addEventListener('change',event=>{
+    const file=event.target.files?.[0];if(!file)return;
+    if(!file.type.startsWith('audio/')||!file.size||file.size>20*1024*1024){alert('Choose an audio file up to 20 MB.');event.target.value='';return;}
+    if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);
+    pcDraft.audioUrl=URL.createObjectURL(file);pcDraft.audioName=file.name;
+    const box=document.querySelector?.('[data-pc-audio-preview]');if(box){box.innerHTML='';const name=document.createElement('p');name.textContent='♫ '+file.name;const player=document.createElement('audio');player.src=pcDraft.audioUrl;player.controls=true;box.append(name,player);}
+  });
+  on('[data-pc-remove-audio]',()=>{if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft.audioUrl='';pcDraft.audioName='';const box=document.querySelector?.('[data-pc-audio-preview]');if(box)box.textContent='No audio selected.';});
+  const updatePressed=(selector,chosen)=>document.querySelectorAll(selector).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[selector==='[data-pc-filter]'?'pcFilter':'pcRatio']===chosen)));
+  on('[data-pc-filter]', button=>{pcDraft.filter=button.dataset.pcFilter;updatePressed('[data-pc-filter]',pcDraft.filter);pcApplyPreview();});
+  on('[data-pc-ratio]', button=>{pcDraft.ratio=button.dataset.pcRatio;updatePressed('[data-pc-ratio]',pcDraft.ratio);pcApplyPreview();});
+  document.querySelectorAll('[data-pc-field]').forEach(input=>input.addEventListener('input',()=>{const key=input.dataset.pcField;pcDraft[key]=input.value.slice(0,key==='tags'?200:key==='location'?90:key==='pollQuestion'?120:45);}));
+  document.querySelector?.('[data-pc-audience]')?.addEventListener('change',event=>{pcDraft.audience=['Everyone','Followers','Close Friends'].includes(event.target.value)?event.target.value:'Everyone';});
+  document.querySelectorAll('[data-pc-toggle]').forEach(input=>input.addEventListener('change',()=>{const key=input.dataset.pcToggle;pcDraft[key]=input.checked;if(key==='poll')document.querySelector?.('[data-pc-poll]')?.classList.toggle('hidden',!pcDraft.poll);}));
+  on('[data-pc-more]',button=>{pcDraft.moreOpen=!pcDraft.moreOpen;button.setAttribute('aria-expanded',String(pcDraft.moreOpen));document.querySelector?.('[data-pc-advanced]')?.classList.toggle('hidden',!pcDraft.moreOpen);});
+  on('[data-pc-review]',pcReview);
+  pcApplyPreview();
   on('[data-edit-sample]', () => {
     const me = currentUser(getState());
     appDialog('Edit sample profile', `<form data-edit-sample-form><label>Name<input data-sample-name value="${escapeHTML(me.fullName)}" maxlength="80" required class="w-full border rounded-lg p-3 mt-1 mb-4 bg-transparent"></label><label>Bio<textarea data-sample-bio maxlength="150" class="w-full border rounded-lg p-3 mt-1 bg-transparent">${escapeHTML(me.info)}</textarea></label><p class="text-xs text-slate-500 my-3">Saved in this browser. Your Cognito account is unchanged.</p><button class="gradient-main rounded-lg p-3 text-white">Save</button></form>`, dialog => {
@@ -335,4 +387,4 @@ renderApp = function() {
   originalRenderApp();
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
-logout = function() { closeAppDialog(); captionDraft = ''; originalLogout(); };
+logout = function() { closeAppDialog(); captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };

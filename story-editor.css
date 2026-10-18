@@ -58,6 +58,12 @@
 .ss-countdown { color:#a21caf; font-size:18px; font-weight:900; font-variant-numeric:tabular-nums; }
 .ss-stage .ss-sticker-card .ss-gif-sticker { position:static; width:100%; max-height:160px; object-fit:contain; }
 .ss-stage .ss-sticker-card .ss-photo-sticker { position:static; width:100%; height:auto; max-height:210px; object-fit:contain; border-radius:10px; }
+.ss-stage .ss-sticker-card [class^="ss-cutout-"] { position:static; width:158px; height:158px; max-width:100%; object-fit:cover; align-self:center; }
+.ss-stage .ss-sticker-card .ss-cutout-circle { border-radius:50%; }
+.ss-stage .ss-sticker-card .ss-cutout-rounded { border-radius:24px; }
+.ss-stage .ss-card-cutouts { background:transparent; box-shadow:none; overflow:visible; }
+.ss-stage .ss-card-cutouts strong { padding:12px; background:#fff; border-radius:16px; }
+.ss-stage .ss-avatar-preview { font-size:76px; line-height:1.15; }
 .ss-stage .ss-card-photo { background:rgba(255,255,255,.88); }
 .ss-stage .ss-card-photo .ss-photo-sticker { max-height:250px; }
 .ss-stage .ss-card-emojislider input[type=range] { width:100%; accent-color:#ec4899; }

@@ -7,6 +7,7 @@ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'app-experience.css'),'utf8');
 assert.match(html,/href="\.\/app-experience\.css"/);
 for(const name of ['.story-viewer','.sv-progress','.sv-reactions','.reels-deck','.reel-slide','scroll-snap-type:y mandatory','.explore-screen','.explore-grid'])assert.ok(css.includes(name),name);
+for(const name of ['.pc-options','.pc-chips','.pc-toggle','.pc-poll'])assert.ok(css.includes(name),name);
 
 const handlers={};
 const dialogs=[];
@@ -18,9 +19,9 @@ const document={
   querySelectorAll(){return [];},querySelector(){return null;},addEventListener(){},
   createElement(tag){
     assert.equal(tag,'dialog');
-    return {open:false,innerHTML:'',removed:false,
+    return {open:false,innerHTML:'',removed:false,dataset:{},
       setAttribute(){},addEventListener(type,fn){this.events||={};this.events[type]=fn;},
-      querySelectorAll(){return [];},querySelector(){return null;},showModal(){this.open=true;},close(){this.open=false;},remove(){this.removed=true;}
+      querySelectorAll(){return [];},querySelector(selector){return selector==='[data-close-dialog]'?{}:null;},showModal(){this.open=true;},close(){this.open=false;},remove(){this.removed=true;}
     };
   }
 };
@@ -108,4 +109,20 @@ run('{const s=getState();s.searchQuery="<img onerror=alert(1)>";saveState(s);}')
 assert.doesNotMatch(run('renderDiscover(getState())'),/<img onerror=alert\(1\)>/);
 assert.match(run('renderDiscover(getState())'),/&lt;img/);
 
-console.log('Story viewer, Reel and Explore flow/icon/security checks PASS');
+// Composer options observed in the reference screenshot sequence are editable
+// local previews and must not be represented as published settings.
+const composer=run('renderCreate()');
+for(const name of ['Preview filters','Crop preview ratio','Add location','Tag people','Audience','data-pc-toggle="poll"','More options','hideLikes','hideComments','aiLabel','Review selected options','Local preview only'])assert.ok(composer.includes(name),name);
+run('pcDraft.filter="Warm";pcDraft.ratio="Portrait";pcDraft.audience="Close Friends";pcDraft.location="<img onerror=alert(1)>";pcDraft.tags="@nishant";pcDraft.poll=true;pcDraft.hideLikes=true');
+const changedComposer=run('renderCreate()');
+assert.match(changedComposer,/data-pc-filter="Warm" aria-pressed="true"/);
+assert.match(changedComposer,/data-pc-ratio="Portrait" aria-pressed="true"/);
+assert.match(changedComposer,/value="&lt;img onerror=alert\(1\)&gt;"/);
+assert.doesNotMatch(changedComposer,/<img onerror/);
+assert.match(changedComposer,/Close Friends"? selected|selected>Close Friends/);
+assert.match(changedComposer,/data-pc-poll class="pc-poll "/);
+run('pcReview()');
+assert.match(dialogs.at(-1).innerHTML,/No post, poll, tag notification, location or audience change is published/);
+assert.doesNotMatch(dialogs.at(-1).innerHTML,/<img onerror/);
+
+console.log('Story viewer, Reel, Explore and post composer flow/icon/security checks PASS');

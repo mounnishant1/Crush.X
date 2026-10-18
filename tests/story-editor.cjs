@@ -71,8 +71,32 @@ for(const name of ['Stickers','Music','Restyle','Effects','Mention','Draw','Save
 for(const icon of ['type','smile-plus','music-2','wand-sparkles','sparkles','at-sign','pencil-line','download','badge-check','ellipsis'])assert.ok(run('ssEditor()').includes(`data-lucide="${icon}"`),icon);
 
 click('stickers');
-assert.equal(run('ssStickerTypes.length'),12);
-for(const name of ['GIF','Poll','Questions','Quiz','Countdown','Link','Add Yours','Emoji Slider','Hashtag','Date / Time','Photo','Frame'])assert.ok(run('ssDialog.innerHTML').includes(name),name);
+assert.equal(run('ssStickerTypes.length'),18);
+for(const name of ['Location','Mention','Music','GIF','Poll','Questions','Quiz','Countdown','Link','Add Yours','Add Yours Music','Emoji Slider','Hashtag','Date / Time','Photo','Frame','Cutouts','Avatar'])assert.ok(run('ssDialog.innerHTML').includes(name),name);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Location');
+assert.match(run('ssDialog.innerHTML'),/Place label/);
+run('ssSession.stickerLocation="New Delhi"');
+assert.match(run('ssStage()'),/New Delhi/);
+run('ssSession.stickerLocation="<script>x</script>"');
+assert.doesNotMatch(run('ssStage()'),/<script>/);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Avatar');
+assert.match(run('ssDialog.innerHTML'),/emoji avatar/);
+clickDataset('[data-ss-avatar]','ssAvatar','🦊');
+assert.equal(run('ssSession.stickerAvatar'),'🦊');
+assert.match(run('ssStage()'),/🦊/);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Cutouts');
+assert.match(run('ssDialog.innerHTML'),/background removal requires a segmentation model/);
+run('ssSession.stickerCutoutShape="Rounded";ssSession.stickerPhotoUrl="blob:local"');
+assert.match(run('ssStage()'),/ss-cutout-rounded/);
+run('ssSession.stickerPhotoUrl=""');
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','AddYoursMusic');
+assert.match(run('ssDialog.innerHTML'),/Choose your audio/);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Music');
+assert.equal(run('ssSession.panel'),'music');
+click('stickers');
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Mention');
+assert.equal(run('ssSession.panel'),'mention');
+click('stickers');
 clickDataset('[data-ss-sticker-kind]','ssStickerKind','Poll');
 assert.match(run('ssStage()'),/data-ss-vote="0"/);
 clickDataset('[data-ss-vote]','ssVote','1');
@@ -203,5 +227,5 @@ Promise.resolve(run('ssDrawCard(cardCanvasContext)')).then(()=>{
 }).then(()=>{
   assert.ok(painted.some(x=>String(x).includes('85%')));
   run('ssClean()');
-  console.log('Story editor screen, 12 stickers, state, security and icon checks PASS');
+console.log('Story editor screen, 18 stickers, state, security and icon checks PASS');
 }).catch(error=>{console.error(error);process.exitCode=1;});

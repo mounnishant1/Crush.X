@@ -93,3 +93,19 @@
 .explore-grid button span { position:absolute; bottom:5px; right:5px; border-radius:6px; padding:3px 6px; color:white; background:#000a; font-size:11px; }
 .explore-disclaimer { font-size:11px; color:var(--muted); text-align:center; }
 @media(max-width:639px) { .explore-screen { padding:8px 5px 15px; } .explore-heading,.explore-search,.explore-filters,.explore-people,.explore-tags,.explore-media h2,.explore-disclaimer { margin-inline:8px; } .explore-grid { gap:2px; } }
+/* Screenshot-inspired post composer options. These stay in the browser draft. */
+.pc-options { margin-top:18px; display:grid; gap:11px; border-top:1px solid var(--line,#5555); padding-top:15px; }
+.pc-options h2 { font-size:14px; font-weight:800; margin-top:8px; }
+.pc-disclaimer { color:#9294a1; font-size:12px; line-height:1.4; }
+.pc-chips { display:flex; gap:7px; overflow:auto; padding:3px 0; }
+.pc-chips button { flex:none; min-height:40px; padding:7px 13px; border:1px solid var(--line,#7775); border-radius:20px; font-size:13px; }
+.pc-chips button[aria-pressed="true"] { background:#db2777; border-color:#db2777; color:#fff; }
+.pc-field { display:grid; gap:7px; font-size:13px; font-weight:650; }
+.pc-field input,.pc-field select { min-height:43px; font-weight:400; }
+.pc-field select option { color:#101016; }
+.pc-toggle { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:10px 0; border-bottom:1px solid var(--line,#5554); font-size:13px; }
+.pc-toggle input { width:21px; height:21px; flex:none; accent-color:#db2777; }
+.pc-poll { display:grid; gap:11px; padding:12px; border:1px solid var(--line,#5554); border-radius:16px; }
+.pc-more { display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px 0; font-weight:750; text-align:left; }
+.pc-more svg { height:18px; width:18px; }
+.pc-review { border-radius:14px; padding:12px; border:1px solid #db2777; color:#ec4899; font-weight:800; }
