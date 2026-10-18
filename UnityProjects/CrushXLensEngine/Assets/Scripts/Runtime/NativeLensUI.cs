@@ -1,4 +1,6 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.XR.ARFoundation;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -13,6 +15,11 @@ namespace CrushX.LensEngine
         private LensEngineBootstrap engine;
         private CrushXSmartCarousel carousel;
         private NativeMediaCapture capture;
+        private ARCameraManager arCamera;
+        private ARFaceManager arFaces;
+        private Coroutine cameraSwitch;
+        private CameraFacingDirection previousFacing;
+        private bool previousFacesEnabled;
         private NativeCameraSkin skin;
         private GUIStyle header, status, button, small, input;
         private readonly ShutterGesture shutterGesture = new ShutterGesture();
@@ -38,7 +45,7 @@ namespace CrushX.LensEngine
         public bool HidesCarousel { get { return capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
         public bool BlocksCameraGestures
         {
-            get { return captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+            get { return cameraSwitch != null || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
         private void Start()
@@ -49,6 +56,83 @@ namespace CrushX.LensEngine
             carousel = GetComponent<CrushXSmartCarousel>();
             if (carousel == null) carousel = gameObject.AddComponent<CrushXSmartCarousel>();
             if (engine != null) capture = NativeMediaCapture.GetOrCreate(engine);
+            arCamera = FindFirstObjectByType<ARCameraManager>(FindObjectsInactive.Include);
+            arFaces = FindFirstObjectByType<ARFaceManager>(FindObjectsInactive.Include);
+        }
+
+        public static CameraFacingDirection OppositeFacing(CameraFacingDirection direction)
+        {
+            if (direction == CameraFacingDirection.User) return CameraFacingDirection.World;
+            if (direction == CameraFacingDirection.World) return CameraFacingDirection.User;
+            return CameraFacingDirection.None;
+        }
+
+        public bool CameraSwitchPending { get { return cameraSwitch != null; } }
+        public bool UsingRearCamera { get { return arCamera != null && arCamera.currentFacingDirection == CameraFacingDirection.World; } }
+
+        public void FlipCamera()
+        {
+            if (engine == null || BlocksCameraGestures || CameraSwitchPending) return;
+            if (arCamera == null) arCamera = FindFirstObjectByType<ARCameraManager>(FindObjectsInactive.Include);
+            if (arFaces == null) arFaces = FindFirstObjectByType<ARFaceManager>(FindObjectsInactive.Include);
+            if (arCamera == null || arCamera.subsystem == null || !arCamera.subsystem.running)
+            { engine.Say("Camera switch unavailable while AR camera starts"); return; }
+            CameraFacingDirection active = arCamera.currentFacingDirection;
+            CameraFacingDirection target = OppositeFacing(active);
+            if (target == CameraFacingDirection.None)
+            { engine.Say("Camera direction not ready; try again"); return; }
+            previousFacing = active;
+            previousFacesEnabled = arFaces != null && arFaces.enabled;
+            // Face tracking requires the selfie camera. Stop it before requesting rear-facing
+            // video, and only re-enable it once an actual front-camera feed is confirmed.
+            if (arFaces != null) arFaces.enabled = false;
+            try { arCamera.requestedFacingDirection = target; }
+            catch (System.Exception error)
+            {
+                RestoreCameraFacing();
+                Debug.LogWarning("[CrushX Camera] Camera facing request failed: " + error.GetType().Name);
+                engine.Say("Camera switch not supported on this device");
+                return;
+            }
+            cameraSwitch = StartCoroutine(AwaitCameraFacing(target));
+        }
+
+        private IEnumerator AwaitCameraFacing(CameraFacingDirection target)
+        {
+            // StartCoroutine can run until its first yield immediately. Yield once so the
+            // handle is assigned before completion can clear cameraSwitch.
+            yield return null;
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (arCamera != null && Time.realtimeSinceStartup < deadline)
+            {
+                if (arCamera.subsystem != null && arCamera.subsystem.running &&
+                    arCamera.currentFacingDirection == target)
+                {
+                    if (arFaces != null) arFaces.enabled = target == CameraFacingDirection.User;
+                    cameraSwitch = null;
+                    engine.Say(target == CameraFacingDirection.User ? "Front camera ready · face lenses enabled" :
+                        "Rear camera ready · face lenses require front camera");
+                    yield break;
+                }
+                yield return null;
+            }
+            RestoreCameraFacing();
+            cameraSwitch = null;
+            if (engine != null) engine.Say("Camera switch unavailable; previous camera restored");
+        }
+
+        private void RestoreCameraFacing()
+        {
+            if (arCamera != null) arCamera.requestedFacingDirection = previousFacing;
+            if (arFaces != null) arFaces.enabled = previousFacesEnabled;
+        }
+
+        private void CancelCameraSwitch()
+        {
+            if (cameraSwitch == null) return;
+            StopCoroutine(cameraSwitch);
+            cameraSwitch = null;
+            RestoreCameraFacing();
         }
 
         private void Update()
@@ -112,6 +196,7 @@ namespace CrushX.LensEngine
 
         private void Back()
         {
+            if (CameraSwitchPending) { CancelCameraSwitch(); return; }
             // Back owns the stop/exit decision below; a pending press must not fire later.
             shutterGesture.End(Time.realtimeSinceStartupAsDouble, true, false);
             if (captureAt >= 0) { captureAt = -1; return; }
@@ -125,15 +210,17 @@ namespace CrushX.LensEngine
         private void OnApplicationPause(bool paused)
         {
             if (!paused) return;
+            CancelCameraSwitch();
             if (capture != null && capture.WaitingForMicrophonePermission) return;
             captureAt = -1;
             EndShutter(true);
         }
 
-        private void OnDisable() { captureAt = -1; EndShutter(true); }
+        private void OnDisable() { CancelCameraSwitch(); captureAt = -1; EndShutter(true); }
         private void OnApplicationFocus(bool focused)
         {
             if (focused) return;
+            CancelCameraSwitch();
             captureAt = -1;
             if (capture == null || !capture.WaitingForMicrophonePermission) EndShutter(true);
         }
@@ -181,7 +268,7 @@ namespace CrushX.LensEngine
 
         private void DrawCamera(NativeCameraLayout layout)
         {
-            GUI.Label(new Rect(84, 12, layout.Width - 168, 40), "Crush.X", header);
+            GUI.Label(new Rect(80, 12, Mathf.Max(0, layout.Width - 248), 40), "Crush.X", header);
             if (GUI.Button(new Rect(12, 12, 64, 40), "Back", button)) Back();
             GUI.enabled = !BlocksCameraGestures;
             if (GUI.Button(new Rect(layout.Width - 76, 12, 64, 40), searchVisible ? "Close" : "Search", button))
@@ -189,6 +276,9 @@ namespace CrushX.LensEngine
                 searchVisible = !searchVisible;
                 if (!searchVisible) { carousel.SetQuery(string.Empty); GUI.FocusControl(null); }
             }
+            GUI.enabled = !BlocksCameraGestures && !CameraSwitchPending;
+            string flipLabel = UsingRearCamera ? "Front" : "Rear";
+            if (GUI.Button(new Rect(layout.Width - 152, 12, 68, 40), flipLabel, button)) FlipCamera();
             GUI.enabled = true;
             skin.Panel(layout.TrackingStatus, NativeCameraSkin.PanelColor);
             GUI.Label(layout.TrackingStatus, engine.TrackingStatus, status);
@@ -213,8 +303,17 @@ namespace CrushX.LensEngine
                 if (remember != engine.PersonalizationEnabled) { engine.SetPersonalizationEnabled(remember); carousel.Refresh(); }
             }
             LensManifest? selected = LensCatalog.Find(engine.ActiveId);
-            GUI.Label(layout.LensTitle, selected.HasValue ? selected.Value.DisplayName : "Choose a lens", header);
-            string selection = engine.State == LensRuntimeState.Loading ? "Loading lens" :
+            Rect titleArea = layout.LensTitle;
+            GUI.Label(new Rect(titleArea.x + 78, titleArea.y, Mathf.Max(0, titleArea.width - 156), titleArea.height),
+                selected.HasValue ? selected.Value.DisplayName : "Choose a lens", header);
+            GUI.enabled = !BlocksCameraGestures;
+            bool nextAuto = GUI.Toggle(new Rect(titleArea.x + titleArea.width - 75, titleArea.y, 75, 30),
+                carousel.AutoSlideEnabled, carousel.AutoSlideEnabled ? "Auto on" : "Auto", button);
+            if (nextAuto != carousel.AutoSlideEnabled) carousel.SetAutoSlideEnabled(nextAuto);
+            GUI.enabled = true;
+            string selection = CameraSwitchPending ? "Switching camera" :
+                UsingRearCamera && engine.ActiveLensRequiresFace ? "Face lens requires front camera" :
+                engine.State == LensRuntimeState.Loading ? "Loading lens" :
                 engine.State == LensRuntimeState.Failed ? "Could not load lens" :
                 engine.State == LensRuntimeState.Unavailable ? "Effect unavailable" :
                 engine.ActiveLensRequiresFace && !engine.TrackingActive ? "Selected · waiting for face tracking" :
@@ -294,6 +393,7 @@ namespace CrushX.LensEngine
 
         private void OnDestroy()
         {
+            CancelCameraSwitch();
             if (skin != null) skin.Dispose();
         }
     }
