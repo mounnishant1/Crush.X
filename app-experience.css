@@ -109,3 +109,28 @@
 .pc-more { display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px 0; font-weight:750; text-align:left; }
 .pc-more svg { height:18px; width:18px; }
 .pc-review { border-radius:14px; padding:12px; border:1px solid #db2777; color:#ec4899; font-weight:800; }
+
+/* One-tap repost: keep the additional Reel rail action reachable on shorter phones. */
+.reel-rail { max-height:72%; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; gap:4px; }
+.reel-rail::-webkit-scrollbar { display:none; }
+.reel-rail button { width:49px; min-height:41px; gap:1px; font-size:10px; }
+.reel-rail svg { width:24px; height:24px; }
+.reel-rail .reel-repost-action[aria-pressed="true"] { color:#86efac; }
+.reel-repost-action svg { transform-origin:center; }
+.reel-repost-action.repost-spin svg { animation:crushx-repost-spin .52s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes crushx-repost-spin {
+  0% { transform:rotate(0) scale(.88); }
+  65% { transform:rotate(310deg) scale(1.18); }
+  100% { transform:rotate(360deg) scale(1); }
+}
+.reel-repost-toast { position:absolute; z-index:6; left:50%; bottom:21%; max-width:calc(100% - 112px);
+  padding:10px 14px; border:1px solid #ffffff44; border-radius:999px; background:#151515e8;
+  box-shadow:0 5px 20px #0008; color:#fff; font-size:12px; font-weight:750; line-height:1.35;
+  text-align:center; pointer-events:none; opacity:0; transform:translate(-50%,10px);
+  transition:opacity .16s ease,transform .16s ease; }
+.reel-repost-toast.is-visible { opacity:1; transform:translate(-50%,0); }
+.reel-repost-toast[hidden] { display:none; }
+@media(prefers-reduced-motion:reduce) {
+  .reel-repost-action.repost-spin svg { animation:none; }
+  .reel-repost-toast { transition:none; }
+}
