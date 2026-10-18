@@ -11,6 +11,7 @@ namespace CrushX.LensEngine
     public sealed class NativeLensUI : MonoBehaviour
     {
         private LensEngineBootstrap engine;
+        private CrushXCameraPermissionGate cameraPermission;
         private CrushXSmartCarousel carousel;
         private NativeMediaCapture capture;
         private GUIStyle header, status, button, small, input;
@@ -37,7 +38,7 @@ namespace CrushX.LensEngine
         public bool HidesCarousel { get { return capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
         public bool BlocksCameraGestures
         {
-            get { return captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+            get { return (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
         private void Start() { ResolveDependencies(); }
@@ -47,6 +48,7 @@ namespace CrushX.LensEngine
         private void ResolveDependencies()
         {
             if (engine == null) engine = FindFirstObjectByType<LensEngineBootstrap>();
+            if (cameraPermission == null) cameraPermission = GetComponent<CrushXCameraPermissionGate>() ?? gameObject.AddComponent<CrushXCameraPermissionGate>();
             // RequireComponent does not retrofit already serialized scene components.
             if (GetComponent<CrushXCameraSwipe>() == null) gameObject.AddComponent<CrushXCameraSwipe>();
             if (carousel == null) carousel = GetComponent<CrushXSmartCarousel>();
@@ -162,6 +164,26 @@ namespace CrushX.LensEngine
             GUI.color = Color.white;
             if (engine == null || capture == null || carousel == null)
                 GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (cameraPermission != null && !cameraPermission.Granted)
+            {
+                GUI.Label(new Rect(20, 60, layout.Width - 40, 70),
+                    "Camera access is needed for photos, video and AR lenses.", status);
+                GUI.Label(new Rect(20, 150, layout.Width - 40, 60),
+                    cameraPermission.RequestPending ? "Waiting for Android permission…" :
+                    !cameraPermission.CanAskAgain ? "Camera access is off. Enable it in Android app settings." :
+                    "Choose Allow to see the Android permission options.", small);
+                if (!cameraPermission.RequestPending)
+                {
+                    if (cameraPermission.CanAskAgain)
+                    {
+                        if (GUI.Button(new Rect(24, 230, layout.Width - 48, 58), "Allow Camera", button))
+                            cameraPermission.AskFromUserAction();
+                    }
+                    else if (GUI.Button(new Rect(24, 230, layout.Width - 48, 58), "Open App Settings", button))
+                        cameraPermission.OpenAndroidSettings();
+                }
+                if (GUI.Button(new Rect(24, 310, layout.Width - 48, 56), "Back", button)) Back();
+            }
             else if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
             else DrawCamera(layout);
             GUI.enabled = oldEnabled;

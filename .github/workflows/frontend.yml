@@ -46,6 +46,10 @@ jobs:
           python -m pip install -r tests/requirements-source.txt
           python -m unittest discover -s tests -p 'test_*.py'
           node --check app-improvements.js
+          node --check permissions-center.js
+          node --check aura-x-core.js
+          node --check aura-x-assistant.js
+          node --test tests/aura-x-core.test.cjs
       - name: Start local application server
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/crushx-http.log" 2>&1 &
@@ -53,6 +57,8 @@ jobs:
       - name: Run frontend regressions
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-tests/node_modules/playwright
-        run: node tests/frontend.cjs
+        run: |
+          node tests/frontend.cjs
+          node tests/aura-ui-browser.cjs
       # cloud-onboarding/crushx/smoke.cjs is intentionally separate: it needs
       # the managed cloud's SDK/proxy/CA setup and /usr/bin/chromium.
