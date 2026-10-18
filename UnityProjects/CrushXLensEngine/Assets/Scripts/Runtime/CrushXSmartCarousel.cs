@@ -21,10 +21,26 @@ namespace CrushX.LensEngine
         private string observedActiveId;
         private bool orderLoaded;
         private bool dragStartedSettled;
+        private bool autoSlideEnabled;
+        private float nextAutoSlideAt;
+        private const float AutoSlideIntervalSeconds = 6f;
 
         public LensBrowseFilter Filter { get { return filter; } }
         public string Query { get { return query; } }
         public int VisibleCount { get { EnsureEngine(); return visible.Count; } }
+        public bool AutoSlideEnabled { get { return autoSlideEnabled; } }
+
+        // Optional for this camera session; never moves lenses while the user interacts.
+        public void SetAutoSlideEnabled(bool enabled)
+        {
+            autoSlideEnabled = enabled;
+            DeferAutoSlide();
+        }
+
+        private void DeferAutoSlide() { nextAutoSlideAt = Time.unscaledTime + AutoSlideIntervalSeconds; }
+
+        public static bool CanAutoAdvance(int count, bool settled, bool busy, bool hidden, bool searching, bool rearCamera)
+        { return count > 1 && settled && !busy && !hidden && !searching && !rearCamera; }
 
         public Texture2D GetCover(string lensId)
         {
@@ -95,6 +111,7 @@ namespace CrushX.LensEngine
             if (filter == value) return;
             filter = value;
             Refresh();
+            DeferAutoSlide();
         }
 
         public void SetQuery(string value)
@@ -103,6 +120,7 @@ namespace CrushX.LensEngine
             if (query == value) return;
             query = value;
             Refresh();
+            DeferAutoSlide();
         }
 
         public void Refresh()
@@ -125,6 +143,7 @@ namespace CrushX.LensEngine
         {
             if (!EnsureEngine()) return;
             SynchronizeSelection();
+            DeferAutoSlide();
             dragStartedSettled = motion.IsSettled;
             motion.BeginDrag();
         }
@@ -164,6 +183,7 @@ namespace CrushX.LensEngine
         {
             if (!EnsureEngine() || visible.Count == 0 || amount == 0) return false;
             SynchronizeSelection();
+            DeferAutoSlide();
             int direction = amount < 0 ? -1 : 1;
             int current = CenterIndex();
             int index = NextResultIndex(current, direction, visible.Count);
@@ -209,6 +229,7 @@ namespace CrushX.LensEngine
 
         private bool TapAtPosition(Vector2 logicalPosition, bool releasedTap)
         {
+            DeferAutoSlide();
             SynchronizeSelection();
             if (!EnsureEngine() || visible.Count == 0 || motion.IsDragging ||
                 (!releasedTap && !motion.IsSettled)) return false;
@@ -274,6 +295,19 @@ namespace CrushX.LensEngine
             EnsureEngine();
             SynchronizeSelection();
             motion.Tick(Time.unscaledDeltaTime);
+            if (!autoSlideEnabled) return;
+            bool hidden = nativeUi != null && nativeUi.HidesCarousel;
+            bool busy = nativeUi != null && nativeUi.BlocksCameraGestures;
+            bool searching = nativeUi != null && nativeUi.SearchVisible;
+            bool rearCamera = nativeUi != null && nativeUi.UsingRearCamera;
+            if (!CanAutoAdvance(visible.Count, motion.IsSettled, busy, hidden, searching, rearCamera))
+            {
+                // After a capture, search, drag or camera flip, wait a full interval;
+                // never unexpectedly advance the instant the activity ends.
+                if (busy || hidden || searching || rearCamera || motion.IsDragging) DeferAutoSlide();
+                return;
+            }
+            if (Time.unscaledTime >= nextAutoSlideAt) StepVisible(1);
         }
 
         private void OnApplicationPause(bool paused) { if (paused) CancelDrag(); }
