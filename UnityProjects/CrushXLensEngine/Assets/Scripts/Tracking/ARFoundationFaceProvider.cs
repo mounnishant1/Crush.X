@@ -37,6 +37,23 @@ namespace CrushX.LensEngine
                 if (face == null) continue;
                 faceCount++;
                 if (face.trackingState != TrackingState.Tracking) continue;
+                // ARCore supplies the mesh in local, meter-based face coordinates. Use its
+                // width to size procedural masks for the actual face, not the Editor demo.
+                float faceWidth = 0f;
+                var vertices = face.vertices;
+                if (vertices.IsCreated && vertices.Length >= 3)
+                {
+                    float minX = float.PositiveInfinity, maxX = float.NegativeInfinity;
+                    for (int i = 0; i < vertices.Length; i++)
+                    {
+                        float x = vertices[i].x;
+                        if (float.IsNaN(x) || float.IsInfinity(x)) continue;
+                        minX = Mathf.Min(minX, x);
+                        maxX = Mathf.Max(maxX, x);
+                    }
+                    if (FaceMaskFit.TryRelativeScale(maxX - minX, out _))
+                        faceWidth = maxX - minX;
+                }
                 sample = new FaceSample
                 {
                     Valid = true,
@@ -45,6 +62,7 @@ namespace CrushX.LensEngine
                     Confidence = 1,
                     MouthOpen = 0,
                     Blink = 0,
+                    FaceWidthMeters = faceWidth,
                     Timestamp = Time.realtimeSinceStartupAsDouble
                 };
                 CurrentOutcome = ARDiagnosticOutcome.Tracking;
