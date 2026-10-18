@@ -10,6 +10,7 @@ assert.match(html, /<link rel="stylesheet" href="\.\/story-editor\.css"/);
 assert.match(html, /<script src="\.\/story-editor\.js"><\/script>/);
 assert.match(css,/\.ss-stage/);
 assert.match(css,/\.ss-users/);
+assert.match(css,/\.ss-story-frame/);
 
 const noop = {addEventListener(){}};
 const document = {
@@ -67,9 +68,11 @@ run('ssSession.text="<script>alert(1)</script>"');
 assert.doesNotMatch(run('ssStage()'),/<script>/);
 assert.match(run('ssStage()'),/&lt;script&gt;/);
 for(const name of ['Stickers','Music','Restyle','Effects','Mention','Draw','Save','Label AI','More'])assert.ok(run('ssEditor()').includes(name),name);
+for(const icon of ['type','smile-plus','music-2','wand-sparkles','sparkles','at-sign','pencil-line','download','badge-check','ellipsis'])assert.ok(run('ssEditor()').includes(`data-lucide="${icon}"`),icon);
 
 click('stickers');
-for(const name of ['GIF','Poll','Questions','Quiz','Countdown','Link'])assert.ok(run('ssDialog.innerHTML').includes(name),name);
+assert.equal(run('ssStickerTypes.length'),12);
+for(const name of ['GIF','Poll','Questions','Quiz','Countdown','Link','Add Yours','Emoji Slider','Hashtag','Date / Time','Photo','Frame'])assert.ok(run('ssDialog.innerHTML').includes(name),name);
 clickDataset('[data-ss-sticker-kind]','ssStickerKind','Poll');
 assert.match(run('ssStage()'),/data-ss-vote="0"/);
 clickDataset('[data-ss-vote]','ssVote','1');
@@ -91,6 +94,24 @@ run('ssSession.stickerLink="javascript:alert(1)"');
 assert.doesNotMatch(run('ssStage()'),/href="javascript:/);
 run('ssSession.stickerLink="https://example.com/story"');
 assert.match(run('ssStage()'),/href="https:\/\/example.com\/story"/);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Hashtag');
+run('ssSession.stickerTitle="<b>unsafe</b>"');
+assert.doesNotMatch(run('ssStage()'),/<b>unsafe<\/b>/);
+assert.match(run('ssStage()'),/#&lt;b&gt;unsafe&lt;\/b&gt;/);
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','DateTime');
+assert.match(run('ssStage()'),/📅/);
+run('ssChange({target:{value:"Time",matches(selector){return selector==="[data-ss-date-mode]";}}})');
+assert.equal(run('ssSession.stickerDateMode'),'Time');
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','EmojiSlider');
+run('ssDialog.querySelectorAll=()=>[]');
+run('ssInput({target:{value:"85",matches(selector){return selector==="[data-ss-slider]";}}})');
+assert.equal(run('ssSession.stickerSliderValue'),85);
+assert.match(run('ssStage()'),/85%/);
+run('ssChange({target:{value:"🔥",matches(selector){return selector==="[data-ss-emoji]";}}})');
+assert.equal(run('ssSession.stickerEmoji'),'🔥');
+clickDataset('[data-ss-sticker-kind]','ssStickerKind','Frame');
+run('ssChange({target:{value:"Polaroid",matches(selector){return selector==="[data-ss-frame]";}}})');
+assert.match(run('ssStage()'),/ss-frame-polaroid/);
 click('music');
 assert.match(run('ssDialog.innerHTML'),/Manual lyrics/);
 run('ssSession.lyrics="My own lyrics"');
@@ -143,6 +164,14 @@ run(`ssChange({target:{files:[gifFile],matches(selector){return selector==='[dat
 assert.equal(run('ssSession.stickerKind'),'GIF');
 assert.match(run('ssSession.stickerGifUrl'),/^blob:/);
 assert.match(run('ssStage()'),/ss-gif-sticker/);
+context.photoFile=new Blob(['photo'],{type:'image/png'});
+context.photoFile.name='local-photo.png';
+run('ssSession.stickerKind="AddYours"');
+run(`ssChange({target:{files:[photoFile],matches(selector){return selector==='[data-ss-photo]';}}})`);
+assert.match(run('ssSession.stickerPhotoUrl'),/^blob:/);
+assert.match(run('ssStage()'),/Local Add Yours photo/);
+run('ssSession.stickerKind="Photo"');
+assert.match(run('ssStage()'),/ss-card-photo/);
 
 run('ssSession.language="English";ssSession.text="Move me";ssSession.view="editor"');
 context.mockStage={getBoundingClientRect(){return {left:0,top:0,width:300,height:500};}};
@@ -159,13 +188,20 @@ assert.equal(run('ssSession.textDragPointer'),null);
 // Exercise sticker-card canvas output without relying on a browser installation.
 const painted=[];
 context.cardCanvasContext={
-  save(){},restore(){},beginPath(){},roundRect(){},rect(){},fill(){},fillRect(){},
+  save(){},restore(){},beginPath(){},roundRect(){},rect(){},fill(){},fillRect(){},strokeRect(){},
   fillText(value){painted.push(value);},
 };
 run('ssSession.stickerKind="Quiz";ssSession.stickerTitle="How are you?";ssSession.stickerVote=0');
 Promise.resolve(run('ssDrawCard(cardCanvasContext)')).then(()=>{
   assert.ok(painted.includes('How are you?'));
   assert.ok(painted.some(x=>String(x).includes('Yes')));
+  run('ssSession.stickerKind="Frame";ssSession.stickerFrame="Polaroid"');
+  run('ssDrawFrame(cardCanvasContext)');
+  assert.ok(painted.includes('Crush.X moments'));
+  run('ssSession.stickerKind="EmojiSlider"');
+  return run('ssDrawCard(cardCanvasContext)');
+}).then(()=>{
+  assert.ok(painted.some(x=>String(x).includes('85%')));
   run('ssClean()');
-  console.log('Story editor screen, state, security and icon checks PASS');
+  console.log('Story editor screen, 12 stickers, state, security and icon checks PASS');
 }).catch(error=>{console.error(error);process.exitCode=1;});

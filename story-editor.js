@@ -12,6 +12,9 @@ const ssFonts = {
 };
 const ssLanguages = {English:{lang:'en',ideas:['Living my best story ✨','A little moment, a big memory 💫','Today feels different 🌈','Good vibes only 💜']},Hindi:{lang:'hi',ideas:['आज की खूबसूरत याद ✨','हर पल खास है 💜','अपनी कहानी, अपनी पहचान','खुशियाँ बाँटते चलो 🌸']},Hinglish:{lang:'hi-Latn',ideas:['Aaj ka mood ekdum mast ✨','Apni story, apna style 💜','Yeh pal yaad rahega','Dil se happy vibes 🌈']},Punjabi:{lang:'pa',ideas:['ਅੱਜ ਦਾ ਦਿਨ ਬਹੁਤ ਸੋਹਣਾ ✨','ਆਪਣੀ ਕਹਾਣੀ ਆਪਣਾ ਅੰਦਾਜ਼','ਖੁਸ਼ੀਆਂ ਵੰਡਦੇ ਰਹੋ 💜','ਚੜ੍ਹਦੀ ਕਲਾ ਵਿੱਚ ਰਹੋ 🌟']},Haryanvi:{lang:'hi',ideas:['आज तो माहौल बढ़िया सै 🔥','अपणा अंदाज़ सबतै न्यारा','के हाल सै भाई 💪','दिल तै खुश रहो ❤️']}};
 let ssSession = null;
+const ssIconNames = {close:'x',settings:'settings',back:'arrow-left',text:'type',stickers:'smile-plus',music:'music-2',restyle:'wand-sparkles',effects:'sparkles',mention:'at-sign',draw:'pencil-line',save:'download',label:'badge-check',more:'ellipsis',camera:'camera',file:'image-plus',templates:'layout-template',collage:'layout-grid',multi:'list-checks',review:'arrow-right'};
+const ssStickerTypes = [['GIF','GIF'],['Poll','Poll'],['Questions','Questions'],['Quiz','Quiz'],['Countdown','Countdown'],['Link','Link'],['AddYours','Add Yours'],['EmojiSlider','Emoji Slider'],['Hashtag','Hashtag'],['DateTime','Date / Time'],['Photo','Photo'],['Frame','Frame']];
+const ssStickerIcons = {GIF:'film',Poll:'chart-column',Questions:'message-circle-question',Quiz:'list-checks',Countdown:'hourglass',Link:'link',AddYours:'users-round',EmojiSlider:'sliders-horizontal',Hashtag:'hash',DateTime:'calendar-days',Photo:'image-plus',Frame:'scan'};
 let ssDialog = null;
 let ssToastTimer = null;
 let ssTicker = null;
@@ -25,7 +28,7 @@ function ssSamples() {
     .slice(0,24).map((m,i) => ({...m,id:`sample-${i}`,sample:true}));
 }
 function ssFresh() {
-  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textX:50,textY:46,textRotation:0,textScale:100,textColor:'#ffffff',textAlign:'center',textBg:false,textBold:false,textItalic:false,textOutline:false,textShadow:true,textGradient:false,textNeon:false,textAnimation:'None',language:'English',sticker:'',stickerKind:'',stickerTitle:'',stickerOptions:['Yes','No','Maybe','Sure'],stickerCorrect:0,stickerVote:null,stickerReply:'',stickerReplyText:'',stickerDeadline:'',stickerLink:'',stickerGifUrl:'',stickerGifName:'',musicUrl:'',musicName:'',lyrics:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
+  return {view:'gallery',panel:'',album:'Recents',albumOpen:false,multi:false,media:ssSamples(),selected:[],filter:'Original',effectCat:'Trending',effectQuery:'',savedEffects:[],bg:'Sunset',text:'',font:'Classic',textSize:37,textX:50,textY:46,textRotation:0,textScale:100,textColor:'#ffffff',textAlign:'center',textBg:false,textBold:false,textItalic:false,textOutline:false,textShadow:true,textGradient:false,textNeon:false,textAnimation:'None',language:'English',sticker:'',stickerKind:'',stickerTitle:'',stickerOptions:['Yes','No','Maybe','Sure'],stickerCorrect:0,stickerVote:null,stickerReply:'',stickerReplyText:'',stickerDeadline:'',stickerLink:'',stickerGifUrl:'',stickerGifName:'',stickerPhotoUrl:'',stickerPhotoName:'',stickerEmoji:'😍',stickerSliderValue:50,stickerDateMode:'Both',stickerFrame:'Classic',musicUrl:'',musicName:'',lyrics:'',mentions:[],mentionQuery:'',allowReshare:true,drawColor:'#ffffff',drawWidth:4,strokes:[],drawing:false,audience:'Your story',aiLabel:false,notice:''};
 }
 function ssNotice(message) {
   if (!ssSession) return;
@@ -40,6 +43,7 @@ function ssClean() {
   if (ssSession) for (const media of ssSession.media) if (!media.sample && media.url) URL.revokeObjectURL(media.url);
   if (ssSession?.musicUrl) URL.revokeObjectURL(ssSession.musicUrl);
   if (ssSession?.stickerGifUrl) URL.revokeObjectURL(ssSession.stickerGifUrl);
+  if (ssSession?.stickerPhotoUrl) URL.revokeObjectURL(ssSession.stickerPhotoUrl);
   ssSession = null;
   ssDialog = null;
 }
@@ -64,7 +68,8 @@ function openStoryStudio() {
   dialog.showModal();
   ssTicker = setInterval(() => { if (ssSession?.stickerKind==='Countdown') { const clock=ssDialog?.querySelector('.ss-countdown');if(clock)clock.textContent=ssTimeLeft(ssSession.stickerDeadline); } },1000);
 }
-function ssIcon(label, action, glyph, extra='') { return `<button class="ss-icon" data-ss="${action}" aria-label="${ssE(label)}" title="${ssE(label)}" ${extra}>${glyph}</button>`; }
+function ssGlyph(name,fallback='•') {return `<i data-lucide="${name}" aria-hidden="true">${fallback}</i>`;}
+function ssIcon(label, action, glyph, extra='') { return `<button class="ss-icon" data-ss="${action}" aria-label="${ssE(label)}" title="${ssE(label)}" ${extra}>${ssGlyph(ssIconNames[action]||'circle',glyph)}</button>`; }
 function ssMediaHTML(m) {
   if (!m) return '';
   const src = ssE(m.url);
@@ -82,13 +87,19 @@ function ssTimeLeft(value) {
   const days=Math.floor(seconds/86400),hours=Math.floor(seconds%86400/3600),minutes=Math.floor(seconds%3600/60),secs=seconds%60;
   return `${days}d ${hours}h ${minutes}m ${secs}s`;
 }
+function ssDateLabel(s=ssSession) {
+  const date=new Date(),language=ssLanguages[s.language]?.lang||'en';
+  if(s.stickerDateMode==='Time')return date.toLocaleTimeString(language,{hour:'2-digit',minute:'2-digit'});
+  if(s.stickerDateMode==='Date')return date.toLocaleDateString(language,{day:'numeric',month:'short',year:'numeric'});
+  return date.toLocaleString(language,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+}
 function ssSafeLink(value) {
   try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch{return '';}
 }
 function ssStickerCard() {
   const s=ssSession,kind=s.stickerKind;
-  if(!kind)return '';
-  const title=ssE(s.stickerTitle||({Poll:'Your vote?',Questions:'Ask me a question',Quiz:'Choose the answer',Countdown:'Coming soon',Link:'Link',GIF:'GIF'})[kind]);
+  if(!kind||kind==='Frame')return '';
+  const title=ssE(s.stickerTitle||({Poll:'Your vote?',Questions:'Ask me a question',Quiz:'Choose the answer',Countdown:'Coming soon',Link:'Link',GIF:'GIF',AddYours:'Add yours',EmojiSlider:'How much?',Hashtag:'CrushX',DateTime:'Date & time',Photo:'Photo sticker'})[kind]);
   let inner='';
   if(kind==='Poll')inner=`<strong>${title}</strong><div class="ss-card-choices">${s.stickerOptions.slice(0,2).map((v,i)=>`<button data-ss-vote="${i}" aria-pressed="${s.stickerVote===i}">${ssE(v||`Option ${i+1}`)} ${s.stickerVote===i?'✓':''}</button>`).join('')}</div><small>${s.stickerVote===null?'Try a local preview vote':'Preview vote recorded on this device'}</small>`;
   if(kind==='Quiz')inner=`<strong>${title}</strong><div class="ss-card-choices">${s.stickerOptions.slice(0,4).map((v,i)=>`<button data-ss-vote="${i}" aria-pressed="${s.stickerVote===i}">${ssE(v||`Option ${i+1}`)} ${s.stickerVote===i?(i===s.stickerCorrect?'✓':'✕'):''}</button>`).join('')}</div>${s.stickerVote!==null?`<small>${s.stickerVote===s.stickerCorrect?'Correct!':'Try again'}</small>`:'<small>Tap an answer to preview</small>'}`;
@@ -96,6 +107,11 @@ function ssStickerCard() {
   if(kind==='Countdown')inner=`<strong>${title}</strong><div class="ss-countdown">${ssTimeLeft(s.stickerDeadline)}</div>`;
   if(kind==='Link'){const href=ssSafeLink(s.stickerLink);inner=`<strong>🔗 ${title}</strong>${href?`<a href="${ssE(href)}" target="_blank" rel="noopener noreferrer">Visit ${ssE(new URL(href).hostname)} ↗</a>`:'<small>Add a valid HTTPS link</small>'}`;}
   if(kind==='GIF')inner=s.stickerGifUrl?`<img class="ss-gif-sticker" src="${ssE(s.stickerGifUrl)}" alt="Animated GIF sticker">`:'<strong>Choose a GIF from your device</strong>';
+  if(kind==='AddYours')inner=`<strong>📷 ${title}</strong><button data-ss="add-yours" class="ss-card-send">${s.stickerPhotoUrl?'Change your photo':'Add a local photo'}</button>${s.stickerPhotoUrl?`<img class="ss-photo-sticker" src="${ssE(s.stickerPhotoUrl)}" alt="Local Add Yours photo">`:''}<small>Draft-only invitation; no other users are notified.</small>`;
+  if(kind==='EmojiSlider')inner=`<strong>${title}</strong><div style="font-size:30px">${ssE(s.stickerEmoji)}</div><input type="range" data-ss-slider min="0" max="100" value="${s.stickerSliderValue}" aria-label="Emoji slider preview"><output data-ss-slider-value>${s.stickerSliderValue}%</output>`;
+  if(kind==='Hashtag')inner=`<button class="ss-hashtag" data-ss="preview-hashtag">#${ssE((s.stickerTitle||'CrushX').replace(/^#+/,''))}</button>`;
+  if(kind==='DateTime')inner=`<strong>📅 ${ssE(ssDateLabel(s))}</strong>`;
+  if(kind==='Photo')inner=s.stickerPhotoUrl?`<img class="ss-photo-sticker" src="${ssE(s.stickerPhotoUrl)}" alt="Photo sticker">`:'<strong>Choose a photo from your device</strong>';
   return `<div class="ss-sticker-card ss-card-${kind.toLowerCase()}" aria-label="${ssE(kind)} sticker">${inner}</div>`;
 }
 function ssStage() {
@@ -104,6 +120,7 @@ function ssStage() {
   const pictures=collage ? `<div class="ss-collage" data-count="${selected.length}" style="filter:${ssFilters[s.filter]}">${selected.map(ssMediaHTML).join('')}</div>` : selected.length ? `<div style="position:absolute;inset:0;filter:${ssFilters[s.filter]}">${ssMediaHTML(selected[0])}</div>` : '';
   return `<div class="ss-stage" style="background:${ssBackgrounds[s.bg]}">
     ${pictures}
+    ${s.stickerKind==='Frame'?`<div class="ss-story-frame ss-frame-${s.stickerFrame.toLowerCase()}" aria-label="${ssE(s.stickerFrame)} photo frame"></div>`:''}
     ${s.text ? `<div data-ss-textlayer tabindex="0" lang="${ssLanguages[s.language].lang}" class="ss-overlay-text ss-animate-${s.textAnimation.toLowerCase()} ${s.textBg?'is-backed':''}" title="Drag to position text" style="left:${s.textX}%;top:${s.textY}%;font-size:${s.textSize}px;color:${s.textColor};text-align:${s.textAlign};transform:translate(-50%,-50%) rotate(${s.textRotation}deg) scale(${s.textScale/100});${ssFontCss()}">${ssE(s.text)}</div>` : ''}
     ${s.sticker ? `<div class="ss-stickers">${ssE(s.sticker)}</div>` : ''}
     ${ssStickerCard()}
@@ -119,12 +136,12 @@ function ssGallery() {
     <header class="ss-head">${ssIcon('Close story creator','close','×')}<h2>Add to story</h2>${ssIcon('Story settings','settings','⚙')}</header>
     <div class="ss-scroller">
       <div class="ss-quick">
-        <button data-ss="templates"><span>▦</span>Templates</button><button data-ss="quick-effects"><span>✨</span>Effects</button><button data-ss="quick-music"><span>♫</span>Music</button><button data-ss="collage"><span>▧</span>Collage</button>
+        <button data-ss="templates">${ssGlyph('layout-template','▦')}Templates</button><button data-ss="quick-effects">${ssGlyph('sparkles','✨')}Effects</button><button data-ss="quick-music">${ssGlyph('music-2','♫')}Music</button><button data-ss="collage">${ssGlyph('layout-grid','▧')}Collage</button>
       </div>
       <div class="ss-albums"><button data-ss="album-toggle" class="ss-action" aria-expanded="${s.albumOpen}">${ssE(s.album)} ⌄</button><button data-ss="multi" class="ss-action ${s.multi?'is-on':''}" aria-pressed="${s.multi}">☷ Select</button></div>
       ${s.albumOpen ? `<div class="ss-gallery-menu">${['Recents','Photos','Videos','All albums','Google Photos','From Meta apps'].map(name=>`<button data-ss-album="${ssE(name)}" aria-pressed="${s.album===name}">${ssE(name)} ${['Google Photos','From Meta apps'].includes(name)?'<small>Not connected</small>':''}</button>`).join('')}</div>` : ''}
       <p class="ss-note">Browser access only: choose media from your device. Other tiles are labeled sample content.</p>
-      <div class="ss-grid"><button data-ss="camera" aria-label="Take photo or video" style="font-size:35px">📷<span class="ss-source">Camera</span></button><button data-ss="file" aria-label="Choose images or videos" style="font-size:32px">＋<span class="ss-source">Choose files</span></button>
+      <div class="ss-grid"><button data-ss="camera" aria-label="Take photo or video" style="font-size:35px">${ssGlyph('camera','📷')}<span class="ss-source">Camera</span></button><button data-ss="file" aria-label="Choose images or videos" style="font-size:32px">${ssGlyph('image-plus','＋')}<span class="ss-source">Choose files</span></button>
         ${shown.map(m=>`<button data-ss-media="${ssE(m.id)}" aria-label="Select ${ssE(m.name)}" aria-pressed="${s.selected.includes(m.id)}">${ssMediaHTML(m)}${s.multi?`<span class="ss-check ${s.selected.includes(m.id)?'is-selected':''}">${s.selected.includes(m.id)?s.selected.indexOf(m.id)+1:''}</span>`:''}<span class="ss-source">${m.sample?'Sample':ssE(m.name.slice(0,18))}</span></button>`).join('')}
       </div>
     </div>
@@ -141,9 +158,10 @@ function ssEditor() {
   return `<div class="ss-shell">
     <header class="ss-head">${ssIcon('Back to gallery','back','←')}<h2>Crush.X Story</h2>${ssIcon('Story settings','settings','⚙')}</header>
     <div class="ss-stage-wrap">${ssStage()}</div>
-    <nav class="ss-tools" aria-label="Story editor tools">${actions.map(([id,icon,label])=>`<button data-ss="${id}" class="${s.panel===id?'is-on':''}" aria-label="${label}"><b>${icon}</b><span>${label}</span></button>`).join('')}</nav>
-    <footer class="ss-foot"><button data-ss="audience-story" class="ss-action ${s.audience==='Your story'?'is-on':''}">◉ Your story</button><button data-ss="audience-close" class="ss-action ${s.audience==='Close Friends'?'is-on':''}">★ Close Friends</button><button data-ss="review" class="ss-primary" aria-label="Next to story review">Next →</button></footer>
+    <nav class="ss-tools" aria-label="Story editor tools">${actions.map(([id,icon,label])=>`<button data-ss="${id}" class="${s.panel===id?'is-on':''}" aria-label="${label}">${ssGlyph(ssIconNames[id],icon)}<span>${label}</span></button>`).join('')}</nav>
+    <footer class="ss-foot"><button data-ss="audience-story" class="ss-action ${s.audience==='Your story'?'is-on':''}">${ssGlyph('circle-dot','◉')} Your story</button><button data-ss="audience-close" class="ss-action ${s.audience==='Close Friends'?'is-on':''}">${ssGlyph('star','★')} Close Friends</button><button data-ss="review" class="ss-primary" aria-label="Next to story review">Next ${ssGlyph('arrow-right','→')}</button></footer>
     ${ssPanel()}
+    <input type="file" data-ss-photo accept="image/jpeg,image/png,image/webp,image/gif" hidden>
     ${s.notice?`<div class="ss-toolbar-notice" role="status">${ssE(s.notice)}</div>`:''}
   </div>`;
 }
@@ -151,7 +169,7 @@ function ssReview() {
   const s=ssSession;
   return `<div class="ss-shell"><header class="ss-head">${ssIcon('Back to editor','back','←')}<h2>Review story</h2><span>✓</span></header>
     <div class="ss-review">${ssStage()}<div style="margin-top:14px"><b>Audience: ${ssE(s.audience)}</b><p class="ss-note">Local preview only. No story is published, and no followers or mentioned accounts are notified.</p>${s.musicName?`<p>♫ ${ssE(s.musicName)} (preview audio is not embedded in PNG)</p>`:''}${s.aiLabel?'<p>AI-generated content label: On (self-declared)</p>':''}${s.mentions.length?`<p>Mentions selected: ${s.mentions.length} (not notified)</p>`:''}</div></div>
-    <footer class="ss-foot"><button data-ss="save" class="ss-action">↓ Save image</button><button data-ss="check-publish" class="ss-primary">Check sharing</button></footer>
+    <footer class="ss-foot"><button data-ss="save" class="ss-action">${ssGlyph('download','↓')} Save image</button><button data-ss="check-publish" class="ss-primary">${ssGlyph('shield-check','✓')} Check sharing</button></footer>
     ${s.notice?`<div class="ss-toolbar-notice" role="status">${ssE(s.notice)}</div>`:''}
   </div>`;
 }
@@ -161,6 +179,7 @@ function ssRender() {
   const previousScroll=previousPanel?.scrollTop||0;
   ssDialog.innerHTML=ssSession.view==='gallery'?ssGallery():ssSession.view==='review'?ssReview():ssEditor();
   if(previousPanel&&ssSession.panel){const next=ssDialog.querySelector?.('.ss-surface');if(next)next.scrollTop=previousScroll;}
+  try{window.lucide?.createIcons?.();}catch{} // Icon package may be unavailable offline; fallback glyphs remain.
   ssRedraw();
 }
 
@@ -174,6 +193,10 @@ function ssStickerOptionsPanel() {
   const s=ssSession,k=s.stickerKind;
   if(!k)return '<p class="ss-note">Choose a sticker type to customize its preview.</p>';
   if(k==='GIF')return `<label class="ss-action">Choose GIF <input data-ss-gif type="file" accept="image/gif" hidden></label>${s.stickerGifName?`<p>${ssE(s.stickerGifName)}</p>`:''}<p class="ss-note">Use a GIF you own or have rights to. PNG saves only a still frame.</p>`;
+  if(k==='Photo'||k==='AddYours')return `${k==='AddYours'?`<label>Invitation prompt<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="Add yours"></label>`:''}<button class="ss-action" data-ss="add-yours">Choose local photo</button>${s.stickerPhotoName?`<p>${ssE(s.stickerPhotoName)}</p>`:''}<p class="ss-note">This is a local photo sticker. Add Yours cannot invite other accounts without a verified backend.</p>`;
+  if(k==='DateTime')return `<label>Date and time format<select class="ss-field" data-ss-date-mode>${['Both','Date','Time'].map(mode=>`<option ${s.stickerDateMode===mode?'selected':''}>${mode}</option>`).join('')}</select></label>`;
+  if(k==='Frame')return `<label>Frame style<select class="ss-field" data-ss-frame>${['Classic','Polaroid','Neon'].map(mode=>`<option ${s.stickerFrame===mode?'selected':''}>${mode}</option>`).join('')}</select></label><p class="ss-note">Frame is rendered around the whole story and saved in PNG.</p>`;
+  if(k==='EmojiSlider')return `<label>Slider question<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="How much?"></label><label>Slider emoji<select class="ss-field" data-ss-emoji>${['😍','🔥','❤️','😂','💜','✨'].map(emoji=>`<option ${s.stickerEmoji===emoji?'selected':''}>${emoji}</option>`).join('')}</select></label><label>Preview value <input type="range" data-ss-slider min="0" max="100" value="${s.stickerSliderValue}"></label><p class="ss-note">Only this browser's preview value changes.</p>`;
   let fields=`<label>${k==='Link'?'Link label':'Sticker title / question'}<input class="ss-field" data-ss-sticker-field="stickerTitle" maxlength="120" value="${ssE(s.stickerTitle)}" placeholder="${k==='Questions'?'Ask me anything…':'Write your text…'}"></label>`;
   if(k==='Poll'||k==='Quiz')fields+=`<div class="ss-sticker-form">${s.stickerOptions.slice(0,k==='Poll'?2:4).map((option,i)=>`<label>${k==='Quiz'?`<input type="radio" name="ss-correct" data-ss-correct="${i}" ${s.stickerCorrect===i?'checked':''} aria-label="Correct answer ${i+1}">`:''}Option ${i+1}<input class="ss-field" data-ss-option="${i}" maxlength="45" value="${ssE(option)}"></label>`).join('')}</div><p class="ss-note">${k==='Quiz'?'Choose the correct-answer radio button.':'Poll votes are preview-only and not shared.'}</p>`;
   if(k==='Countdown')fields+=`<label>Countdown date and time <input class="ss-field" type="datetime-local" data-ss-deadline value="${ssE(s.stickerDeadline)}"></label>`;
@@ -198,7 +221,7 @@ function ssPanel() {
     <div class="ss-swatches">${ssColors.map(c=>`<button class="ss-swatch" style="background:${c}" data-ss-color="${c}" aria-label="Text color ${c}" aria-pressed="${s.textColor===c}"></button>`).join('')}</div>
     <div class="ss-pills"><button class="ss-pill" data-ss="text-align">Align: ${s.textAlign}</button><button class="ss-pill ${s.textBg?'is-on':''}" data-ss="text-bg">Background ${s.textBg?'On':'Off'}</button><button class="ss-pill" data-ss="text-clear">Clear text</button></div><p class="ss-note">You can drag text directly on the preview. Animated effects are preview-only; PNG captures a still frame.</p>`;
   else if (p==='stickers') body=`<p class="ss-note">Choose a sticker. Poll, quiz and question responses stay only in this preview.</p><div class="ss-pills">${['❤️','🔥','✨','😍','🎉','💫','😊','💜','🌈','📍'].map(e=>`<button data-ss-sticker="${e}" class="ss-pill" style="font-size:27px">${e}</button>`).join('')}</div>
-    <div class="ss-sticker-types">${['GIF','Poll','Questions','Quiz','Countdown','Link'].map(k=>`<button class="ss-pill ${s.stickerKind===k?'is-on':''}" data-ss-sticker-kind="${k}">${k}</button>`).join('')}</div>
+    <div class="ss-sticker-types">${ssStickerTypes.map(([id,label])=>`<button class="ss-pill ${s.stickerKind===id?'is-on':''}" data-ss-sticker-kind="${id}">${ssGlyph(ssStickerIcons[id],'✦')}<span>${label}</span></button>`).join('')}</div>
     <div class="ss-sticker-form">${ssStickerOptionsPanel()}</div>
     <label>Location sticker (manual)<input data-ss-location class="ss-field" maxlength="50" placeholder="Enter a place"></label><div class="ss-pills"><button class="ss-action" data-ss="add-location">Add location</button><button class="ss-action" data-ss="remove-sticker">Remove stickers</button></div>`;
   else if (p==='music') body=`<p class="ss-note">Choose audio from your device. No licensed music catalog is connected. Audio cannot be embedded in a PNG.</p><label class="ss-action" style="display:inline-block">Choose audio <input type="file" data-ss-audio accept="audio/*" hidden></label>${s.musicUrl?`<p style="margin:14px 0">♫ ${ssE(s.musicName)}</p><audio src="${ssE(s.musicUrl)}" controls style="width:100%"></audio><button class="ss-action" data-ss="remove-music">Remove music</button>`:''}<label class="ss-line-label">Manual lyrics (only use lyrics you have rights to)<textarea class="ss-field" data-ss-lyrics rows="2" maxlength="160" placeholder="Enter lyrics or your own words">${ssE(s.lyrics)}</textarea></label><p class="ss-note">Automatic synced lyrics and commercial music search require a licensed catalog/provider.</p>`;
@@ -262,6 +285,8 @@ function ssClick(event) {
   if(action==='close') return ssClose();
   if(action==='file')return ssDialog.querySelector('[data-ss-file]')?.click();
   if(action==='camera')return ssDialog.querySelector('[data-ss-camera]')?.click();
+  if(action==='add-yours')return ssDialog.querySelector('[data-ss-photo]')?.click();
+  if(action==='preview-hashtag')return ssNotice('Hashtag is shown in this local draft. Public hashtag browsing is not connected.');
   if(action==='album-toggle'){s.albumOpen=!s.albumOpen;return ssRender();}
   if(action==='multi'){s.multi=!s.multi;s.selected=[];return ssRender();}
   if(action==='collage'){s.multi=true;s.selected=[];return ssNotice('Select 2–4 tiles, then tap Next to make a collage.');}
@@ -302,6 +327,12 @@ function ssInput(event) {
   }
   else if(target.matches('[data-ss-option]'))s.stickerOptions[Number(target.dataset.ssOption)]=target.value.slice(0,45);
   else if(target.matches('[data-ss-question-reply]')){s.stickerReplyText=target.value.slice(0,180);return;}
+  else if(target.matches('[data-ss-slider]')){
+    s.stickerSliderValue=Math.max(0,Math.min(100,Number(target.value)||0));
+    ssDialog.querySelectorAll('[data-ss-slider-value]').forEach(output=>{output.textContent=s.stickerSliderValue+'%';});
+    ssDialog.querySelectorAll('[data-ss-slider]').forEach(input=>{if(input!==target)input.value=String(s.stickerSliderValue);});
+    return;
+  }
   else if(target.matches('[data-ss-range]'))s[target.dataset.ssRange]=Number(target.value);
   else if(target.matches('[data-ss-search]')) {s.mentionQuery=target.value.slice(0,80);const users=ssDialog.querySelector('.ss-users');if(users)users.innerHTML=ssUserRows();return;}
   else if(target.matches('[data-ss-effect-search]')){
@@ -344,6 +375,16 @@ function ssChange(event) {
     if(s.stickerGifUrl)URL.revokeObjectURL(s.stickerGifUrl);
     s.stickerGifUrl=URL.createObjectURL(file);s.stickerGifName=file.name;s.stickerKind='GIF';return ssRender();
   }
+  if(target.matches('[data-ss-photo]')){
+    const file=target.files?.[0];if(!file)return;
+    if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>12*1024*1024||file.size<=0)return ssNotice('Choose a JPG, PNG, WebP or GIF photo up to 12 MB.');
+    if(s.stickerPhotoUrl)URL.revokeObjectURL(s.stickerPhotoUrl);
+    s.stickerPhotoUrl=URL.createObjectURL(file);s.stickerPhotoName=file.name;
+    return ssRender();
+  }
+  if(target.matches('[data-ss-date-mode]')){s.stickerDateMode=['Both','Date','Time'].includes(target.value)?target.value:'Both';return ssRender();}
+  if(target.matches('[data-ss-frame]')){s.stickerFrame=['Classic','Polaroid','Neon'].includes(target.value)?target.value:'Classic';return ssRender();}
+  if(target.matches('[data-ss-emoji]')){s.stickerEmoji=['😍','🔥','❤️','😂','💜','✨'].includes(target.value)?target.value:'😍';return ssRender();}
   if(target.matches('[data-ss-language]')){s.language=target.value in ssLanguages?target.value:'English';return ssRender();}
   if(target.matches('[data-ss-animation]')){s.textAnimation=['None','Typing','Bounce','Fade','Slide'].includes(target.value)?target.value:'None';return ssRender();}
   if(target.matches('[data-ss-correct]')){s.stickerCorrect=Number(target.dataset.ssCorrect);return ssRender();}
@@ -460,17 +501,45 @@ function ssWrappedText(ctx,text,x,y,maxWidth,lineHeight,outline=false) {
   lines.forEach((line,i)=>{if(outline)ctx.strokeText(line,x,firstY+i*lineHeight,maxWidth);ctx.fillText(line,x,firstY+i*lineHeight,maxWidth);});
 }
 function ssRoundRect(ctx,x,y,w,h,r) {if(typeof ctx.roundRect==='function')ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h);}
+function ssDrawFrame(ctx) {
+  const kind=ssSession?.stickerFrame;
+  if(ssSession?.stickerKind!=='Frame')return;
+  ctx.save();
+  if(kind==='Polaroid'){
+    ctx.fillStyle='#faf9f6';ctx.fillRect(0,0,720,30);ctx.fillRect(0,0,30,1280);ctx.fillRect(690,0,30,1280);ctx.fillRect(0,1140,720,140);
+    ctx.fillStyle='#41414a';ctx.font='italic 36px Georgia,serif';ctx.textAlign='center';ctx.fillText('Crush.X moments',360,1220);
+  }else{
+    ctx.strokeStyle=kind==='Neon'?'#fa4bb7':'#ffffff';ctx.lineWidth=kind==='Neon'?24:18;
+    if(kind==='Neon'){ctx.shadowColor='#f472b6';ctx.shadowBlur=46;}
+    ctx.strokeRect(22,22,676,1236);
+  }
+  ctx.restore();
+}
 async function ssDrawCard(ctx) {
   const s=ssSession,k=s?.stickerKind;if(!k)return;
   const x=84,y=720,w=552;
+  if(k==='Frame')return;
   if(k==='GIF'){
     if(!s.stickerGifUrl)return;
     const img=await ssLoadImage({url:s.stickerGifUrl,type:'image/gif'});
     ctx.save();ctx.beginPath();ssRoundRect(ctx,x,y,w,320,18);ctx.clip();ssCover(ctx,img,x,y,w,320);ctx.restore();return;
   }
+  if(k==='Photo'||k==='AddYours'){
+    ctx.save();ctx.fillStyle='#ffffffed';ctx.beginPath();ssRoundRect(ctx,x,y,w,k==='AddYours'?390:340,18);ctx.fill();
+    if(k==='AddYours'){ctx.fillStyle='#18181b';ctx.textAlign='center';ctx.font='bold 32px Arial,sans-serif';ctx.fillText(s.stickerTitle||'📷 Add yours',360,y+48,480);}
+    if(s.stickerPhotoUrl){const img=await ssLoadImage({url:s.stickerPhotoUrl,type:'image/jpeg'});ctx.save();ctx.beginPath();ssRoundRect(ctx,x+18,y+(k==='AddYours'?67:18),w-36,270,12);ctx.clip();ssCover(ctx,img,x+18,y+(k==='AddYours'?67:18),w-36,270);ctx.restore();}
+    else{ctx.fillStyle='#52525b';ctx.font='bold 30px Arial,sans-serif';ctx.textAlign='center';ctx.fillText('Choose a local photo',360,y+180,500);}
+    ctx.restore();return;
+  }
+  if(k==='Hashtag'){
+    ctx.save();ctx.textAlign='center';ctx.font='bold 54px Arial,sans-serif';ctx.fillStyle='#ffffff';ctx.shadowColor='#000';ctx.shadowBlur=14;ctx.fillText('#'+(s.stickerTitle||'CrushX').replace(/^#+/,''),360,830,620);ctx.restore();return;
+  }
+  if(k==='DateTime'){
+    ctx.save();ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=15;ctx.font='bold 45px Arial,sans-serif';ctx.textAlign='center';ctx.fillText('📅 '+ssDateLabel(s),360,830,650);ctx.restore();return;
+  }
   ctx.save();ctx.fillStyle='#fffc';ctx.beginPath();ssRoundRect(ctx,x,y,w,k==='Quiz'?365:275,20);ctx.fill();
   ctx.fillStyle='#15151a';ctx.font='bold 35px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(s.stickerTitle||({Poll:'Your vote?',Quiz:'Choose the answer',Questions:'Ask me a question',Countdown:'Coming soon',Link:'Link'})[k],360,y+55,490);
+  ctx.fillText(s.stickerTitle||({Poll:'Your vote?',Quiz:'Choose the answer',Questions:'Ask me a question',Countdown:'Coming soon',Link:'Link',EmojiSlider:'How much?',AddYours:'Add yours'})[k],360,y+55,490);
   if(k==='Poll'||k==='Quiz'){
     const total=k==='Poll'?2:4;
     for(let i=0;i<total;i++){
@@ -484,6 +553,8 @@ async function ssDrawCard(ctx) {
     ctx.font='bold 37px Arial,sans-serif';ctx.fillStyle='#a21caf';ctx.fillText(ssTimeLeft(s.stickerDeadline),360,y+150,w-45);
   }else if(k==='Link'){
     ctx.font='bold 28px Arial,sans-serif';ctx.fillStyle='#2563eb';ctx.fillText(ssSafeLink(s.stickerLink)?new URL(ssSafeLink(s.stickerLink)).hostname:'Add a valid HTTPS link',360,y+150,w-55);
+  }else if(k==='EmojiSlider'){
+    ctx.font='bold 61px Arial,sans-serif';ctx.fillStyle='#c026d3';ctx.fillText(`${s.stickerEmoji} ${s.stickerSliderValue}%`,360,y+155,w-55);
   }
   ctx.restore();
 }
@@ -504,6 +575,7 @@ async function ssExport() {
       });
       ctx.restore();
     }
+    ssDrawFrame(ctx);
     if(s.text){
       ctx.save();
       const size=s.textSize*2,f=ssFonts[s.font]||ssFonts.Classic;
