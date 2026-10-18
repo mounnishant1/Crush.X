@@ -99,7 +99,7 @@ assert.equal(run('toggleLocalRepost("missing_reel")'),null);
 assert.equal(run('toggleLocalRepost("reel_1")'),true);
 assert.equal(run('getState().reels[0].reposted'),true);
 assert.match(run('renderReels(getState())'),/data-repost="reel_1" aria-pressed="true"/);
-assert.match(run('renderReels(getState())'),/Reposted<\\/span>/);
+assert.match(run('renderReels(getState())'),/Reposted<\/span>/);
 run('appProfileFilter="reposts"');
 assert.match(run('renderProfile(getState())'),/Reposts · 1/);
 assert.match(run('renderProfile(getState())'),/data-open-local-item="reel_1"/);
