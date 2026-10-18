@@ -26,6 +26,18 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
+        public void ProceduralMaskScale_MatchesTrackedWidthAndRejectsMissingData()
+        {
+            Assert.IsTrue(FaceMaskFit.TryRelativeScale(.145f, out float normal));
+            Assert.That(normal, Is.EqualTo(1f).Within(.0001f));
+            Assert.IsTrue(FaceMaskFit.TryRelativeScale(.18f, out float larger));
+            Assert.That(larger, Is.GreaterThan(1f).And.LessThan(1.25f));
+            Assert.IsFalse(FaceMaskFit.TryRelativeScale(0, out float missing));
+            Assert.AreEqual(1f, missing);
+            Assert.IsFalse(FaceMaskFit.TryRelativeScale(float.NaN, out _));
+        }
+
+        [Test]
         public void BadOrUninitializedGeometry_CannotMoveTheMask()
         {
             Assert.IsFalse(FaceMaskFit.TryTarget(0, 0, 0, -.08f, out _, out _));
