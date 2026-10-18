@@ -189,6 +189,25 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('memory-preflight.json',runner)
         self.assertLess(runner.index('if ($BuildAndroid) { Confirm-BuildMemoryHeadroom }'),runner.index("Invoke-Unity -Stage 'import-compile'"))
 
+    def test_flip_button_guards_real_camera_state_and_restores_face_tracking_on_failure(self):
+        ui=source('Scripts/Runtime/NativeLensUI.cs')
+        self.assertIn('arCamera.currentFacingDirection',ui)
+        self.assertIn('arCamera.requestedFacingDirection = target;',ui)
+        self.assertIn('arFaces.enabled = false;',ui)
+        self.assertIn('arFaces.enabled = target == CameraFacingDirection.User;',ui)
+        self.assertIn('RestoreCameraFacing();',ui)
+        self.assertIn('!BlocksCameraGestures && !CameraSwitchPending',ui)
+        self.assertIn('Face lens requires front camera',ui)
+        self.assertIn('if (CameraSwitchPending) { CancelCameraSwitch(); return; }',ui)
+
+    def test_auto_slide_opt_in_pauses_during_active_camera_work(self):
+        carousel=source('Scripts/Runtime/CrushXSmartCarousel.cs')
+        ui=source('Scripts/Runtime/NativeLensUI.cs')
+        self.assertIn('private bool autoSlideEnabled;',carousel)
+        self.assertIn('SetAutoSlideEnabled(bool enabled)',carousel)
+        self.assertIn('CanAutoAdvance(visible.Count, motion.IsSettled, busy, hidden, searching, rearCamera)',carousel)
+        self.assertIn('carousel.SetAutoSlideEnabled(nextAuto)',ui)
+
     def test_csharp_syntax_only_not_unity_compilation(self):
         try:
             from tree_sitter import Language,Parser
