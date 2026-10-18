@@ -7,6 +7,8 @@ on:
       - 'app-improvements.js'
       - 'social-interactions.js'
       - 'social-interactions.css'
+      - 'social-advanced.js'
+      - 'social-advanced.css'
       - 'UnityProjects/CrushXLensEngine/**'
       - 'tools/**'
       - 'tests/**'
@@ -49,9 +51,11 @@ jobs:
           python -m unittest discover -s tests -p 'test_*.py'
           node --check app-improvements.js
           node --check social-interactions.js
+          node --check social-advanced.js
           node tests/home-ui.cjs
           node tests/experience-flows.cjs
           node tests/social-interactions.cjs
+          node tests/social-advanced.cjs
           node --check permissions-center.js
           node --check aura-x-core.js
           node --check aura-x-assistant.js
