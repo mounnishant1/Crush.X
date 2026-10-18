@@ -10,6 +10,9 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="./app-experience.css" />
   <link rel="stylesheet" href="./story-editor.css" />
+  <link rel="stylesheet" href="./social-interactions.css" />
+  <link rel="stylesheet" href="./social-advanced.css" />
+  <link rel="stylesheet" href="./social-notifications.css" />
 
   <style>
     :root {
@@ -460,7 +463,14 @@
       })));
       if (!state.users.some(user => user.id === 'me')) state.users.unshift(clone(defaultUsers[0]));
       const userExists = id => state.users.some(user => user.id === id);
-      const comments = value => records(value, []).map(comment => ({ user: localText(comment.user, 128), text: localText(comment.text) }));
+      const comments = value => records(value, []).map((comment, index) => ({
+        user: localText(comment.user, 128), text: localText(comment.text),
+        id: localId(comment.id) ? comment.id : 'c_' + index,
+        parentId: localId(comment.parentId) ? comment.parentId : null,
+        liked: comment.liked === true, likes: localCount(comment.likes),
+        likedBy: [...new Set((Array.isArray(comment.likedBy) ? comment.likedBy : (comment.liked === true ? ['me'] : []))
+          .filter(id => localId(id) && state.users.some(user => user.id === id)))].slice(0,100)
+      }));
       state.posts = unique(records(raw.posts, defaultState.posts).filter(post => userExists(post.userId)).map(post => ({
         id: post.id, userId: post.userId, image: localText(post.image), source: localText(post.source),
         contentType: localText(post.contentType, 100), mediaType: localText(post.mediaType, 100), location: localText(post.location, 200),
@@ -473,6 +483,31 @@
         likes: localCount(reel.likes), shares: localCount(reel.shares), liked: reel.liked === true, saved: reel.saved === true,
         comments: comments(reel.comments), song: localText(reel.song, 200), artist: localText(reel.artist, 200)
       })));
+      // Isolated sample-only social interactions. Never treat these as server receipts.
+      const validItemIds = new Set([...state.posts, ...state.reels].map(item => item.id));
+      state.socialCollections = unique(records(raw.socialCollections, []).map(collection => ({
+        id: collection.id, name: localText(collection.name, 45),
+        itemIds: Array.isArray(collection.itemIds) ? [...new Set(collection.itemIds.filter(id => localId(id) && validItemIds.has(id)))].slice(0,500) : []
+      }))).filter(collection => collection.name.trim()).slice(0,30);
+      state.socialHiddenIds = Array.isArray(raw.socialHiddenIds) ? [...new Set(raw.socialHiddenIds.filter(id => localId(id) && validItemIds.has(id)))].slice(0,500) : [];
+      state.socialMutedIds = Array.isArray(raw.socialMutedIds) ? [...new Set(raw.socialMutedIds.filter(id => localId(id) && userExists(id) && id !== 'me'))].slice(0,500) : [];
+      state.socialNotifications = unique(records(raw.socialNotifications, []).map(event => ({
+        id: event.id, type: event.type === 'comment_like' ? 'comment_like' : '',
+        actorId: localId(event.actorId) ? event.actorId : '',
+        recipientId: localId(event.recipientId) ? event.recipientId : '',
+        itemId: localId(event.itemId) ? event.itemId : '',
+        commentId: localId(event.commentId) ? event.commentId : '',
+        read: event.read === true,
+        createdAt: Number.isFinite(Number(event.createdAt)) ? Math.max(0,Number(event.createdAt)) : 0
+      }))).filter(event => event.type === 'comment_like' &&
+        userExists(event.actorId) && userExists(event.recipientId) && event.actorId !== event.recipientId &&
+        validItemIds.has(event.itemId) &&
+        [...state.posts,...state.reels].some(item => item.id === event.itemId &&
+          item.comments.some(comment => comment.id === event.commentId))).slice(-500);
+      state.socialStoryDrafts = unique(records(raw.socialStoryDrafts, []).map(draft => ({
+        id: draft.id, itemId: localId(draft.itemId) && validItemIds.has(draft.itemId) ? draft.itemId : '',
+        note: localText(draft.note, 200)
+      }))).filter(draft => draft.itemId).slice(0,30);
       state.stories = unique(records(raw.stories, defaultState.stories).filter(story => userExists(story.userId)).map(story => ({
         id: story.id, userId: story.userId, image: localText(story.image), expiresAt: Number.isFinite(Number(story.expiresAt)) ? Math.max(0, Number(story.expiresAt)) : 0
       })));
@@ -1605,6 +1640,9 @@
     });
   </script>
   <script src="./app-improvements.js"></script>
+  <script src="./social-interactions.js"></script>
+  <script src="./social-advanced.js"></script>
+  <script src="./social-notifications.js"></script>
   <script src="./story-editor.js"></script>
   <script src="./permissions-center.js"></script>
   <script src="./aura-x-core.js"></script>
