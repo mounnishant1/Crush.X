@@ -159,7 +159,7 @@ namespace CrushX.LensEngine
             dragStartedSettled = false;
         }
 
-        public bool EndDrag(Vector2 logicalPosition, bool isTap, bool isHorizontal)
+        public bool EndDrag(Vector2 logicalPosition, bool isTap, bool isHorizontal, float screenVelocityPixelsPerSecond = 0f)
         {
             SynchronizeSelection();
             if (!motion.IsDragging) return false;
@@ -171,7 +171,11 @@ namespace CrushX.LensEngine
                 return allowTap && TapAtPosition(logicalPosition, true);
             }
             if (!isHorizontal) { motion.CancelDrag(); return false; }
-            int index = motion.EndDrag();
+            NativeCameraLayout layout = NativeCameraLayout.Current;
+            float pixelsPerCell = layout.Scale * CellSpacing(CarouselViewport(layout.Carousel));
+            // Screen X runs opposite to lens position: leftward finger motion advances.
+            double velocityCells = -screenVelocityPixelsPerSecond / Mathf.Max(1f, pixelsPerCell);
+            int index = motion.EndDrag(velocityCells);
             if (SelectResult(index)) return true;
             // An unavailable result must return to the actual selection instead of claiming it was applied.
             int active = CenterIndex();
