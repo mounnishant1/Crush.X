@@ -38,7 +38,7 @@ namespace CrushX.LensEngine
         public bool HidesCarousel { get { return capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
         public bool BlocksCameraGestures
         {
-            get { return captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+            get { return (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
         private void Start() { ResolveDependencies(); }
@@ -170,11 +170,11 @@ namespace CrushX.LensEngine
                     "Camera access is needed for photos, video and AR lenses.", status);
                 GUI.Label(new Rect(20, 150, layout.Width - 40, 60),
                     cameraPermission.RequestPending ? "Waiting for Android permission…" :
-                    cameraPermission.WasAsked ? "Camera access is off. Enable it in Android app settings." :
+                    !cameraPermission.CanAskAgain ? "Camera access is off. Enable it in Android app settings." :
                     "Choose Allow to see the Android permission options.", small);
                 if (!cameraPermission.RequestPending)
                 {
-                    if (!cameraPermission.WasAsked)
+                    if (cameraPermission.CanAskAgain)
                     {
                         if (GUI.Button(new Rect(24, 230, layout.Width - 48, 58), "Allow Camera", button))
                             cameraPermission.AskFromUserAction();
