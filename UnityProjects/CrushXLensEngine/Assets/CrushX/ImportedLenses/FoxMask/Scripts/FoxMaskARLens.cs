@@ -35,6 +35,7 @@ namespace CrushX.ImportedLenses
         private bool applicationPaused;
         private ARDiagnosticOutcome? lastOutcome;
         private float nextRendererSnapshot;
+        private float modelFrontZ = float.NaN;
         public int InstanceCount { get { return attachments == null ? 0 : attachments.Count; } }
 
         private void Awake()
@@ -93,6 +94,7 @@ namespace CrushX.ImportedLenses
             {
                 ClearInstances("prefab changed");
                 instancePrefab = foxMaskPrefab;
+                modelFrontZ = float.NaN;
             }
             if (faceManager == null) ResolveManager();
             if (faceManager == null || !faceManager.isActiveAndEnabled || faceManager.subsystem == null || !faceManager.subsystem.running)
@@ -113,6 +115,7 @@ namespace CrushX.ImportedLenses
                 if (face == null || face.trackingState != TrackingState.Tracking) continue;
                 tracked++;
                 GameObject instance = attachments.Bind(face.trackableId, face.transform, out bool created, out bool rebound);
+                if (instance != null) FitToFace(face, instance, created || rebound);
                 if (created) ARTrackingDiagnostics.RecordFoxEvent("created-and-bound", face, instance);
                 else if (rebound) ARTrackingDiagnostics.RecordFoxEvent("rebound", face, instance);
             }
@@ -135,8 +138,60 @@ namespace CrushX.ImportedLenses
             GameObject instance = Instantiate(foxMaskPrefab, parent, false);
             instance.name = "CrushX_FoxMask_Tracked";
             ApplyCompatibleMaterials(instance);
+            if (float.IsNaN(modelFrontZ))
+                modelFrontZ = MeasureModelFrontZ(instance);
             nextRendererSnapshot = 0;
             return instance;
+        }
+
+        private static float MeasureModelFrontZ(GameObject instance)
+        {
+            float front = float.PositiveInfinity;
+            // Model geometry is measured once, relative to the tracked attachment root.
+            // Imported OBJ child scales/offsets are included; no mesh read/write is needed.
+            foreach (MeshFilter filter in instance.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (filter.sharedMesh == null) continue;
+                Bounds bounds = filter.sharedMesh.bounds;
+                Matrix4x4 toRoot = instance.transform.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+                for (int x = -1; x <= 1; x += 2)
+                    for (int y = -1; y <= 1; y += 2)
+                        for (int z = -1; z <= 1; z += 2)
+                        {
+                            Vector3 corner = bounds.center + Vector3.Scale(bounds.extents, new Vector3(x, y, z));
+                            front = Mathf.Min(front, toRoot.MultiplyPoint3x4(corner).z);
+                        }
+            }
+            return float.IsInfinity(front) ? float.NaN : front;
+        }
+
+        private void FitToFace(ARFace face, GameObject instance, bool firstFrame)
+        {
+            if (float.IsNaN(modelFrontZ)) return;
+            var vertices = face.vertices;
+            if (!vertices.IsCreated || vertices.Length < 3) return;
+            float minX = float.PositiveInfinity, maxX = float.NegativeInfinity;
+            float frontZ = float.PositiveInfinity;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                Vector3 point = vertices[i];
+                if (float.IsNaN(point.x) || float.IsInfinity(point.x) ||
+                    float.IsNaN(point.z) || float.IsInfinity(point.z)) continue;
+                minX = Mathf.Min(minX, point.x);
+                maxX = Mathf.Max(maxX, point.x);
+                frontZ = Mathf.Min(frontZ, point.z);
+            }
+            Vector3 prefabScale = foxMaskPrefab.transform.localScale;
+            if (!FaceMaskFit.TryTarget(minX, maxX, frontZ, modelFrontZ * prefabScale.z,
+                out float scale, out float depth)) return;
+
+            // The ARFace parent already follows head pose. Only size and front-surface
+            // offset are eased, avoiding a second (laggy) head-pose smoother.
+            float blend = firstFrame ? 1f : 1f - Mathf.Exp(-12f * Mathf.Min(.1f, Time.unscaledDeltaTime));
+            Transform transformToFit = instance.transform;
+            transformToFit.localScale = Vector3.Lerp(transformToFit.localScale, prefabScale * scale, blend);
+            Vector3 desiredPosition = foxMaskPrefab.transform.localPosition + Vector3.forward * depth;
+            transformToFit.localPosition = Vector3.Lerp(transformToFit.localPosition, desiredPosition, blend);
         }
 
         private void OnRemovingInstance(TrackableId id, GameObject instance, string reason)
