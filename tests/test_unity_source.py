@@ -168,20 +168,31 @@ class UnitySourceTests(unittest.TestCase):
     def test_fox_mask_fits_valid_face_mesh_without_pose_lag_or_invalid_geometry(self):
         fox=source('CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs')
         fit=source('Scripts/Lenses/FaceMaskFit.cs')
+        face_depth=source('Shaders/CrushXFaceDepth.shader')
         self.assertIn('face.vertices',fox)
         self.assertIn('FaceMaskFit.TryTarget(',fox)
         self.assertIn('modelFrontZ = MeasureModelFrontZ(instance)',fox)
         self.assertIn('!vertices.IsCreated',fox)
         self.assertIn('float blend = firstFrame ? 1f',fox)
         self.assertIn('float width = faceMaxX - faceMinX;',fit)
-        self.assertIn('width < .08f || width > .25f',fit)
-        self.assertIn('Mathf.Clamp(width / ReferenceFaceWidthMeters, .8f, 1.25f)',fit)
+        self.assertIn('faceWidth < .08f || faceWidth > .25f',fit)
+        self.assertIn('Mathf.Clamp(faceWidth / ReferenceFaceWidthMeters, .8f, 1.25f)',fit)
+        self.assertEqual(face_depth.count('Cull Off'),2)
+        self.assertEqual(face_depth.count('ColorMask 0'),2)
 
     def test_procedural_masks_use_real_face_scale_without_shrinking_imported_assets(self):
         engine=source('Scripts/Runtime/LensEngineBootstrap.cs')
+        provider=source('Scripts/Tracking/ARFoundationFaceProvider.cs')
+        manager=source('Scripts/Tracking/FaceTrackingManager.cs')
+        sample=source('Scripts/Core/ILensEngine.cs')
         self.assertIn('private const float ProceduralRealFaceScale = .28f;',engine)
         self.assertIn('effectRoot.localScale = !usingMock && candidateEffect != null',engine)
         self.assertIn('? Vector3.one * ProceduralRealFaceScale : Vector3.one',engine)
+        self.assertIn('private void LateUpdate()',engine)
+        self.assertIn('FaceMaskFit.TryRelativeScale(face.FaceWidthMeters, out float fit)',engine)
+        self.assertIn('FaceWidthMeters = faceWidth',provider)
+        self.assertIn('incoming.FaceWidthMeters = Mathf.Lerp(',manager)
+        self.assertIn('public float FaceWidthMeters;',sample)
 
     def test_carousel_and_swipe_share_stable_browse_order(self):
         engine=source('Scripts/Runtime/LensEngineBootstrap.cs')
