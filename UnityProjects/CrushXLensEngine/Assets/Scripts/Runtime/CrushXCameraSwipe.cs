@@ -19,6 +19,7 @@ namespace CrushX.LensEngine
         private int gestureWidth, gestureHeight;
         private Rect gestureSafeArea;
         private ScreenOrientation gestureOrientation;
+        private float lastCarouselX, lastCarouselAt, lastCarouselVelocityAt, carouselVelocityPixelsPerSecond;
 
         private void Awake() { Resolve(); }
         private void Resolve()
@@ -50,6 +51,8 @@ namespace CrushX.LensEngine
             if (owner == GestureOwner.Shutter && ui != null) ui.EndShutter(true);
             if (carousel != null) carousel.CancelDrag();
             owner = GestureOwner.None;
+            carouselVelocityPixelsPerSecond = 0;
+            lastCarouselVelocityAt = -1;
         }
 
         private void Begin(Vector2 position)
@@ -68,6 +71,10 @@ namespace CrushX.LensEngine
                     owner = GestureOwner.Camera;
             }
             startPosition = position;
+            lastCarouselX = position.x;
+            lastCarouselAt = Time.unscaledTime;
+            lastCarouselVelocityAt = -1;
+            carouselVelocityPixelsPerSecond = 0;
             gestureWidth = Screen.width;
             gestureHeight = Screen.height;
             gestureSafeArea = Screen.safeArea;
@@ -84,7 +91,21 @@ namespace CrushX.LensEngine
         {
             if (GestureGeometryChanged()) { Cancel(); return; }
             if (owner == GestureOwner.Carousel && carousel != null)
+            {
+                float now = Time.unscaledTime;
+                float deltaTime = now - lastCarouselAt;
+                float deltaX = position.x - lastCarouselX;
+                if (Mathf.Abs(deltaX) > 1f && deltaTime > .003f && deltaTime < .25f)
+                {
+                    float sampledVelocity = deltaX / deltaTime;
+                    carouselVelocityPixelsPerSecond = lastCarouselVelocityAt < 0 ? sampledVelocity :
+                        Mathf.Lerp(carouselVelocityPixelsPerSecond, sampledVelocity, .55f);
+                    lastCarouselVelocityAt = now;
+                }
+                lastCarouselX = position.x;
+                lastCarouselAt = now;
                 carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
+            }
             if (owner == GestureOwner.Shutter &&
                 (position - startPosition).sqrMagnitude > 80f * 80f * NativeCameraLayout.Current.Scale * NativeCameraLayout.Current.Scale)
                 Cancel();
@@ -106,8 +127,10 @@ namespace CrushX.LensEngine
                 // Preserve the last finger position through release. A carousel snaps by cell spacing,
                 // rather than the unrelated full-camera swipe threshold.
                 carousel.Drag(delta.x / layout.Scale);
+                float velocity = lastCarouselVelocityAt >= 0 && Time.unscaledTime - lastCarouselVelocityAt < .12f
+                    ? carouselVelocityPixelsPerSecond : 0f;
                 carousel.EndDrag(layout.ToGui(position, Screen.height),
-                    IsTap(startPosition, position, layout.Scale), Mathf.Abs(delta.y) <= Mathf.Abs(delta.x) * .7f);
+                    IsTap(startPosition, position, layout.Scale), Mathf.Abs(delta.y) <= Mathf.Abs(delta.x) * .7f, velocity);
             }
             else if (completed == GestureOwner.Camera)
             {
