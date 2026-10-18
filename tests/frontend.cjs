@@ -130,7 +130,17 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.evaluate(id => getState().posts[0].comments.at(-1).parentId === id, commentId), true);
     await page.locator('[data-advanced-like="'+commentId+'"]').click();
     assert.equal(await page.evaluate(id => getState().posts[0].comments.find(c=>c.id===id).liked, commentId), true);
+    assert.equal(await page.evaluate(() => socialNotificationUnread('me')), 0, 'Liking own comment must not notify self');
     await page.locator('[data-close-dialog]').click();
+    await page.locator('#activityButton').click();
+    await page.locator('[data-notif-demo]').click();
+    assert.equal(await page.evaluate(() => socialNotificationUnread('me')), 1);
+    assert.equal(await page.locator('.social-notif-event.is-unread').count(), 1);
+    await page.locator('[data-notif-open]').click();
+    assert.equal(await page.locator('.advanced-comment.social-notif-target').count(), 1, 'Notification lands on the liked comment');
+    assert.equal(await page.evaluate(() => socialNotificationUnread('me')), 0, 'Notification opens as read');
+    await page.locator('[data-close-dialog]').click();
+    assert.equal(await page.locator('[data-notif-badge]').count(), 0, 'Unread badge clears');
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="collection"]').click();
     await page.locator('[data-advanced-name]').fill('Travel');
