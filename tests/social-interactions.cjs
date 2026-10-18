@@ -1,0 +1,60 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+assert.match(html,/href="\.\/social-interactions\.css"/);
+assert.match(html,/<script src="\.\/social-interactions\.js"><\/script>/);
+const inline=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(inline,'inline app script available');
+const empty={addEventListener(){}};
+const document={
+  body:{classList:{toggle(){}}},
+  activeElement:null,
+  getElementById(id){return ['cancelConfirmation','authForm','switchAuthButton','confirmButton','resendButton','forgotButton'].includes(id)?empty:null;},
+  querySelectorAll(){return [];},querySelector(){return null;},addEventListener(){}
+};
+const context=vm.createContext({console,Date,URL,document,location:{hash:''},history:{pushState(){}},window:{addEventListener(){},scrollTo(){}},localStorage:{getItem(){return null;},setItem(){},removeItem(){}},sessionStorage:{getItem(){return null;},setItem(){},removeItem(){}}});
+vm.runInContext(inline,context,{filename:'index.html'});
+vm.runInContext(fs.readFileSync(path.join(root,'app-improvements.js'),'utf8'),context,{filename:'app-improvements.js'});
+vm.runInContext(fs.readFileSync(path.join(root,'social-interactions.js'),'utf8'),context,{filename:'social-interactions.js'});
+const run=s=>vm.runInContext(s,context);
+let home=run('renderHome(getState())');
+assert.match(home,/data-social-friends="post_1"/);
+assert.match(home,/data-social-friends="post_2"/);
+assert.match(home,/data-social-share="post_1"/);
+assert.match(home,/data-social-comments="post_1"/);
+assert.doesNotMatch(home,/data-share="post_1"/);
+assert.match(home,/and others.*sample/);
+const reel=run('renderReels(getState())');
+for(const key of ['data-social-friends="reel_1"','data-social-share="reel_1"','data-social-comments="reel_1"'])assert.ok(reel.includes(key),key);
+assert.doesNotMatch(reel,/data-share="reel_1"/);
+assert.equal(run('socialSaveDrafts("post_1",["me","user_1","user_1","not-real"],"Great photo!",true)'),1);
+assert.match(run('getState().messageDrafts.user_1'),/About the sample post you liked/);
+assert.match(run('getState().messageDrafts.user_1'),/Great photo!/);
+assert.equal(run('getState().messageDrafts["not-real"]'),undefined);
+assert.equal(run('socialSaveDrafts("reel_1",["user_1","user_3"],"🔥")'),2);
+assert.match(run('getState().messageDrafts.user_1'),/Sharing a sample reel/);
+assert.match(run('getState().messageDrafts.user_3'),/Sharing a sample reel/);
+assert.equal(run('socialSaveDrafts("not-real",["user_1"],"hello")'),0);
+run('{const s=getState();s.users.find(u=>u.id==="user_1").following=false;s.users.find(u=>u.id==="user_3").following=false;saveState(s);}');
+assert.equal(run('socialFriends(getState(),"post_1").length'),0);
+assert.doesNotMatch(run('renderHome(getState())'),/data-social-friends="post_1"/);
+run('{const s=getState();s.users.find(u=>u.id==="user_1").following=true;s.users.find(u=>u.id==="user_3").following=true;s.posts[0].caption="<img src=x onerror=alert(1)>";saveState(s);}');
+home=run('renderHome(getState())');
+assert.doesNotMatch(home,/<img src=x onerror=alert\(1\)>/);
+assert.match(home,/&lt;img/);
+run('appDialog=(title,body)=>{globalThis.lastModal={title,body};}');
+run('socialOpenFriends("post_1")');
+assert.match(context.lastModal.title,/Sample friends who liked/);
+assert.match(context.lastModal.body,/data-social-friend-reply="user_1"/);
+run('socialOpenShare("post_1")');
+assert.match(context.lastModal.body,/data-social-recipient/);
+assert.match(context.lastModal.body,/Save selected DM drafts/);
+assert.match(context.lastModal.body,/not a published Crush\.X post link/);
+run('socialOpenComments("post_1")');
+assert.match(context.lastModal.body,/data-social-mention/);
+assert.doesNotMatch(context.lastModal.body,/<script>/);
+assert.ok(!/fetch\(|XMLHttpRequest|sendMessage\(/.test(fs.readFileSync(path.join(root,'social-interactions.js'),'utf8')),'no hidden sends');
+console.log('Crush.X friend-like, local reply, sharing and comment flow checks PASS');
