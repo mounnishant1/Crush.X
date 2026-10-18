@@ -1,10 +1,11 @@
 /* Crush.X foreground heads-up alerts. UI only: never asserts that a DM was delivered. */
 (() => {
   'use strict';
-  const DISPLAY_MS = 3900, EXIT_MS = 290, LIMIT = 8;
+  const DISPLAY_MS = 3900, EXIT_MS = 290, MAX_BANNERS = 4, BURST_COOLDOWN_MS = 15000;
   const TYPES = new Set(['message', 'reel', 'post', 'story', 'reaction', 'mention', 'follow', 'comment', 'like']);
   const queue = [], seen = new Set();
   let region = null, active = null, timer = null, exitTimer = null, exiting = false;
+  let burstCount = 0, burstLockedUntil = 0, overflowCount = 0;
   const short = (value, max) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
   function appState() {
     try { return typeof getState === 'function' ? getState() : null; } catch { return null; }
@@ -107,9 +108,14 @@
     panel.addEventListener('touchend', e => {
       if (touchStart - (e.changedTouches[0]?.clientY ?? touchStart) > 35) dismiss();
     }, { passive: true });
-    panel.append(open, close);
+    const overflow = document.createElement('span');
+    overflow.className = 'cx-heads-up-overflow';
+    overflow.setAttribute('aria-label', 'More notifications available in Messages');
+    overflow.textContent = overflowCount ? '+' + overflowCount + ' more · inbox' : '';
+    overflow.hidden = overflowCount === 0;
+    panel.append(open, close, overflow);
     holder.replaceChildren(panel);
-    active = { event, panel };
+    active = { event, panel, overflow };
     exiting = false;
     timer = setTimeout(dismiss, DISPLAY_MS);
     return true;
@@ -158,7 +164,27 @@
     if (!event || seen.has(event.id)) return false;
     seen.add(event.id);
     if (seen.size > 200) seen.delete(seen.values().next().value);
-    if (queue.length >= LIMIT) queue.shift();
+    // Unread state is updated even when a burst is silenced; never discard a message.
+    if (['message', 'reel', 'post', 'story'].includes(event.type)) {
+      document.dispatchEvent(new CustomEvent('crushx:heads-up-accepted', {
+        detail: { id: event.id, type: event.type, senderId: event.senderId, recipientId: event.recipientId }
+      }));
+    }
+    const now = Date.now();
+    if (!active && !queue.length && !exiting && now >= burstLockedUntil) {
+      burstCount = 0;
+      overflowCount = 0;
+    }
+    if (burstCount >= MAX_BANNERS) {
+      overflowCount++;
+      if (active) {
+        active.overflow.hidden = false;
+        active.overflow.textContent = '+' + overflowCount + ' more · inbox';
+      }
+      return true;
+    }
+    burstCount++;
+    if (burstCount === MAX_BANNERS) burstLockedUntil = now + BURST_COOLDOWN_MS;
     queue.push(event);
     pump();
     return true;
@@ -169,6 +195,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pump(); });
   document.addEventListener('crushx:session-ended', () => {
     queue.length = 0; seen.clear(); clearTimeout(timer); clearTimeout(exitTimer);
+    burstCount = 0; burstLockedUntil = 0; overflowCount = 0;
     active?.panel.remove(); active = null; exiting = false;
   });
   window.CrushXHeadsUp = Object.freeze({ notify, dismiss });
