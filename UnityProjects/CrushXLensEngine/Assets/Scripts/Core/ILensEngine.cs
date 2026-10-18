@@ -12,6 +12,7 @@ namespace CrushX.LensEngine
         public float Confidence;
         public float MouthOpen;  // 0..1, only meaningful with a provider that supports expressions.
         public float Blink;      // 0..1, only meaningful with a provider that supports expressions.
+        public float FaceWidthMeters; // 0 when no usable face mesh is available.
         public double Timestamp;
     }
 
