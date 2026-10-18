@@ -466,7 +466,9 @@
         user: localText(comment.user, 128), text: localText(comment.text),
         id: localId(comment.id) ? comment.id : 'c_' + index,
         parentId: localId(comment.parentId) ? comment.parentId : null,
-        liked: comment.liked === true, likes: localCount(comment.likes)
+        liked: comment.liked === true, likes: localCount(comment.likes),
+        likedBy: [...new Set((Array.isArray(comment.likedBy) ? comment.likedBy : (comment.liked === true ? ['me'] : []))
+          .filter(id => localId(id) && state.users.some(user => user.id === id)))].slice(0,100)
       }));
       state.posts = unique(records(raw.posts, defaultState.posts).filter(post => userExists(post.userId)).map(post => ({
         id: post.id, userId: post.userId, image: localText(post.image), source: localText(post.source),
@@ -488,6 +490,19 @@
       }))).filter(collection => collection.name.trim()).slice(0,30);
       state.socialHiddenIds = Array.isArray(raw.socialHiddenIds) ? [...new Set(raw.socialHiddenIds.filter(id => localId(id) && validItemIds.has(id)))].slice(0,500) : [];
       state.socialMutedIds = Array.isArray(raw.socialMutedIds) ? [...new Set(raw.socialMutedIds.filter(id => localId(id) && userExists(id) && id !== 'me'))].slice(0,500) : [];
+      state.socialNotifications = unique(records(raw.socialNotifications, []).map(event => ({
+        id: event.id, type: event.type === 'comment_like' ? 'comment_like' : '',
+        actorId: localId(event.actorId) ? event.actorId : '',
+        recipientId: localId(event.recipientId) ? event.recipientId : '',
+        itemId: localId(event.itemId) ? event.itemId : '',
+        commentId: localId(event.commentId) ? event.commentId : '',
+        read: event.read === true,
+        createdAt: Number.isFinite(Number(event.createdAt)) ? Math.max(0,Number(event.createdAt)) : 0
+      }))).filter(event => event.type === 'comment_like' &&
+        userExists(event.actorId) && userExists(event.recipientId) && event.actorId !== event.recipientId &&
+        validItemIds.has(event.itemId) &&
+        [...state.posts,...state.reels].some(item => item.id === event.itemId &&
+          item.comments.some(comment => comment.id === event.commentId)))).slice(-500);
       state.socialStoryDrafts = unique(records(raw.socialStoryDrafts, []).map(draft => ({
         id: draft.id, itemId: localId(draft.itemId) && validItemIds.has(draft.itemId) ? draft.itemId : '',
         note: localText(draft.note, 200)
