@@ -7,7 +7,9 @@ Shader "CrushX/ARFaceDepthOnly"
         {
             Name "DepthOnly"
             Tags { "LightMode"="SRPDefaultUnlit" }
-            Cull Back
+            // The provider's face mesh winding can differ between front camera backends.
+            // Depth-only occlusion must survive either winding when the head turns.
+            Cull Off
             ZWrite On
             ZTest LEqual
             ColorMask 0
@@ -28,6 +30,7 @@ Shader "CrushX/ARFaceDepthOnly"
         Tags { "Queue"="Geometry-5" "RenderType"="Opaque" }
         Pass
         {
+            Cull Off
             ZWrite On
             ZTest LEqual
             ColorMask 0
