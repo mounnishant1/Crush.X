@@ -294,7 +294,7 @@ namespace CrushX.LensEngine
         }
         public void Say(string message) { notice = message; noticeUntil = Time.unscaledTime + 3; }
 
-        private void Update()
+        private void LateUpdate()
         {
             bool showing = !selectionRestoreFailed && (!ActiveLensRequiresFace || TrackingActive);
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
@@ -303,6 +303,13 @@ namespace CrushX.LensEngine
                     ? LensRuntimeState.Unavailable : (ActiveLensRequiresFace ? TrackingActive : CameraReady) ? LensRuntimeState.Active : LensRuntimeState.WaitingForTracking);
             if (!showing) return;
             FaceSample face = ActiveLensRequiresFace ? tracking.Current : default;
+            if (effect != null && !usingMock)
+            {
+                float scale = ProceduralRealFaceScale;
+                if (FaceMaskFit.TryRelativeScale(face.FaceWidthMeters, out float fit))
+                    scale *= fit;
+                effectRoot.localScale = Vector3.one * scale;
+            }
             effectRoot.position = ActiveLensRequiresFace ? face.Position : Vector3.zero;
             effectRoot.rotation = ActiveLensRequiresFace ? face.Rotation : Quaternion.identity;
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
