@@ -26,7 +26,7 @@ class Node {
     if (this.parent) this.parent.children = this.parent.children.filter(n => n !== this);
   }
   querySelector(selector) {
-    const key = /^\\[(data-[a-z-]+)\\]$/.exec(selector)?.[1];
+    const key = selector.startsWith('[data-') && selector.endsWith(']') ? selector.slice(1,-1) : null;
     return key ? this.children.find(n => n?.attrs && Object.hasOwn(n.attrs, key)) || null : null;
   }
 }
