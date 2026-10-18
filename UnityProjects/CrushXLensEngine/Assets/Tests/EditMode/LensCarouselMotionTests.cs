@@ -195,6 +195,36 @@ namespace CrushX.LensEngine.Tests
             Assert.AreEqual(3, motion.Target);
         }
 
+        [Test]
+        public void QuickFlick_ProjectsInFingerDirectionThenSmoothlySettles()
+        {
+            var motion = Create(12, 4);
+            motion.BeginDrag();
+            motion.Drag(-.35);
+            Assert.AreEqual(6, motion.EndDrag(10));
+            Assert.That(motion.Position, Is.EqualTo(4.35).Within(1e-9));
+            motion.Tick(.016);
+            Assert.That(motion.Position, Is.GreaterThan(4.35).And.LessThan(6));
+            motion.Tick(1);
+            Assert.AreEqual(6, motion.Position);
+        }
+
+        [Test]
+        public void Flick_IsBoundedAndCannotProduceInvalidTargets()
+        {
+            var forward = Create(6, 0);
+            forward.BeginDrag();
+            forward.Drag(-.1);
+            Assert.AreEqual(2, forward.EndDrag(double.MaxValue));
+            var backward = Create(3, 1);
+            backward.BeginDrag();
+            backward.Drag(.1);
+            Assert.AreEqual(0, backward.EndDrag(-10000));
+            var invalid = Create(6, 1);
+            invalid.BeginDrag();
+            Assert.AreEqual(1, invalid.EndDrag(double.NaN));
+        }
+
         private static LensCarouselMotion Create(int count, int selected)
         {
             var motion = new LensCarouselMotion();
