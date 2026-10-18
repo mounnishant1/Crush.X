@@ -461,7 +461,12 @@
       })));
       if (!state.users.some(user => user.id === 'me')) state.users.unshift(clone(defaultUsers[0]));
       const userExists = id => state.users.some(user => user.id === id);
-      const comments = value => records(value, []).map(comment => ({ user: localText(comment.user, 128), text: localText(comment.text) }));
+      const comments = value => records(value, []).map((comment, index) => ({
+        user: localText(comment.user, 128), text: localText(comment.text),
+        id: localId(comment.id) ? comment.id : 'c_' + index,
+        parentId: localId(comment.parentId) ? comment.parentId : null,
+        liked: comment.liked === true, likes: localCount(comment.likes)
+      }));
       state.posts = unique(records(raw.posts, defaultState.posts).filter(post => userExists(post.userId)).map(post => ({
         id: post.id, userId: post.userId, image: localText(post.image), source: localText(post.source),
         contentType: localText(post.contentType, 100), mediaType: localText(post.mediaType, 100), location: localText(post.location, 200),
@@ -474,6 +479,18 @@
         likes: localCount(reel.likes), shares: localCount(reel.shares), liked: reel.liked === true, saved: reel.saved === true,
         comments: comments(reel.comments), song: localText(reel.song, 200), artist: localText(reel.artist, 200)
       })));
+      // Isolated sample-only social interactions. Never treat these as server receipts.
+      const validItemIds = new Set([...state.posts, ...state.reels].map(item => item.id));
+      state.socialCollections = unique(records(raw.socialCollections, []).map(collection => ({
+        id: collection.id, name: localText(collection.name, 45),
+        itemIds: Array.isArray(collection.itemIds) ? [...new Set(collection.itemIds.filter(id => localId(id) && validItemIds.has(id)))].slice(0,500) : []
+      }))).filter(collection => collection.name.trim()).slice(0,30);
+      state.socialHiddenIds = Array.isArray(raw.socialHiddenIds) ? [...new Set(raw.socialHiddenIds.filter(id => localId(id) && validItemIds.has(id)))].slice(0,500) : [];
+      state.socialMutedIds = Array.isArray(raw.socialMutedIds) ? [...new Set(raw.socialMutedIds.filter(id => localId(id) && userExists(id) && id !== 'me'))].slice(0,500) : [];
+      state.socialStoryDrafts = unique(records(raw.socialStoryDrafts, []).map(draft => ({
+        id: draft.id, itemId: localId(draft.itemId) && validItemIds.has(draft.itemId) ? draft.itemId : '',
+        note: localText(draft.note, 200)
+      }))).filter(draft => draft.itemId).slice(0,30);
       state.stories = unique(records(raw.stories, defaultState.stories).filter(story => userExists(story.userId)).map(story => ({
         id: story.id, userId: story.userId, image: localText(story.image), expiresAt: Number.isFinite(Number(story.expiresAt)) ? Math.max(0, Number(story.expiresAt)) : 0
       })));
