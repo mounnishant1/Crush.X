@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="./social-interactions.css" />
   <link rel="stylesheet" href="./social-advanced.css" />
   <link rel="stylesheet" href="./social-notifications.css" />
+  <link rel="stylesheet" href="./heads-up-notifications.css" />
+  <link rel="stylesheet" href="./message-presence-indicators.css" />
 
   <style>
     :root {
@@ -772,6 +774,7 @@
     }
 
     function closeSession(message = '') {
+      try { document.dispatchEvent(new Event('crushx:session-ended')); } catch {}
       authRevision++; // Ignore callbacks belonging to a previous session or login.
       const user = authenticatedUser;
       authenticatedUser = null;
@@ -946,6 +949,7 @@
     }
 
     function logout() {
+      try { document.dispatchEvent(new Event('crushx:session-ended')); } catch {}
       try { sessionStorage.setItem('crushx_logged_out', '1'); } catch {}
       const user = authenticatedUser;
       closeSession();
@@ -1643,6 +1647,8 @@
   <script src="./social-interactions.js"></script>
   <script src="./social-advanced.js"></script>
   <script src="./social-notifications.js"></script>
+  <script src="./heads-up-notifications.js"></script>
+  <script src="./message-presence-indicators.js"></script>
   <script src="./story-editor.js"></script>
   <script src="./permissions-center.js"></script>
   <script src="./aura-x-core.js"></script>
