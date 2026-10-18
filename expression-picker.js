@@ -196,7 +196,9 @@
         '</div><div class="cx-expression-content" data-cx-exp-content></div>' +
         '<p class="cx-expression-status" data-cx-exp-status role="status" aria-live="polite"></p>' +
       '</div>';
-    document.body.append(sheet);
+    // Native <dialog> elements render in the browser top layer, above page z-indexes.
+    // Mount inside the active modal so the picker is not hidden behind Story/Notes editors.
+    (node.closest('dialog[open]') || document.body).append(sheet);
     sheet.addEventListener('click', event => {
       if (event.target === sheet || event.target.closest('[data-cx-exp-close]')) { close(); return; }
       const picker = event.target.closest('[data-cx-exp-value]');
