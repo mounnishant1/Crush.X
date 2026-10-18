@@ -49,6 +49,8 @@ jobs:
           node --check permissions-center.js
           node --check aura-x-core.js
           node --check aura-x-assistant.js
+          node --check reel-publish-flows.js
+          node --test tests/reel-publish-flows.test.cjs
           node --test tests/aura-x-core.test.cjs
       - name: Start local application server
         run: |
