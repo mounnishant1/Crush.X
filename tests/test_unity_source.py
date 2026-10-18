@@ -165,6 +165,24 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('FaceManager.subsystem.running',provider)
         self.assertIn('TrackingState.Tracking',provider)
 
+    def test_fox_mask_fits_valid_face_mesh_without_pose_lag_or_invalid_geometry(self):
+        fox=source('CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs')
+        fit=source('Scripts/Lenses/FaceMaskFit.cs')
+        self.assertIn('face.vertices',fox)
+        self.assertIn('FaceMaskFit.TryTarget(',fox)
+        self.assertIn('modelFrontZ = MeasureModelFrontZ(instance)',fox)
+        self.assertIn('!vertices.IsCreated',fox)
+        self.assertIn('float blend = firstFrame ? 1f',fox)
+        self.assertIn('float width = faceMaxX - faceMinX;',fit)
+        self.assertIn('width < .08f || width > .25f',fit)
+        self.assertIn('Mathf.Clamp(width / ReferenceFaceWidthMeters, .8f, 1.25f)',fit)
+
+    def test_procedural_masks_use_real_face_scale_without_shrinking_imported_assets(self):
+        engine=source('Scripts/Runtime/LensEngineBootstrap.cs')
+        self.assertIn('private const float ProceduralRealFaceScale = .28f;',engine)
+        self.assertIn('effectRoot.localScale = !usingMock && candidateEffect != null',engine)
+        self.assertIn('? Vector3.one * ProceduralRealFaceScale : Vector3.one',engine)
+
     def test_carousel_and_swipe_share_stable_browse_order(self):
         engine=source('Scripts/Runtime/LensEngineBootstrap.cs')
         selection=engine[engine.index('public bool SelectLens'):engine.index('public void Step')]
