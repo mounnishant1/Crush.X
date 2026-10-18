@@ -9,6 +9,8 @@ on:
       - 'social-interactions.css'
       - 'social-advanced.js'
       - 'social-advanced.css'
+      - 'social-notifications.js'
+      - 'social-notifications.css'
       - 'UnityProjects/CrushXLensEngine/**'
       - 'tools/**'
       - 'tests/**'
@@ -52,10 +54,12 @@ jobs:
           node --check app-improvements.js
           node --check social-interactions.js
           node --check social-advanced.js
+          node --check social-notifications.js
           node tests/home-ui.cjs
           node tests/experience-flows.cjs
           node tests/social-interactions.cjs
           node tests/social-advanced.cjs
+          node tests/social-notifications.cjs
           node --check permissions-center.js
           node --check aura-x-core.js
           node --check aura-x-assistant.js
