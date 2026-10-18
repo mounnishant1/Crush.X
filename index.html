@@ -947,6 +947,7 @@
     }
 
     function logout() {
+      try { document.dispatchEvent(new Event('crushx:session-ended')); } catch {}
       try { sessionStorage.setItem('crushx_logged_out', '1'); } catch {}
       const user = authenticatedUser;
       closeSession();
