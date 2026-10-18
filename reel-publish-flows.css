@@ -1,0 +1,72 @@
+/* Crush.X native-feel Reels scrubber and Home-only publish feedback. */
+.reel-slide .cx-reel-scrub {
+  position: absolute; z-index: 12; bottom: 3px; left: 12px; right: 12px;
+  display: flex; align-items: center; height: 25px;
+  pointer-events: auto; touch-action: none;
+}
+.reel-slide .cx-reel-seek {
+  appearance: none; -webkit-appearance: none; width: 100%; height: 24px; margin: 0;
+  background: transparent; cursor: pointer; outline-offset: 3px; touch-action: none;
+}
+.cx-reel-seek::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, white var(--cx-reel-progress, 0%), #ffffff75 var(--cx-reel-progress, 0%));
+}
+.cx-reel-seek::-moz-range-track { height: 3px; border-radius: 2px; background: #ffffff75; }
+.cx-reel-seek::-moz-range-progress { height: 3px; border-radius: 2px; background: white; }
+.cx-reel-seek::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; height: 11px; width: 11px;
+  border: 2px solid white; border-radius: 50%; background: #fff; margin-top: -4px;
+  box-shadow: 0 1px 5px #0009;
+}
+.cx-reel-seek::-moz-range-thumb {
+  height: 9px; width: 9px; border: 2px solid white; border-radius: 50%; background: white;
+}
+.cx-reel-seek:focus-visible { outline: 2px solid white; border-radius: 8px; }
+.cx-reel-seek:disabled { opacity: .45; cursor: default; }
+.reel-slide .reel-creator [data-follow-user] { transition: transform 140ms ease, background 140ms ease; }
+.reel-slide .reel-creator [data-follow-user]:active { transform: scale(.94); }
+.reel-slide .reel-creator [data-follow-user][aria-pressed="true"] { background: #ffffff2e; color: white; border-color: #ffffffa8; }
+
+.cx-home-publishing { margin: 7px 4px 0; padding: 1px 4px 0; }
+.cx-publish-label { font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; color: inherit; }
+.cx-publish-track { position: relative; width: 100%; height: 3px; overflow: hidden; border-radius: 8px; background: #f9a8d47a; }
+.cx-publish-fill { position: absolute; inset: 0 auto 0 0; display: block; width: 34%; border-radius: inherit; background: linear-gradient(90deg, #f43f5e, #a855f7, #ec4899); animation: cx-publish-move 1.2s ease-in-out infinite alternate; }
+.cx-publish-measured .cx-publish-fill { width: var(--cx-upload-progress, 0%); animation: none; transition: width 180ms ease-out; }
+@keyframes cx-publish-move {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(295%); }
+}
+.cx-publish-toast {
+  position: fixed; z-index: 9999;
+  bottom: calc(93px + env(safe-area-inset-bottom, 0px));
+  left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 10px;
+  border-radius: 16px; padding: 11px 16px; background: #171820f5;
+  color: white; font-size: 13px; font-weight: 700; box-shadow: 0 14px 36px #0005;
+  animation: cx-toast-pop 420ms cubic-bezier(.14,1.7,.42,1) both;
+}
+.cx-publish-toast::after {
+  content: ''; position: absolute; inset: -3px; border: 2px solid #f9a8d4c5;
+  border-radius: inherit; pointer-events: none; animation: cx-crack-flash 720ms ease-out both;
+}
+.cx-toast-mark { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: #fff3; font-weight: 900; }
+.cx-publish-failed .cx-toast-mark { background: #d977064d; }
+.cx-toast-exit { animation: cx-toast-away 250ms ease-in forwards; }
+@keyframes cx-toast-pop {
+  0% { opacity: 0; transform: translate(-50%, 38px) scale(.88); }
+  62% { opacity: 1; transform: translate(-50%, -6px) scale(1.03); }
+  100% { transform: translate(-50%, 0) scale(1); }
+}
+@keyframes cx-crack-flash {
+  0% { opacity: .9; transform: scale(.91); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+@keyframes cx-toast-away { to { opacity: 0; transform: translate(-50%, 22px) scale(.96); } }
+@media (min-width: 768px) {
+  .cx-publish-toast { bottom: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-publish-fill, .cx-publish-toast, .cx-publish-toast::after, .cx-toast-exit { animation: none !important; }
+  .cx-publish-measured .cx-publish-fill { transition: none; }
+}
