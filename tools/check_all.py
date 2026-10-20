@@ -33,6 +33,8 @@ def main():
     result=unittest.TextTestRunner(verbosity=1).run(suite)
     checks.append({'check':'Python source, asset and tool tests','status':'PASS' if result.wasSuccessful() else 'FAIL','executed':result.testsRun,'skipped':len(result.skipped),'skippedTests':[{'test':str(test),'reason':reason} for test,reason in result.skipped]})
     run('App JavaScript syntax',['node','--check','app-improvements.js'])
+    run('Music library JS syntax',['node','--check','music-library.js'])
+    run('Licensed music catalog tests',['node','--test','tests/music-library.cjs'])
     if args.browser:
         server=None
         try:

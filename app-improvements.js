@@ -307,6 +307,8 @@ renderCreate = function() {
     <h2>Details</h2>
     ${field('location','Add location (manual)',pcDraft.location,90)}
     ${field('tags','Tag people (sample @handles, comma-separated)',pcDraft.tags,200)}
+    <button type="button" class="cXmusic-trigger" data-cxmusic-open="post">Browse licensed Music Library</button>
+    <p class="pc-disclaimer">Test catalog · CC BY 4.0 artist credit required. Audio preview does not mix into exported media.</p>
     <label class="pc-field">Add audio from this device <input type="file" data-pc-audio accept="audio/*" aria-label="Choose optional local audio"></label>
     <div data-pc-audio-preview>${pcDraft.audioUrl?`<p>♫ ${escapeHTML(pcDraft.audioName)}</p><audio src="${pcDraft.audioUrl}" controls></audio><button data-pc-remove-audio type="button">Remove audio</button>`:'<p class="pc-disclaimer">No audio selected. This audio is for review only; it is not mixed into the post.</p>'}</div>
     <label class="pc-field">Audience<select data-pc-audience class="w-full border rounded-xl px-3 py-2 bg-transparent">${['Everyone','Followers','Close Friends'].map(value=>`<option ${pcDraft.audience===value?'selected':''}>${value}</option>`).join('')}</select></label>
@@ -326,7 +328,7 @@ function pcApplyPreview() {
   const media=preview.querySelector('img,video');if(media){media.style.width='100%';media.style.height=pcDraft.ratio==='Original'?'auto':'100%';media.style.objectFit='cover';media.style.maxHeight='100%';}
 }
 function pcReview() {
-  const options=[`Audience: ${pcDraft.audience}`,`Preview filter: ${pcDraft.filter}`,`Crop: ${pcDraft.ratio}`,`Location: ${pcDraft.location||'None'}`,`Tagged sample handles: ${pcDraft.tags||'None'}`,`Audio: ${pcDraft.audioName||'None'}`,`Poll: ${pcDraft.poll?(pcDraft.pollQuestion||'Untitled'):'Off'}`,`Hide counts: ${pcDraft.hideLikes?'On':'Off'}`,`Comments: ${pcDraft.hideComments?'Off':'On'}`,`Profile only: ${pcDraft.onlyProfile?'Yes':'No'}`,`AI label: ${pcDraft.aiLabel?'On':'Off'}`];
+  const options=[`Audience: ${pcDraft.audience}`,`Preview filter: ${pcDraft.filter}`,`Crop: ${pcDraft.ratio}`,`Location: ${pcDraft.location||'None'}`,`Tagged sample handles: ${pcDraft.tags||'None'}`,`Audio: ${pcDraft.audioName||'None'}`,`Music credit: ${pcDraft.audioCredit||'None'}`,`Poll: ${pcDraft.poll?(pcDraft.pollQuestion||'Untitled'):'Off'}`,`Hide counts: ${pcDraft.hideLikes?'On':'Off'}`,`Comments: ${pcDraft.hideComments?'Off':'On'}`,`Profile only: ${pcDraft.onlyProfile?'Yes':'No'}`,`AI label: ${pcDraft.aiLabel?'On':'Off'}`];
   appDialog('Review post draft',`<ul class="space-y-2">${options.map(value=>`<li>${escapeHTML(value)}</li>`).join('')}</ul><p class="mt-4 text-sm text-slate-500">These are local draft options. No post, poll, tag notification, location or audience change is published.</p>`);
 }
 bindRepairEvents = function() {
