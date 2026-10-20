@@ -204,6 +204,7 @@
     document.body.append(dialog);
     renderGenres(genres);renderResults();renderDetails();
     dialog.showModal();
+    if (cfg.notice) status(String(cfg.notice));
     search.focus();
   }
   function useInPost(track,clip) {
@@ -249,7 +250,7 @@
       event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
       const item=getState().reels.find(x => x.id===reel.dataset.reelAudio);
       const matched=item && TRACKS.find(x=>x.title===item.song && x.artist===item.artist);
-      open({trackId:matched?.id,onUse:function(track,clip){
+      open({trackId:matched?.id,notice:matched ? '' : 'This reel uses sample audio that is not cleared for reuse. Choose a licensed track below.',onUse:function(track,clip){
         useInPost(track,clip); navigate('create');
       }});
     },true);
