@@ -5,6 +5,9 @@ on:
     paths:
       - 'index.html'
       - 'app-improvements.js'
+      - 'music-library.js'
+      - 'music-library.css'
+      - 'story-editor.js'
       - 'social-interactions.js'
       - 'social-interactions.css'
       - 'social-advanced.js'
@@ -52,6 +55,8 @@ jobs:
           python -m pip install -r tests/requirements-source.txt
           python -m unittest discover -s tests -p 'test_*.py'
           node --check app-improvements.js
+          node --check music-library.js
+          node --test tests/music-library.cjs
           node --check social-interactions.js
           node --check social-advanced.js
           node --check social-notifications.js
