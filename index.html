@@ -482,7 +482,7 @@
       state.reels = unique(records(raw.reels, defaultState.reels).filter(reel => userExists(reel.userId)).map(reel => ({
         id: reel.id, userId: reel.userId, source: localText(reel.source), caption: localText(reel.caption),
         contentType: localText(reel.contentType, 100), mediaType: localText(reel.mediaType, 100),
-        likes: localCount(reel.likes), shares: localCount(reel.shares), liked: reel.liked === true, saved: reel.saved === true,
+        likes: localCount(reel.likes), shares: localCount(reel.shares), liked: reel.liked === true, saved: reel.saved === true, reposted: reel.reposted === true,
         comments: comments(reel.comments), song: localText(reel.song, 200), artist: localText(reel.artist, 200)
       })));
       // Isolated sample-only social interactions. Never treat these as server receipts.

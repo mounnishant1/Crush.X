@@ -220,10 +220,11 @@ renderProfile = function(state) {
   const me = currentUser(state);
   const own = state.posts.filter(post => post.userId === me.id);
   const saved = [...state.posts, ...state.reels].filter(post => post.saved);
+  const reposts = state.reels.filter(reel => reel.reposted === true);
   let html = originalProfile(state).replace('<div class="font-black">416</div>', `<div class="font-black">${state.users.filter(user => user.following).length}</div>`).replace(`<div class="font-black">${state.posts.length}</div>`, `<div class="font-black">${own.length}</div>`);
   html = html.replace('Soft sunsets, coffee, and city lights ✨', escapeHTML(me.info));
-  const items = appProfileFilter === 'saved' ? saved : own;
-  return html.replace('</section>', `<div class="mt-5 flex flex-wrap gap-3"><button data-edit-sample class="border rounded-lg px-4 py-2">Edit sample profile</button><button data-profile-filter="posts" aria-pressed="${appProfileFilter === 'posts'}" class="border rounded-lg px-4 py-2">Posts · ${own.length}</button><button data-profile-filter="saved" aria-pressed="${appProfileFilter === 'saved'}" class="border rounded-lg px-4 py-2">Saved · ${saved.length}</button></div><div class="app-media-grid">${items.map(item => `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open ${appProfileFilter === 'saved' ? 'saved' : 'sample'} post">${item.contentType?.startsWith('video/') || item.mediaType === 'video' ? `<video src="${safeMediaUrl(item.source)}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>` : `<img src="${safeMediaUrl(item.image || item.source)}" alt="Sample post thumbnail">`}</button>`).join('')}</div>${items.length ? '' : '<p class="mt-5 text-sm text-slate-500">Nothing saved yet. Use the bookmark on a post or reel.</p>'}</section>`);
+  const items = appProfileFilter === 'saved' ? saved : appProfileFilter === 'reposts' ? reposts : own;
+  return html.replace('</section>', `<div class="mt-5 flex flex-wrap gap-3"><button data-edit-sample class="border rounded-lg px-4 py-2">Edit sample profile</button><button data-profile-filter="posts" aria-pressed="${appProfileFilter === 'posts'}" class="border rounded-lg px-4 py-2">Posts · ${own.length}</button><button data-profile-filter="saved" aria-pressed="${appProfileFilter === 'saved'}" class="border rounded-lg px-4 py-2">Saved · ${saved.length}</button><button data-profile-filter="reposts" aria-pressed="${appProfileFilter === 'reposts'}" class="border rounded-lg px-4 py-2">Reposts · ${reposts.length}</button></div><div class="app-media-grid">${items.map(item => `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open ${appProfileFilter === 'reposts' ? 'reposted reel' : appProfileFilter === 'saved' ? 'saved item' : 'sample post'}">${item.contentType?.startsWith('video/') || item.mediaType === 'video' ? `<video src="${safeMediaUrl(item.source)}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>` : `<img src="${safeMediaUrl(item.image || item.source)}" alt="Sample post thumbnail">`}</button>`).join('')}</div>${items.length ? '' : `<p class="mt-5 text-sm text-slate-500">${appProfileFilter === 'reposts' ? 'No reposts yet. Use the Repost icon on a reel.' : appProfileFilter === 'saved' ? 'Nothing saved yet. Use the bookmark on a post or reel.' : 'No posts yet.'}</p>`}</section>`);
 };
 renderReels = function(state) {
   if(!state.reels.length)return '<main class="glass rounded-[2rem] p-5">No reels yet.</main>';
@@ -239,10 +240,12 @@ renderReels = function(state) {
         <button data-like="${id}" aria-pressed="${!!reel.liked}" aria-label="${reel.liked?'Unlike':'Like'} reel">${glyph('heart','♡')}<span>${Number(reel.likes).toLocaleString()}</span></button>
         <button data-comment-focus="${id}" aria-label="Open comments">${glyph('message-circle','▢')}<span>${comments.length}</span></button>
         <button data-share="${id}" aria-label="Share media link">${glyph('send','↗')}<span>Share</span></button>
+        <button type="button" class="reel-repost-action" data-repost="${id}" aria-pressed="${!!reel.reposted}" aria-label="${reel.reposted ? 'Remove repost locally' : 'Repost reel locally'}">${glyph('repeat-2','⟳')}<span>${reel.reposted ? 'Reposted' : 'Repost'}</span></button>
         <button data-save="${id}" aria-pressed="${!!reel.saved}" aria-label="${reel.saved?'Unsave':'Save'} reel">${glyph('bookmark','♧')}<span>${reel.saved?'Saved':'Save'}</span></button>
         <button data-reel-speed="${id}" aria-label="Change playback speed">${glyph('gauge','◷')}<span>1×</span></button>
         <button data-reel-mute="${id}" aria-label="Unmute reel">${glyph('volume-x','♩')}<span>Sound</span></button>
       </div>
+      <div class="reel-repost-toast" data-repost-feedback="${id}" role="status" aria-live="polite" hidden></div>
       <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><strong>@${escapeHTML(creator.username)}</strong>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
       <p class="reel-caption">${formatText(reel.caption)}</p>
       <button data-reel-audio="${id}" class="reel-audio" aria-label="Audio details">${glyph('music-2','♫')} ${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</button>
@@ -252,6 +255,15 @@ renderReels = function(state) {
     </section>`;
   }).join('')}</main>`;
 };
+// The preview has no repost API: persist the action on this device only.
+function toggleLocalRepost(id) {
+  const state = getState();
+  const reel = state.reels.find(item => item.id === id);
+  if (!reel) return null;
+  reel.reposted = !reel.reposted;
+  saveState(state);
+  return reel.reposted;
+}
 function bindReelControls() {
   reelObserver?.disconnect();reelObserver=null;
   const slides=[...document.querySelectorAll('.reel-slide')];
@@ -267,6 +279,27 @@ function bindReelControls() {
     },{root:document.querySelector('.reels-deck'),threshold:[0,.6,1]});
     slides.forEach(slide=>reelObserver.observe(slide));
   }else videos[0]?.play?.().catch(()=>{});
+  document.querySelectorAll('[data-repost]').forEach(button => button.addEventListener('click', () => {
+    if (button.disabled) return;
+    const reposted = toggleLocalRepost(button.dataset.repost);
+    if (reposted === null) return;
+    button.disabled = true; // Avoid double taps while the spin is running.
+    button.setAttribute('aria-pressed', String(reposted));
+    button.setAttribute('aria-label', reposted ? 'Remove repost locally' : 'Repost reel locally');
+    const label = button.querySelector('span');
+    if (label) label.textContent = reposted ? 'Reposted' : 'Repost';
+    button.classList.add('repost-spin');
+    const feedback = button.closest('.reel-slide')?.querySelector('[data-repost-feedback]');
+    if (feedback) {
+      feedback.textContent = reposted
+        ? 'Reposted · in your Reposts tab (only on this device)'
+        : 'Repost removed (only on this device)';
+      feedback.hidden = false;
+      feedback.classList.add('is-visible');
+    }
+    setTimeout(() => { button.disabled = false; button.classList.remove('repost-spin'); }, 560);
+    setTimeout(() => { if (feedback) { feedback.classList.remove('is-visible'); feedback.hidden = true; } }, 1900);
+  }));
   document.querySelectorAll('[data-reel-speed]').forEach(button=>button.addEventListener('click',()=>{
     const video=button.closest('.reel-slide')?.querySelector('video');
     if(!video)return appDialog('Playback speed','<p>This sample reel is an image. Speed controls work on videos only.</p>');

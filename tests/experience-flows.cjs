@@ -86,12 +86,30 @@ assert.equal(dialogs.length,1);
 
 // Reel cards now have full-height snap slides and every exposed local control is bound.
 const reels=run('renderReels(getState())');
-for(const item of ['reels-deck','reel-slide','data-reel-visual','data-like="reel_1"','data-comment-input="reel_1"','data-comment-send="reel_1"','data-share="reel_1"','data-save="reel_1"','data-reel-speed','data-reel-mute','data-reel-audio','data-reel-template','data-reel-caption','data-lucide="bookmark"'])assert.ok(reels.includes(item),item);
+for(const item of ['reels-deck','reel-slide','data-reel-visual','data-like="reel_1"','data-comment-input="reel_1"','data-comment-send="reel_1"','data-share="reel_1"','data-repost="reel_1"','data-save="reel_1"','data-reel-speed','data-reel-mute','data-reel-audio','data-reel-template','data-reel-caption','data-lucide="bookmark"'])assert.ok(reels.includes(item),item);
 assert.match(reels,/Sample photo reel/);
 assert.match(reels,/Local sample preview/);
 run('{const s=getState();s.reels[0].caption="<img onerror=alert(1)>";saveState(s);}');
 assert.doesNotMatch(run('renderReels(getState())'),/<img onerror=alert\(1\)>/);
 assert.match(run('renderReels(getState())'),/&lt;img/);
+
+// Repost is a single-click local toggle, survives normalization, and appears in profile.
+assert.equal(run('getState().reels[0].reposted'),false);
+assert.equal(run('toggleLocalRepost("missing_reel")'),null);
+assert.equal(run('toggleLocalRepost("reel_1")'),true);
+assert.equal(run('getState().reels[0].reposted'),true);
+assert.match(run('renderReels(getState())'),/data-repost="reel_1" aria-pressed="true"/);
+assert.match(run('renderReels(getState())'),/Reposted<\/span>/);
+run('appProfileFilter="reposts"');
+assert.match(run('renderProfile(getState())'),/Reposts · 1/);
+assert.match(run('renderProfile(getState())'),/data-open-local-item="reel_1"/);
+assert.equal(run('toggleLocalRepost("reel_1")'),false);
+assert.equal(run('getState().reels[0].reposted'),false);
+assert.match(run('renderReels(getState())'),/data-repost="reel_1" aria-pressed="false"/);
+assert.doesNotMatch(run('renderProfile(getState())'),/data-open-local-item="reel_1"/);
+run('appProfileFilter="posts"');
+assert.match(css,/crushx-repost-spin/);
+assert.match(css,/prefers-reduced-motion:reduce/);
 
 // Existing Search destination now finds local posts, reels, people and caption hashtags.
 run('appExploreFilter="all"');
