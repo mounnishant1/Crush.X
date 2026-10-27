@@ -263,7 +263,30 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       return deck && Math.abs(deck.scrollTop - deck.clientHeight) < 3;
     });
     assert.equal(await page.evaluate(() => Math.round(document.querySelector('.reels-deck').scrollTop / document.querySelector('.reels-deck').clientHeight)), 1, 'wheel burst must move only one reel');
-    await page.waitForTimeout(600);
+    // A long stream of trackpad wheel events must still be one gesture,
+    // even when it lasts longer than the previous 550ms animation cooldown.
+    await page.waitForTimeout(650);
+    await page.evaluate(async () => {
+      const deck = document.querySelector('.reels-deck');
+      deck.scrollTop = 0;
+      await new Promise(resolve => setTimeout(resolve, 150));
+      for (let i = 0; i < 13; i++) {
+        deck.dispatchEvent(new WheelEvent('wheel', {deltaY:120, bubbles:true, cancelable:true}));
+        await new Promise(resolve => setTimeout(resolve, 90));
+      }
+    });
+    assert.equal(await page.evaluate(() => Math.round(document.querySelector('.reels-deck').scrollTop / document.querySelector('.reels-deck').clientHeight)), 1, 'long wheel burst must not advance multiple reels');
+    // A touchend from the wrong finger must not navigate, even when the
+    // browser reports one changed touch. Subsequent valid gestures still work.
+    await page.evaluate(() => {
+      const visual = document.querySelectorAll('.reel-visual')[1];
+      const first = new Touch({identifier:15,target:visual,clientX:150,clientY:300});
+      const alien = new Touch({identifier:16,target:visual,clientX:150,clientY:510});
+      visual.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[first],targetTouches:[first],changedTouches:[first]}));
+      visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],targetTouches:[],changedTouches:[alien]}));
+    });
+    assert.equal(await page.evaluate(() => Math.round(document.querySelector('.reels-deck').scrollTop / document.querySelector('.reels-deck').clientHeight)), 1, 'foreign touch identifier must not switch reels');
+    await page.waitForTimeout(650);
     await page.evaluate(() => {
       const visual = document.querySelectorAll('.reel-visual')[1];
       const start = new Touch({identifier:1,target:visual,clientX:150,clientY:300});
