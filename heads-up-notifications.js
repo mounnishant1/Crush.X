@@ -94,7 +94,7 @@
     preview.textContent = previewFor(event);
     words.append(headline, preview);
     open.append(avatar, words);
-    if (event.thumbnail) {
+    if (event.thumbnail && preferences.previewText) {
       const media = document.createElement('img');
       media.className = 'cx-heads-up-media'; media.src = event.thumbnail;
       media.alt = ''; media.decoding = 'async';
