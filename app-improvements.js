@@ -653,8 +653,15 @@ bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
-  on('[data-cx-group-new]', () => { cxGroupDraft.open = true; cxGroupDraft.saved = false; renderApp(); });
-  on('[data-cx-group-back]', () => { cxGroupDraft.open = false; renderApp(); });
+  on('[data-cx-group-new]', () => {
+    cxGroupDraft.open = true; cxGroupDraft.saved = false;
+    if (location.hash !== '#messages/group-draft') history.pushState({cxGroupDraft:true}, '', '#messages/group-draft');
+    renderApp();
+  });
+  on('[data-cx-group-back]', () => {
+    if (location.hash === '#messages/group-draft') history.back();
+    else { cxGroupDraft.open = false; renderApp(); }
+  });
   document.querySelectorAll('[data-cx-group-member]').forEach(input => input.addEventListener('change', () => {
     const id = input.value, state = getState();
     if (!state.users.some(user => user.id === id && user.id !== state.currentUserId)) return;
@@ -684,6 +691,7 @@ bindRepairEvents = function() {
     appDialog(label + ' unavailable', '<p>There is no verified authenticated signaling, call transport, or nearby encrypted link in this browser preview. No call or connection was started.</p>');
   });
 
+  // The group composer is a real browser-history layer, not a modal that hijacks Android Back.
   // Mark a successfully submitted comment before the base click handler rerenders the screen.
   document.querySelectorAll('[data-comment-send]').forEach(button => button.addEventListener('click', () => {
     const id = button.dataset.commentSend;
@@ -762,7 +770,7 @@ renderApp = function() {
     cxLocalMessagingOwnerId = cxRoute.currentUserId;
   }
   if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
-  if (cxRoute.activeTab !== 'messages') cxGroupDraft.open = false;
+  cxGroupDraft.open = cxRoute.activeTab === 'messages' && !cxRoute.chatUserId && location.hash === '#messages/group-draft';
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
   // Preserve only browser-local unsent comments when likes/saves/tabs trigger a rerender.
@@ -784,4 +792,11 @@ renderApp = function() {
   });
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
+// A dialog consumes Escape itself; otherwise close the routed group draft first.
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || event.defaultPrevented || location.hash !== '#messages/group-draft') return;
+  if (document.querySelector?.('dialog[open]')) return;
+  event.preventDefault();
+  history.back();
+});
 logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
