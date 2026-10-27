@@ -526,6 +526,13 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       assert.equal(geometry.radius, '0px', 'No rounded popup appearance');
     };
     await assertStoryFullScreen();
+    const touchControls = await page.locator('dialog.story-viewer .sv-head button').evaluateAll(
+      buttons => buttons.map(button => {
+        const rect = button.getBoundingClientRect();
+        return {width:rect.width,height:rect.height};
+      }));
+    assert.ok(touchControls.length >= 2 && touchControls.every(c => c.width >= 44 && c.height >= 44),
+      'Story pause/close controls must have at least 44px touch targets');
     await page.setViewportSize({width:820,height:880});
     await assertStoryFullScreen();
     await page.setViewportSize({width:320,height:640});
