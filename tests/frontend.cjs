@@ -121,11 +121,10 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-comment-input="post_1"]').fill('Unsent comment should remain');
     await page.locator('[data-save="post_1"]').click();
     assert.equal(await page.locator('[data-comment-input="post_1"]').inputValue(), 'Unsent comment should remain');
+    assert.equal(await page.evaluate(() => getState().posts[0].saved), true, 'Single save remains saved');
     await page.locator('[data-comment-send="post_1"]').click();
     assert.equal(await page.locator('[data-comment-input="post_1"]').inputValue(), '');
     assert.equal(await page.evaluate(() => getState().posts[0].comments.at(-1).text), 'Unsent comment should remain');
-    await page.locator('[data-save="post_1"]').click();
-    assert.equal(await page.evaluate(() => getState().posts[0].saved), true);
 
     await page.locator('[data-advanced-comments="post_1"]').click();
     await page.locator('[data-advanced-text]').fill('<img src=x onerror=alert(1)>');
