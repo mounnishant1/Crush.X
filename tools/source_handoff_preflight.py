@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import stat
+import unicodedata
 import zipfile
 from pathlib import Path
 
@@ -18,6 +19,10 @@ MAX_ENTRIES = 50000
 MAX_UNCOMPRESSED_BYTES = 30 * 1024**3
 MAX_SINGLE_FILE_BYTES = 8 * 1024**3
 MAX_PACKAGE_BYTES = 1024 * 1024
+MAX_COMPRESSION_RATIO = 500
+MIN_RATIO_CHECK_BYTES = 8 * 1024 * 1024
+WINDOWS_RESERVED = frozenset(("CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))))
 MANDATORY = (
     "frontend/package.json",
     "frontend/android/app/src/main/AndroidManifest.xml",
@@ -43,7 +48,34 @@ def _unsafe_name(name: str) -> bool:
             "\x00" in name or any(ord(c) < 32 for c in name)):
         return True
     parts = name.rstrip("/").split("/")
-    return not parts or any(p in ("", ".", "..") or ":" in p for p in parts)
+    if not parts:
+        return True
+    for part in parts:
+        # Windows-safe source ZIP paths: reject reserved device names, NTFS
+        # specials and ambiguous trailing spaces/dots before any extraction.
+        if (part in ("", ".", "..") or part[-1] in (".", " ") or
+                any(c in '<>:"|?*' for c in part) or
+                part.split(".", 1)[0].upper() in WINDOWS_RESERVED):
+            return True
+    return False
+
+
+def _check_windows_tree(info: zipfile.ZipInfo, seen: dict[str, tuple[str, bool]]) -> bool:
+    """Check implicit parent directories as well as explicit file names."""
+    full = info.filename.rstrip("/")
+    segments = full.split("/")
+    for index in range(1, len(segments) + 1):
+        actual = "/".join(segments[:index])
+        canonical = unicodedata.normalize("NFC", actual).casefold()
+        is_dir = index < len(segments) or info.is_dir()
+        previous = seen.get(canonical)
+        if previous is not None:
+            prev_name, prev_is_dir = previous
+            if prev_name != actual or prev_is_dir != is_dir or index == len(segments):
+                return True
+        else:
+            seen[canonical] = (actual, is_dir)
+    return False
 
 
 def _manifest(paths: set[str], expected_version: str, read_package) -> tuple[dict, list[str]]:
@@ -107,11 +139,14 @@ def inspect_archive(path: Path, expected_version: str, trusted_sha256: str | Non
         report["trusted_sha256_match"] = report["archive_sha256"] == trusted_sha256.lower()
         if not report["trusted_sha256_match"]:
             reasons.append("ARCHIVE_SHA256_MISMATCH")
+    # Do not open or decompress untrusted ZIP contents with missing/wrong SHA.
+    if reasons:
+        return report
     try:
         with zipfile.ZipFile(path, "r") as archive:
             entries = archive.infolist()
             paths = set()
-            seen = set()
+            seen: dict[str, tuple[str, bool]] = {}
             total = 0
             if len(entries) > MAX_ENTRIES:
                 reasons.append("TOO_MANY_ZIP_ENTRIES")
@@ -120,11 +155,9 @@ def inspect_archive(path: Path, expected_version: str, trusted_sha256: str | Non
                 if _unsafe_name(name):
                     reasons.append("UNSAFE_ZIP_PATH")
                     break
-                folded = name.rstrip("/").casefold()
-                if folded in seen:
+                if _check_windows_tree(info, seen):
                     reasons.append("DUPLICATE_OR_CASE_COLLIDING_ZIP_PATH")
                     break
-                seen.add(folded)
                 file_mode = (info.external_attr >> 16)
                 if stat.S_IFMT(file_mode) == stat.S_IFLNK:
                     reasons.append("SYMLINK_IN_ARCHIVE")
@@ -137,11 +170,16 @@ def inspect_archive(path: Path, expected_version: str, trusted_sha256: str | Non
                     if info.file_size > MAX_SINGLE_FILE_BYTES or total > MAX_UNCOMPRESSED_BYTES:
                         reasons.append("ZIP_EXPANSION_SIZE_LIMIT")
                         break
+                    if (info.file_size >= MIN_RATIO_CHECK_BYTES and
+                            info.file_size > MAX_COMPRESSION_RATIO * max(info.compress_size, 1)):
+                        reasons.append("ZIP_COMPRESSION_RATIO_LIMIT")
+                        break
                     paths.add(name)
             if any(x in reasons for x in (
                 "TOO_MANY_ZIP_ENTRIES", "UNSAFE_ZIP_PATH",
                 "DUPLICATE_OR_CASE_COLLIDING_ZIP_PATH", "SYMLINK_IN_ARCHIVE",
-                "ENCRYPTED_ZIP_ENTRY", "ZIP_EXPANSION_SIZE_LIMIT"
+                "ENCRYPTED_ZIP_ENTRY", "ZIP_EXPANSION_SIZE_LIMIT",
+                "ZIP_COMPRESSION_RATIO_LIMIT"
             )):
                 return report
             report["zip_structure_ok"] = True
@@ -213,6 +251,8 @@ def main(argv: list[str] | None = None) -> int:
             p.error("Report output must not replace the source ZIP")
         if args.root and output_abs.is_relative_to(args.root.resolve()):
             p.error("Report output must be outside the inspected source tree")
+        if args.output.exists() or args.output.is_symlink():
+            p.error("Refusing to overwrite or follow an existing report path")
     result = (inspect_archive(args.archive, args.expected_version, args.trusted_sha256)
               if args.archive else inspect_directory(args.root, args.expected_version))
     result["warning"] = ("Preflight is not code integration, build, Android certification, "
