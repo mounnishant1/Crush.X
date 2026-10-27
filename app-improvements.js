@@ -703,6 +703,21 @@ function pcReview() {
   const options=[`Audience: ${pcDraft.audience}`,`Preview filter: ${pcDraft.filter}`,`Crop: ${pcDraft.ratio}`,`Location: ${pcDraft.location||'None'}`,`Tagged sample handles: ${pcDraft.tags||'None'}`,`Audio: ${pcDraft.audioName||'None'}`,`Music credit: ${pcDraft.audioCredit||'None'}`,`Poll: ${pcDraft.poll?(pcDraft.pollQuestion||'Untitled'):'Off'}`,`Hide counts: ${pcDraft.hideLikes?'On':'Off'}`,`Comments: ${pcDraft.hideComments?'Off':'On'}`,`Profile only: ${pcDraft.onlyProfile?'Yes':'No'}`,`AI label: ${pcDraft.aiLabel?'On':'Off'}`];
   appDialog('Review post draft',`<ul class="space-y-2">${options.map(value=>`<li>${escapeHTML(value)}</li>`).join('')}</ul><p class="mt-4 text-sm text-slate-500">These are local draft options. No post, poll, tag notification, location or audience change is published.</p>`);
 }
+// Return through the existing Inbox entry only when this group composer was
+// opened here. Direct links cannot rely on the previous history entry.
+function cxReturnFromGroupDraft() {
+  if (location.hash !== '#messages/group-draft') {
+    cxGroupDraft.open = false;
+    renderApp();
+    return;
+  }
+  if (history.state?.cxGroupDraft === true) {
+    history.back();
+    return;
+  }
+  history.replaceState(null, '', '#messages');
+  navigate('messages', null, false);
+}
 bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
@@ -712,10 +727,7 @@ bindRepairEvents = function() {
     if (location.hash !== '#messages/group-draft') history.pushState({cxGroupDraft:true}, '', '#messages/group-draft');
     renderApp();
   });
-  on('[data-cx-group-back]', () => {
-    if (location.hash === '#messages/group-draft') history.back();
-    else { cxGroupDraft.open = false; renderApp(); }
-  });
+  on('[data-cx-group-back]', cxReturnFromGroupDraft);
   document.querySelectorAll('[data-cx-group-member]').forEach(input => input.addEventListener('change', () => {
     const id = input.value, state = getState();
     if (!state.users.some(user => user.id === id && user.id !== state.currentUserId)) return;
@@ -857,7 +869,7 @@ document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.defaultPrevented || location.hash !== '#messages/group-draft') return;
   if (document.querySelector?.('dialog[open]')) return;
   event.preventDefault();
-  history.back();
+  cxReturnFromGroupDraft();
 });
 logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
 

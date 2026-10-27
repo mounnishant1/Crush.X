@@ -342,6 +342,32 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.match(await page.locator('[data-cx-group-status]').textContent(), /No invitation or message sent/);
     assert.equal(await page.evaluate(() => cxGroupDraft.members.length), 2);
     await page.locator('[data-cx-group-back]').click();
+    await page.waitForFunction(() => location.hash === '#messages' && !!document.querySelector('[data-cx-group-new]'));
+    // Normal Inbox-owned group drafts use the original history entry on Escape.
+    await page.locator('[data-cx-group-new]').click();
+    assert.equal(await page.evaluate(() => history.state?.cxGroupDraft), true);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => location.hash === '#messages' && !!document.querySelector('[data-cx-group-new]'));
+    // Direct Group Draft URLs have no known Inbox origin. The visible Back
+    // control must replace the deep link rather than escape the app or loop.
+    await page.evaluate(() => {
+      history.replaceState(null, '', '#messages/group-draft');
+      routeFromLocation();
+    });
+    assert.equal(await page.locator('main[aria-label="Group draft editor"]').count(), 1);
+    const groupDirectHistoryLength = await page.evaluate(() => history.length);
+    await page.locator('[data-cx-group-back]').click();
+    assert.equal(await page.evaluate(() => location.hash), '#messages');
+    assert.equal(await page.evaluate(() => history.length), groupDirectHistoryLength, 'Direct Group Back cannot create another entry');
+    assert.equal(await page.evaluate(() => history.state), null, 'Direct Group Back clears stale origin marker');
+    // Escape on a directly opened draft has the same safe local fallback.
+    await page.evaluate(() => {
+      history.replaceState(null, '', '#messages/group-draft');
+      routeFromLocation();
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => location.hash === '#messages' && !!document.querySelector('[data-cx-group-new]'));
+    assert.equal(await page.evaluate(() => history.length), groupDirectHistoryLength, 'Direct Group Escape cannot create another entry');
     await page.locator('[data-chat-user="user_1"]').click();
     assert.equal(await page.locator('main.cx-chat-screen').count(), 1);
     assert.equal(await page.locator('[data-cx-unavailable]').count(), 3);
