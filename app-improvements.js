@@ -495,7 +495,7 @@ function bindReelControls() {
   // Gesture listeners are scoped to the reel deck; comments, buttons and forms retain their own input behavior.
   const deck = document.querySelector('.reels-deck');
   if (deck && slides.length > 1) {
-    let gestureLockUntil = 0, wheelDistance = 0, wheelDirection = 0, lastWheelAt = 0;
+    let gestureLockUntil = 0, wheelDistance = 0, wheelDirection = 0, lastWheelAt = 0, wheelBurstConsumed = false;
     let touchStart = null;
     const moveOne = direction => {
       const now = Date.now();
@@ -513,15 +513,24 @@ function bindReelControls() {
       if (event.ctrlKey || event.target.closest('input, textarea, select, [contenteditable], .caption-expanded .reel-caption')) return;
       event.preventDefault();
       const now = Date.now();
-      if (now < gestureLockUntil) return;
       const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * deck.clientHeight : event.deltaY;
       const direction = Math.sign(amount);
       if (!direction) return;
-      if (now - lastWheelAt > 220 || direction !== wheelDirection) wheelDistance = 0;
+      // Track wheel events even while the animation is locked: a single
+      // trackpad/mouse burst can outlast the 550 ms animation cooldown.
+      if (now - lastWheelAt > 300 || direction !== wheelDirection) {
+        wheelDistance = 0;
+        wheelBurstConsumed = false;
+      }
       lastWheelAt = now;
       wheelDirection = direction;
+      if (wheelBurstConsumed || now < gestureLockUntil) return;
       wheelDistance += Math.abs(amount);
-      if (wheelDistance >= 35) { wheelDistance = 0; moveOne(direction); }
+      if (wheelDistance >= 35) {
+        wheelDistance = 0;
+        wheelBurstConsumed = true;
+        moveOne(direction);
+      }
     }, { passive: false });
     deck.addEventListener('keydown', event => {
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -532,10 +541,20 @@ function bindReelControls() {
     deck.addEventListener('touchstart', event => {
       touchStart = null;
       if (event.touches.length !== 1 || !event.target.closest('.reel-visual')) return;
-      touchStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      const finger = event.touches[0];
+      touchStart = { id: finger.identifier, x: finger.clientX, y: finger.clientY };
+    }, { passive: true });
+    deck.addEventListener('touchmove', event => {
+      // Cancel the pending navigation if a second finger ever joins.
+      if (event.touches.length !== 1 ||
+          (touchStart && event.touches[0].identifier !== touchStart.id)) touchStart = null;
     }, { passive: true });
     deck.addEventListener('touchend', event => {
-      if (!touchStart || event.changedTouches.length !== 1) { touchStart = null; return; }
+      if (!touchStart || event.touches.length !== 0 || event.changedTouches.length !== 1 ||
+          event.changedTouches[0].identifier !== touchStart.id) {
+        touchStart = null;
+        return;
+      }
       const dx = event.changedTouches[0].clientX - touchStart.x;
       const dy = event.changedTouches[0].clientY - touchStart.y;
       touchStart = null;
