@@ -73,8 +73,10 @@ jobs:
           node tests/social-notifications.cjs
           node --check permissions-center.js
           node --check aura-x-core.js
+          node --check aura-x-policy.js
           node --check aura-x-assistant.js
           node --test tests/aura-x-core.test.cjs
+          node --test tests/aura-x-policy.test.cjs
       - name: Start local application server
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/crushx-http.log" 2>&1 &
