@@ -197,18 +197,18 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.waitForTimeout(600);
     await page.evaluate(() => {
       const visual = document.querySelectorAll('.reel-visual')[1];
-      const start = new Touch({identifier:1,target:visual,clientX:150,clientY:490});
-      const end = new Touch({identifier:1,target:visual,clientX:153,clientY:300});
+      const start = new Touch({identifier:1,target:visual,clientX:150,clientY:300});
+      const end = new Touch({identifier:1,target:visual,clientX:153,clientY:490});
       visual.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
       visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],targetTouches:[],changedTouches:[end]}));
     });
     await page.waitForFunction(() => {
       const deck = document.querySelector('.reels-deck');
-      return deck && Math.abs(deck.scrollTop - 2 * deck.clientHeight) < 3;
+      return deck && deck.scrollTop < 3;
     });
     await page.waitForTimeout(600);
     await page.locator('.reels-deck').focus();
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await page.waitForFunction(() => {
       const deck = document.querySelector('.reels-deck');
       return deck && Math.abs(deck.scrollTop - deck.clientHeight) < 3;
