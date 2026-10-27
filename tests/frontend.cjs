@@ -690,6 +690,34 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('[data-open-local-item="post_1"]').count(),1);
     await page.locator('[data-open-local-item="post_1"]').click();
     assert.match(await page.locator('dialog').textContent(),/Sample post/);
+    const checkMediaDetailFullScreen = async () => {
+      const bounds = await page.locator('dialog.cx-media-detail-fullscreen').evaluate(node => {
+        const rect=node.getBoundingClientRect();
+        const section=node.querySelector('section');
+        const close=node.querySelector('[data-close-dialog]').getBoundingClientRect();
+        return {left:rect.left,top:rect.top,width:rect.width,height:rect.height,
+          viewportWidth:innerWidth,viewportHeight:innerHeight,
+          closeWidth:close.width,closeHeight:close.height,
+          scrollContain:getComputedStyle(section).overscrollBehaviorY};
+      });
+      assert.ok(Math.abs(bounds.left)<2 && Math.abs(bounds.top)<2 &&
+        Math.abs(bounds.width-bounds.viewportWidth)<2 &&
+        Math.abs(bounds.height-bounds.viewportHeight)<2, 'Opened grid item must fill viewport');
+      assert.ok(bounds.closeWidth>=44 && bounds.closeHeight>=44,
+        'Media detail Close must have at least a 44px touch target');
+      assert.equal(bounds.scrollContain,'contain','Media detail must scroll independently');
+    };
+    await checkMediaDetailFullScreen();
+    await page.setViewportSize({width:820,height:880});
+    await checkMediaDetailFullScreen();
+    await page.setViewportSize({width:320,height:640});
+    await checkMediaDetailFullScreen();
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('dialog.cx-media-detail-fullscreen'));
+    assert.equal(await page.locator('[data-open-local-item="post_1"]').evaluate(node => node===document.activeElement),
+      true,'Escape from media detail should restore focus to the grid item');
+    await page.locator('[data-open-local-item="post_1"]').click();
+    assert.equal(await page.locator('dialog.cx-media-detail-fullscreen').count(),1);
     await page.locator('[data-close-dialog]').click();
     await page.locator('[data-edit-sample]').click();
     await page.locator('[data-sample-name]').fill('<b>Local name</b>');
