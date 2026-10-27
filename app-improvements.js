@@ -267,6 +267,58 @@ function bindReelControls() {
     },{root:document.querySelector('.reels-deck'),threshold:[0,.6,1]});
     slides.forEach(slide=>reelObserver.observe(slide));
   }else videos[0]?.play?.().catch(()=>{});
+  // One wheel burst / touch swipe / arrow press advances at most one reel.
+  // Gesture listeners are scoped to the reel deck; comments, buttons and forms retain their own input behavior.
+  const deck = document.querySelector('.reels-deck');
+  if (deck && slides.length > 1) {
+    let gestureLockUntil = 0, wheelDistance = 0, wheelDirection = 0, lastWheelAt = 0;
+    let touchStart = null;
+    const moveOne = direction => {
+      const now = Date.now();
+      if (now < gestureLockUntil || !direction) return false;
+      const height = deck.clientHeight;
+      if (height <= 0) return false;
+      const current = Math.max(0, Math.min(slides.length - 1, Math.round(deck.scrollTop / height)));
+      const next = Math.max(0, Math.min(slides.length - 1, current + Math.sign(direction)));
+      if (next === current) return false;
+      gestureLockUntil = now + 550;
+      deck.scrollTo({ top: next * height, behavior: 'smooth' });
+      return true;
+    };
+    deck.addEventListener('wheel', event => {
+      if (event.ctrlKey || event.target.closest('input, textarea, select, [contenteditable], .caption-expanded .reel-caption')) return;
+      event.preventDefault();
+      const now = Date.now();
+      if (now < gestureLockUntil) return;
+      const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * deck.clientHeight : event.deltaY;
+      const direction = Math.sign(amount);
+      if (!direction) return;
+      if (now - lastWheelAt > 220 || direction !== wheelDirection) wheelDistance = 0;
+      lastWheelAt = now;
+      wheelDirection = direction;
+      wheelDistance += Math.abs(amount);
+      if (wheelDistance >= 35) { wheelDistance = 0; moveOne(direction); }
+    }, { passive: false });
+    deck.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      if (event.target.closest('input, textarea, select, button, [contenteditable]')) return;
+      event.preventDefault();
+      moveOne(event.key === 'ArrowDown' ? 1 : -1);
+    });
+    deck.addEventListener('touchstart', event => {
+      touchStart = null;
+      if (event.touches.length !== 1 || !event.target.closest('.reel-visual')) return;
+      touchStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    }, { passive: true });
+    deck.addEventListener('touchend', event => {
+      if (!touchStart || event.changedTouches.length !== 1) { touchStart = null; return; }
+      const dx = event.changedTouches[0].clientX - touchStart.x;
+      const dy = event.changedTouches[0].clientY - touchStart.y;
+      touchStart = null;
+      if (Math.abs(dy) >= 48 && Math.abs(dy) > Math.abs(dx) * 1.3) moveOne(dy < 0 ? 1 : -1);
+    }, { passive: true });
+    deck.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
+  }
   document.querySelectorAll('[data-reel-speed]').forEach(button=>button.addEventListener('click',()=>{
     const video=button.closest('.reel-slide')?.querySelector('video');
     if(!video)return appDialog('Playback speed','<p>This sample reel is an image. Speed controls work on videos only.</p>');
