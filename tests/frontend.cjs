@@ -326,6 +326,15 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-chat-user="user_1"]').click();
     assert.equal(await page.locator('main.cx-chat-screen').count(), 1);
     assert.equal(await page.locator('[data-cx-unavailable]').count(), 3);
+    assert.equal(await page.evaluate(() => history.state?.cxChatFromInbox), true, 'Inbox-launched chat must preserve its Back origin');
+    await page.locator('#messagesBack').click();
+    await page.waitForFunction(() => location.hash === '#messages' && !!document.querySelector('[data-chat-user="user_1"]'));
+    await page.goBack();
+    await page.waitForFunction(() => location.hash === '#reels', {timeout:5000});
+    await page.goForward();
+    await page.waitForFunction(() => location.hash === '#messages' && !!document.querySelector('[data-chat-user="user_1"]'));
+    await page.locator('[data-chat-user="user_1"]').click();
+    assert.equal(await page.locator('main.cx-chat-screen').count(), 1);
     await page.locator('[data-cx-unavailable="voice"]').click();
     assert.match(await page.locator('dialog.app-dialog').textContent(), /No call or connection was started/);
     await page.locator('[data-close-dialog]').click();
@@ -371,6 +380,15 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('#messageDraft').inputValue(), 'Only a draft');
     await page.goBack(); assert.equal(await page.locator('#messageDraft').count(), 0);
     await page.goForward(); assert.equal(await page.locator('#messageDraft').inputValue(), 'Only a draft');
+    // Deep-linked chat without a verified inbox origin must replace its URL,
+    // never push another Messages page that makes Back reopen the chat.
+    await page.evaluate(() => { history.replaceState(null, '', '#messages/user_1'); routeFromLocation(); });
+    assert.equal(await page.locator('main.cx-chat-screen').count(), 1);
+    const beforeDirectBack = await page.evaluate(() => history.length);
+    await page.locator('#messagesBack').click();
+    assert.equal(await page.evaluate(() => location.hash), '#messages');
+    assert.equal(await page.evaluate(() => history.length), beforeDirectBack, 'Direct-link fallback must not push history');
+    assert.equal(await page.evaluate(() => history.state), null, 'Direct-link fallback clears stale chat origin marker');
     for (const width of [320, 375, 768, 1024, 1199, 1200, 1279, 1280]) {
       await page.setViewportSize({width, height:640});
       for (const tab of ['home','discover','messages','reels','profile','create']) {
