@@ -57,10 +57,23 @@ dialogs[0].events.input({target:{value:'test unsent reply',matches(selector){ret
 assert.equal(run('storyViewerDrafts["story_2"]'),'test unsent reply');
 dialogs[0].events.submit({target:{matches(selector){return selector==='[data-sv-reply-form]';}},preventDefault(){}});
 assert.match(dialogs[0].innerHTML,/no message sent/);
-dialogs[0].events.pointerdown({pointerId:3,clientX:250,target:{closest(selector){return selector==='[data-sv-stage]'?{setPointerCapture(){}}:null;}}});
-dialogs[0].events.pointerup({pointerId:3,clientX:120});
-assert.equal(run('storyViewerIndex'),2);
+dialogs[0].events.pointerdown({pointerId:3,clientX:250,clientY:100,target:{closest(selector){return selector==='[data-sv-stage]'?{setPointerCapture(){}}:null;}}});
+// A second finger must not finish or cancel the initiating finger's Story gesture.
+dialogs[0].events.pointerup({pointerId:9,clientX:110,clientY:100});
+assert.equal(run('storyViewerIndex'),1, 'Stray pointerup cannot navigate Stories');
+dialogs[0].events.pointercancel({pointerId:9});
+assert.equal(run('storyViewerHold'),true, 'Stray pointercancel cannot cancel active gesture');
+dialogs[0].events.pointerup({pointerId:3,clientX:120,clientY:108});
+assert.equal(run('storyViewerIndex'),2, 'Owner horizontal swipe navigates exactly one Story');
 run('storyViewerMove(-1)');
+// Mostly vertical movement must never masquerade as a horizontal Story swipe.
+dialogs[0].events.pointerdown({pointerId:4,clientX:250,clientY:50,target:{closest(selector){return selector==='[data-sv-stage]'?{setPointerCapture(){}}:null;}}});
+dialogs[0].events.pointerup({pointerId:4,clientX:145,clientY:250});
+assert.equal(run('storyViewerIndex'),1, 'Vertical drag must not navigate');
+dialogs[0].events.pointerdown({pointerId:5,clientX:250,clientY:100,target:{closest(selector){return selector==='[data-sv-stage]'?{setPointerCapture(){}}:null;}}});
+dialogs[0].events.pointercancel({pointerId:5});
+assert.equal(run('storyViewerHold'),false, 'Owner cancellation releases hold state');
+assert.equal(run('storyViewerPointerId'),null, 'Owner cancellation clears captured pointer');
 const eventFor=(action,props={})=>({target:{closest(selector){return selector==='[data-sv]'?{dataset:{sv:action,...props}}:null;}}});
 context.clickEvent=eventFor('reaction',{svEmoji:'🔥'});
 run('storyViewerHandleClick(clickEvent)');

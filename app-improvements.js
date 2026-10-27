@@ -16,6 +16,8 @@ let storyViewerPaused = false;
 let storyViewerHold = false;
 let storyViewerSwipeUntil = 0;
 let storyViewerStartX = null;
+let storyViewerStartY = null;
+let storyViewerPointerId = null;
 let storyViewerStatus = '';
 let storyViewerDrafts = {};
 const storyViewerDuration = 6500;
@@ -231,7 +233,7 @@ function closeStoryViewer() {
   const dialog=storyViewerDialog;
   storyViewerDialog=null;
   storyViewerStories=[];
-  storyViewerStartX=null;
+  storyViewerStartX=null;storyViewerStartY=null;storyViewerPointerId=null;storyViewerHold=false;storyViewerSwipeUntil=0;
   if(dialog){if(dialog.open)dialog.close();dialog.remove();}
 }
 function storyViewerHTML() {
@@ -303,7 +305,7 @@ function openSampleStory(id) {
   const index=stories.findIndex(story=>story.id===id);
   if(index<0)return;
   closeAppDialog();
-  storyViewerStories=stories;storyViewerIndex=index;storyViewerElapsed=0;storyViewerLastTick=Date.now();storyViewerPaused=!!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;storyViewerHold=false;storyViewerStatus='';storyViewerDrafts={};
+  storyViewerStories=stories;storyViewerIndex=index;storyViewerElapsed=0;storyViewerLastTick=Date.now();storyViewerPaused=!!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;storyViewerHold=false;storyViewerStartX=null;storyViewerStartY=null;storyViewerPointerId=null;storyViewerSwipeUntil=0;storyViewerStatus='';storyViewerDrafts={};
   const dialog=document.createElement('dialog'),opener=document.activeElement;
   dialog.className='story-viewer';dialog.setAttribute('aria-label','Crush.X Story viewer');
   dialog.addEventListener('close',()=>{if(storyViewerDialog===dialog)closeStoryViewer();if(opener?.isConnected)opener.focus();});
@@ -323,14 +325,32 @@ function openSampleStory(id) {
     storyViewerStatus=value?'Reply preview saved in this viewer only — no message sent.':'Write a reply draft first.';
     storyViewerPaused=true;storyViewerPaint();
   });
-  dialog.addEventListener('pointerdown',event=>{const stage=event.target.closest('[data-sv-stage]');if(stage){storyViewerHold=true;storyViewerStartX=event.clientX;stage.setPointerCapture?.(event.pointerId);}});
-  dialog.addEventListener('pointerup',event=>{
-    if(storyViewerStartX===null)return;
-    const delta=event.clientX-storyViewerStartX;
-    storyViewerStartX=null;storyViewerHold=false;storyViewerLastTick=Date.now();
-    if(Math.abs(delta)>55){storyViewerSwipeUntil=Date.now()+250;storyViewerMove(delta<0?1:-1);}
+  // A Story swipe is owned by the pointer that started it. Ignore other fingers
+  // and vertical drags so mixed gestures cannot skip stories.
+  dialog.addEventListener('pointerdown',event=>{
+    const stage=event.target.closest('[data-sv-stage]');
+    if(!stage || event.isPrimary===false || storyViewerPointerId!==null)return;
+    storyViewerPointerId=event.pointerId;
+    storyViewerStartX=event.clientX;storyViewerStartY=event.clientY;
+    storyViewerHold=true;
+    try{stage.setPointerCapture?.(event.pointerId);}catch{}
   });
-  dialog.addEventListener('pointercancel',()=>{storyViewerHold=false;storyViewerStartX=null;});
+  dialog.addEventListener('pointerup',event=>{
+    if(storyViewerPointerId!==event.pointerId || storyViewerStartX===null)return;
+    const dx=event.clientX-storyViewerStartX;
+    const dy=Number.isFinite(event.clientY)&&Number.isFinite(storyViewerStartY)?event.clientY-storyViewerStartY:0;
+    storyViewerStartX=null;storyViewerStartY=null;storyViewerPointerId=null;
+    storyViewerHold=false;storyViewerLastTick=Date.now();
+    if(Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)*1.2){
+      storyViewerSwipeUntil=Date.now()+250;
+      storyViewerMove(dx<0?1:-1);
+    }
+  });
+  dialog.addEventListener('pointercancel',event=>{
+    if(storyViewerPointerId!==event.pointerId)return;
+    storyViewerHold=false;storyViewerStartX=null;storyViewerStartY=null;storyViewerPointerId=null;
+    storyViewerLastTick=Date.now();
+  });
   document.body.append(dialog);storyViewerDialog=dialog;
   storyViewerPaint();dialog.showModal();
   storyViewerTimer=setInterval(storyViewerTick,80);
