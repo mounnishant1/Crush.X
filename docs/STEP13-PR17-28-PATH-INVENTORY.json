@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-10-27",
+  "repository": "mounnishant1/Crush.X",
+  "source_ref": "audit/v402-source-handoff-20261027",
+  "source_head_sha": "a038d3d0510866c3032960a1b64f12548e840057",
+  "target_app_version": "20.402.0-v402",
+  "disclaimer": "Snapshot of GitHub changed-file names. Not v402 source, semantic compatibility, or an executable patch.",
+  "prs": {
+    "17": [
+      "index.html",
+      "tests/frontend.cjs"
+    ],
+    "18": [
+      "app-experience.css",
+      "app-improvements.js",
+      "tests/frontend.cjs"
+    ],
+    "19": [
+      "app-experience.css",
+      "app-improvements.js",
+      "index.html",
+      "tests/frontend.cjs"
+    ],
+    "20": [
+      "app-experience.css",
+      "app-improvements.js",
+      "tests/frontend.cjs"
+    ],
+    "21": [
+      "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraPermissionGate.cs",
+      "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraSwipe.cs",
+      "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/NativeCameraInteractionTests.cs",
+      "story-editor.js",
+      "tests/story-editor.cjs",
+      "tests/test_unity_source.py"
+    ],
+    "22": [
+      "app-experience.css",
+      "app-improvements.js",
+      "tests/frontend.cjs"
+    ],
+    "23": [
+      "app-experience.css",
+      "app-improvements.js",
+      "heads-up-notifications.js",
+      "permissions-center.js",
+      "social-notifications.js",
+      "tests/frontend.cjs",
+      "tests/heads-up-notifications.cjs"
+    ],
+    "24": [
+      ".github/workflows/frontend.yml",
+      "coins-ledger-sandbox.js",
+      "docs/live-inr-ledger-production-boundaries.md",
+      "index.html",
+      "live-gifting-preview.css",
+      "live-gifting-preview.js",
+      "tests/coins-ledger.cjs",
+      "tests/frontend.cjs"
+    ],
+    "25": [
+      ".github/workflows/frontend.yml",
+      "aura-x-assistant.css",
+      "aura-x-assistant.js",
+      "aura-x-policy.js",
+      "index.html",
+      "tests/aura-ui-browser.cjs",
+      "tests/aura-x-policy.test.cjs"
+    ],
+    "26": [
+      ".github/workflows/frontend.yml",
+      "app-improvements.js",
+      "docs/RELEASE-INTEGRATION-AUDIT-20261027.md",
+      "tests/frontend.cjs",
+      "tests/test_release_readiness.py",
+      "tools/release_readiness.py"
+    ],
+    "27": [
+      "docs/STEP11-V378-SOURCE-INTEGRATION.md",
+      "tests/test_release_readiness.py",
+      "tools/release_readiness.py"
+    ],
+    "28": [
+      "docs/STEP12-V402-SOURCE-HANDOFF-AUDIT.md",
+      "tests/test_source_handoff_preflight.py",
+      "tools/source_handoff_preflight.py"
+    ]
+  }
+}
