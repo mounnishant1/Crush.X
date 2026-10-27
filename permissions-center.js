@@ -132,6 +132,7 @@
   function open() {
     if (dialog) return;
     const opener = document.activeElement;
+    const choice = root.CrushXHeadsUp?.getPreferences?.() || {banners:true,previewText:true};
     const el = document.createElement('dialog');
     el.className = 'cx-permissions-dialog app-dialog';
     el.setAttribute('aria-label', 'Privacy and permissions');
@@ -142,6 +143,11 @@
         escaped(META[kind].title) + '</strong><p class="text-xs text-slate-500">' + escaped(META[kind].why) +
         '</p><p data-permission-status role="status" class="text-xs">Checking…</p></div><button type="button" data-permission-request="' +
         kind + '" class="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-semibold shrink-0">Check</button></div>').join('') +
+      '<section class="cx-local-privacy" aria-label="Foreground notification privacy">' +
+      '<h3>Foreground notification privacy</h3><p>Controls browser-session banners only. These settings do not enable push delivery or change Android notification permissions.</p>' +
+      '<label><input data-cx-private-banners type="checkbox" ' + (choice.banners ? 'checked' : '') + '> Show foreground banners</label>' +
+      '<label><input data-cx-private-preview type="checkbox" ' + (choice.previewText ? 'checked' : '') + '> Show message text in banners</label>' +
+      '</section>' +
       '<p data-permission-message aria-live="polite" class="text-sm mt-3"></p>' +
       '<p class="text-xs text-slate-500 mt-3">“Only this time”, permanent allowances and blocked states are controlled by Android / your browser, not by Crush.X.</p></section>';
     document.body.appendChild(el);
@@ -151,6 +157,17 @@
       const button = event.target.closest && event.target.closest('[data-permission-request]');
       if (button && el.contains(button)) void request(button.dataset.permissionRequest);
     });
+    el.addEventListener('change', event => {
+      const target = event.target;
+      if (target?.matches?.('[data-cx-private-banners]')) {
+        root.CrushXHeadsUp?.setPreferences?.({banners:target.checked});
+        showText(target.checked ? 'Browser banners enabled for this session.' : 'Browser banners hidden. Incoming unread counts can still update.');
+      } else if (target?.matches?.('[data-cx-private-preview]')) {
+        root.CrushXHeadsUp?.setPreferences?.({previewText:target.checked});
+        showText(target.checked ? 'Banner text previews enabled for this session.' : 'Banner text previews hidden for this session.');
+      }
+    });
+    el.addEventListener('cancel', event => { event.preventDefault(); close(); });
     el.querySelector('[data-permission-close]').addEventListener('click', close);
     el.addEventListener('close', () => { if (dialog === el) dialog = null; el.remove(); if (opener && opener.isConnected) opener.focus(); });
     if (typeof el.showModal === 'function') el.showModal();
@@ -166,5 +183,6 @@
     };
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
+  document.addEventListener('crushx:session-ended', close);
   root.CrushXPermissions = Object.freeze({open, close, state, refresh, request});
 })(window);
