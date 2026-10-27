@@ -86,7 +86,7 @@ function socialOpenShare(id,preserveParent=false){
       try{await navigator.share({title:'Crush.X sample media',url});msg.textContent='Device sharing completed.';}
       catch(e){if(e?.name!=='AbortError')msg.textContent='Device sharing failed.';}
     };
-  },preserveParent);
+  },preserveParent,true);
 }
 function socialOpenComments(id){
   const s=getState(),item=socialItem(s,id);if(!item)return;
