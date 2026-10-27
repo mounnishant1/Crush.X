@@ -50,8 +50,6 @@ class BehaviorPortGateTests(unittest.TestCase):
         }
 
     def test_snapshot_has_verified_pr_numbers_without_duplicate(self):
-        self.assertEqual([p["number"] for p in gate.checked_manifest(self.manifest)],
-                         []) if False else None
         result = gate.checked_manifest(self.manifest)
         self.assertEqual(len(result["pull_requests"]), 12)
         self.assertEqual(result["canonical_behavior_lineage"][-1], 45)
