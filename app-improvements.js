@@ -240,7 +240,7 @@ renderProfile = function(state) {
     const activeStories = state.stories.filter(item => item.userId === user.id && item.expiresAt > Date.now());
     const grid = [...posts, ...reels].map(item => {
       const url = safeMediaUrl(item.source || item.image);
-      const video = item.mediaType === 'video' || item.contentType?.startsWith('video/') || /\\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
+      const video = item.mediaType === 'video' || item.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
       return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample media">${video ? `<video src="${url}" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>` : `<img src="${url}" alt="Sample post thumbnail" loading="lazy">`}</button>`;
     }).join('');
     return `<main class="cx-public-profile" aria-label="Profile of ${escapeHTML(user.username)}">
