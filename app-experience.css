@@ -11,7 +11,7 @@
 .sv-head img { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; border:1px solid #fff9; }
 .sv-head strong { max-width:43%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; }
 .sv-head small { font-size:11px; color:#fffc; margin-right:auto; }
-.sv-head button { color:white; display:grid; place-items:center; flex:none; width:35px; height:35px; border-radius:50%; background:#0006; }
+.sv-head button { color:white; display:grid; place-items:center; flex:none; width:44px; height:44px; border-radius:50%; background:#0006; }
 .sv-head button svg { width:22px; height:22px; }
 .sv-prev,.sv-next { position:absolute; z-index:3; top:24%; bottom:23%; width:24%; color:#fff; opacity:0; display:flex; align-items:center; }
 .sv-prev { left:0; justify-content:flex-start; }
@@ -19,9 +19,9 @@
 .sv-prev:focus-visible,.sv-next:focus-visible { opacity:1; outline:2px solid white; outline-offset:-4px; }
 .sv-prev:disabled { pointer-events:none; }
 .sv-footer { position:absolute; z-index:5; left:0; right:0; bottom:0; padding:50px 14px calc(15px + env(safe-area-inset-bottom)); background:linear-gradient(transparent,#000b 36%,#000d); }
-.sv-footer button { min-height:40px; color:white; }
+.sv-footer button { min-height:44px; color:white; }
 .sv-reactions { display:flex; justify-content:space-evenly; gap:4px; margin-bottom:11px; }
-.sv-reactions button { font-size:25px; transition:transform .15s; border-radius:30px; padding:4px; }
+.sv-reactions button { min-width:44px; min-height:44px; font-size:25px; transition:transform .15s; border-radius:30px; padding:4px; }
 .sv-reactions button:active { transform:scale(1.25); }
 .sv-footer form { display:flex; gap:8px; }
 .sv-footer input { flex:1; min-width:0; background:#18181cb8; color:white; border:1px solid #fff9; padding:12px 13px; border-radius:25px; }
