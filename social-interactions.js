@@ -160,6 +160,6 @@ showLocalItem=function(id){
     dialog.querySelectorAll('[data-social-friends]').forEach(button=>button.addEventListener('click',()=>socialOpenFriends(id)));
   });
   // A selected item is a secondary screen, not a centered desktop popup.
-  detailDialog.classList.add('cx-media-detail-fullscreen');
+  detailDialog?.classList?.add?.('cx-media-detail-fullscreen');
   return detailDialog;
 };
