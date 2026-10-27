@@ -150,7 +150,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="story"]').click();
     await page.locator('[data-advanced-story-note]').fill('Weekend inspiration');
-    await page.locator('[data-advanced-story-form] button').click();
+    await page.getByRole('button', {name: 'Save Story draft', exact: true}).click();
     assert.equal(await page.evaluate(() => getState().socialStoryDrafts.length), 1);
     await page.locator('[data-close-dialog]').click();
     await page.locator('[data-social-friends="post_1"]').click();
