@@ -54,7 +54,7 @@ function socialMediaUrl(item){
   try{const url=new URL(item.source||item.image||'');return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}
   catch{return '';}
 }
-function socialOpenShare(id){
+function socialOpenShare(id,preserveParent=false){
   const s=getState(),item=socialItem(s,id);if(!item)return;
   const people=s.users.filter(u=>u.id!==s.currentUserId),url=socialMediaUrl(item);
   appDialog('Share '+socialKind(s,item),`<p class="social-disclaimer">Select people and prepare local DM drafts. This does not send or queue any messages.</p>
@@ -86,7 +86,7 @@ function socialOpenShare(id){
       try{await navigator.share({title:'Crush.X sample media',url});msg.textContent='Device sharing completed.';}
       catch(e){if(e?.name!=='AbortError')msg.textContent='Device sharing failed.';}
     };
-  });
+  },preserveParent);
 }
 function socialOpenComments(id){
   const s=getState(),item=socialItem(s,id);if(!item)return;
@@ -155,8 +155,8 @@ showLocalItem=function(id){
       const state=getState(),found=socialItem(state,id);if(!found)return;
       found.saved=!found.saved;saveState(state);save.setAttribute('aria-pressed',String(found.saved));save.textContent=found.saved?'Saved':'Save';
     };
-    dialog.querySelector('[data-social-item-comments]').onclick=()=>socialOpenComments(id);
-    dialog.querySelector('[data-social-item-share]').onclick=()=>socialOpenShare(id);
+    dialog.querySelector('[data-social-item-comments]').onclick=()=>socialOpenComments(id,null,true);
+    dialog.querySelector('[data-social-item-share]').onclick=()=>socialOpenShare(id,true);
     dialog.querySelectorAll('[data-social-friends]').forEach(button=>button.addEventListener('click',()=>socialOpenFriends(id)));
   });
   // A selected item is a secondary screen, not a centered desktop popup.

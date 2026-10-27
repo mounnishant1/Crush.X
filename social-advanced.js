@@ -21,7 +21,7 @@ function advancedModifyComment(itemId,id,action,text=''){
   }else return false;
   saveState(s);return true;
 }
-function advancedComments(itemId,parent=null){
+function advancedComments(itemId,parent=null,preserveParent=false){
   const s=getState(),item=socialItem(s,itemId);if(!item)return;
   const comments=item.comments||[],reply=comments.find(c=>c.id===parent),ordered=[],seen=new Set();
   function walk(parentId,depth){
@@ -41,21 +41,21 @@ function advancedComments(itemId,parent=null){
       <button type="submit" class="social-primary">Post local comment</button></form>`,dialog=>{
     const field=dialog.querySelector('[data-advanced-text]');
     if(reply)field.value='@'+reply.user.replace(/[^\w.]/g,'')+' ';
-    dialog.querySelector('[data-advanced-comment-form]').onsubmit=e=>{e.preventDefault();if(advancedAddComment(itemId,field.value,reply?.id)){dialog.close();advancedComments(itemId);}};
-    dialog.querySelector('[data-advanced-cancel]')?.addEventListener('click',()=>{dialog.close();advancedComments(itemId);});
-    dialog.querySelectorAll('[data-advanced-reply]').forEach(b=>b.addEventListener('click',()=>{dialog.close();advancedComments(itemId,b.dataset.advancedReply);}));
-    dialog.querySelectorAll('[data-advanced-like]').forEach(b=>b.addEventListener('click',()=>{if(advancedModifyComment(itemId,b.dataset.advancedLike,'like')){dialog.close();advancedComments(itemId);}}));
+    dialog.querySelector('[data-advanced-comment-form]').onsubmit=e=>{e.preventDefault();if(advancedAddComment(itemId,field.value,reply?.id)){dialog.close();advancedComments(itemId,null,preserveParent);}};
+    dialog.querySelector('[data-advanced-cancel]')?.addEventListener('click',()=>{dialog.close();advancedComments(itemId,null,preserveParent);});
+    dialog.querySelectorAll('[data-advanced-reply]').forEach(b=>b.addEventListener('click',()=>{dialog.close();advancedComments(itemId,b.dataset.advancedReply,preserveParent);}));
+    dialog.querySelectorAll('[data-advanced-like]').forEach(b=>b.addEventListener('click',()=>{if(advancedModifyComment(itemId,b.dataset.advancedLike,'like')){dialog.close();advancedComments(itemId,null,preserveParent);}}));
     dialog.querySelectorAll('[data-advanced-delete]').forEach(b=>b.addEventListener('click',()=>{
       if(!window.confirm?.('Delete this local comment and replies?'))return;
-      if(advancedModifyComment(itemId,b.dataset.advancedDelete,'delete')){dialog.close();advancedComments(itemId);}
+      if(advancedModifyComment(itemId,b.dataset.advancedDelete,'delete')){dialog.close();advancedComments(itemId,null,preserveParent);}
     }));
     dialog.querySelectorAll('[data-advanced-edit]').forEach(b=>b.addEventListener('click',()=>{
       const c=socialItem(getState(),itemId)?.comments?.find(c=>c.id===b.dataset.advancedEdit);if(!c)return;
       dialog.close();appDialog('Edit local comment',`<form data-advanced-edit-form class="social-flow-form"><label>Edit<textarea data-advanced-edit-text maxlength="2000">${escapeHTML(c.text)}</textarea></label><button type="submit" class="social-primary">Save edit</button></form>`,edit=>{
-        edit.querySelector('[data-advanced-edit-form]').onsubmit=e=>{e.preventDefault();if(advancedModifyComment(itemId,c.id,'edit',edit.querySelector('[data-advanced-edit-text]').value)){edit.close();advancedComments(itemId);}};
-      });
+        edit.querySelector('[data-advanced-edit-form]').onsubmit=e=>{e.preventDefault();if(advancedModifyComment(itemId,c.id,'edit',edit.querySelector('[data-advanced-edit-text]').value)){edit.close();advancedComments(itemId,null,preserveParent);}};
+      },preserveParent);
     }));
-  });
+  },preserveParent);
 }
 function advancedCreateCollection(name){
   const value=String(name||'').trim().slice(0,45);if(!value)return null;
@@ -205,9 +205,10 @@ renderProfile=function(s){
     <button data-advanced-hidden>Hidden & muted</button></div></section></main>`);
 };
 socialOpenComments=advancedComments;
-socialOpenShare=function(id){
-  advancedOldShare(id);
-  const section=document.querySelector('dialog[data-app-dialog] section');if(!section)return;
+socialOpenShare=function(id,preserveParent=false){
+  advancedOldShare(id,preserveParent);
+  const dialogs=[...document.querySelectorAll('dialog[data-app-dialog][open]')];
+  const section=dialogs.at(-1)?.querySelector('section');if(!section)return;
   const b=document.createElement('button');b.type='button';b.className='advanced-link-button';b.textContent='Add to Story draft · not published';
   section.append(b);b.onclick=()=>{section.closest('dialog').close();advancedStoryDraft(id);};
 };
