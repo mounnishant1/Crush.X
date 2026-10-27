@@ -127,6 +127,32 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.evaluate(() => getState().posts[0].comments.at(-1).text), 'Unsent comment should remain');
 
     await page.locator('[data-advanced-comments="post_1"]').click();
+    // Comments must be a docked, independently scrolling sheet, not a center popup.
+    const checkSocialSheet = async expanded => {
+      const metrics = await page.locator('dialog.cx-social-sheet[open]').evaluate(d => {
+        const rect=d.getBoundingClientRect();
+        const section=d.querySelector('section');
+        const expand=d.querySelector('[data-sheet-expand]').getBoundingClientRect();
+        const close=d.querySelector('[data-close-dialog]').getBoundingClientRect();
+        return {left:rect.left,right:rect.right,bottom:rect.bottom,height:rect.height,
+          width:innerWidth,viewportHeight:innerHeight,scroll:getComputedStyle(section).overscrollBehaviorY,
+          expandWidth:expand.width,expandHeight:expand.height,closeWidth:close.width,closeHeight:close.height};
+      });
+      assert.ok(Math.abs(metrics.left)<2 && Math.abs(metrics.right-metrics.width)<2 &&
+        Math.abs(metrics.bottom-metrics.viewportHeight)<2,'Social sheet must dock to bottom and fill width');
+      assert.ok(expanded ? Math.abs(metrics.height-metrics.viewportHeight)<2
+        : metrics.height>metrics.viewportHeight*.5 && metrics.height<metrics.viewportHeight*.7,
+        'Social sheet should expand to full screen and collapse to partial screen');
+      assert.equal(metrics.scroll,'contain','Social sheet must scroll internally');
+      assert.ok([metrics.expandWidth,metrics.expandHeight,metrics.closeWidth,metrics.closeHeight].every(n=>n>=44),
+        'Expand and Close targets must be 44px');
+    };
+    await checkSocialSheet(false);
+    await page.locator('[data-sheet-expand]').click();
+    await checkSocialSheet(true);
+    assert.equal(await page.locator('[data-sheet-expand]').getAttribute('aria-expanded'),'true');
+    await page.locator('[data-sheet-expand]').click();
+    await checkSocialSheet(false);
     await page.locator('[data-advanced-text]').fill('<img src=x onerror=alert(1)>');
     await page.locator('[data-advanced-comment-form] button[type="submit"]').click();
     assert.equal(await page.locator('dialog img[src="x"]').count(), 0);
@@ -198,6 +224,10 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.match(await page.locator('#messageDraft').inputValue(), /Brilliant photo!/);
     await page.evaluate(() => navigate('home'));
     await page.locator('[data-social-share="post_1"]').click();
+    await checkSocialSheet(false);
+    await page.locator('[data-sheet-expand]').click();
+    await checkSocialSheet(true);
+    await page.locator('[data-sheet-expand]').click();
     await page.locator('[data-social-recipient][value="user_3"]').check();
     await page.locator('[data-social-note]').fill('Look at this!');
     await page.locator('[data-social-share-form] button[type="submit"]').click();
@@ -718,6 +748,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('dialog[data-app-dialog][open]').count(),2,
       'Opening item comments must preserve the underlying detail');
     assert.equal(await page.locator('dialog[data-app-dialog][open] .advanced-thread').count(),1);
+    await checkSocialSheet(false);
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.querySelectorAll('dialog[data-app-dialog][open]').length===1);
     assert.equal(await page.locator('dialog.cx-media-detail-fullscreen[open]').count(),1,
@@ -726,6 +757,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('dialog[data-app-dialog][open]').count(),2,
       'Opening item share must preserve the underlying detail');
     assert.equal(await page.locator('dialog[data-app-dialog][open] .social-recipient-list').count(),1);
+    await checkSocialSheet(false);
     assert.equal(await page.locator('dialog[data-app-dialog][open] .advanced-link-button').count(),1,
       'Advanced Story draft link belongs to the share sheet, not the detail');
     await page.keyboard.press('Escape');
