@@ -117,7 +117,15 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     const before = await page.evaluate(() => getState().posts[0].likes);
     await like.click(); assert.equal(await page.evaluate(() => getState().posts[0].likes), before + 1);
     await like.click(); assert.equal(await page.evaluate(() => getState().posts[0].likes), before);
-    await page.locator('[data-save="post_1"]').click(); assert.equal(await page.evaluate(() => getState().posts[0].saved), true);
+    // Step 4: unsent post comments survive likes/saves but not a completed submit.
+    await page.locator('[data-comment-input="post_1"]').fill('Unsent comment should remain');
+    await page.locator('[data-save="post_1"]').click();
+    assert.equal(await page.locator('[data-comment-input="post_1"]').inputValue(), 'Unsent comment should remain');
+    assert.equal(await page.evaluate(() => getState().posts[0].saved), true, 'Single save remains saved');
+    await page.locator('[data-comment-send="post_1"]').click();
+    assert.equal(await page.locator('[data-comment-input="post_1"]').inputValue(), '');
+    assert.equal(await page.evaluate(() => getState().posts[0].comments.at(-1).text), 'Unsent comment should remain');
+
     await page.locator('[data-advanced-comments="post_1"]').click();
     await page.locator('[data-advanced-text]').fill('<img src=x onerror=alert(1)>');
     await page.locator('[data-advanced-comment-form] button[type="submit"]').click();
@@ -195,6 +203,23 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('main video').evaluate(async video => { await video.play(); });
     await page.waitForFunction(() => document.querySelector('main video')?.currentTime > 0.1);
     await page.locator('main video').evaluate(video => video.pause());
+    // Step 4: reel scrub, global mute, and non-destructive hold controls.
+    assert.equal(await page.locator('[data-reel-progress="video_test"]').count(), 1);
+    await page.locator('[data-reel-mute="video_test"]').click();
+    assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), false, 'Unmute should enable video sound');
+    await page.evaluate(() => renderApp());
+    assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), false, 'Re-render preserves sound choice');
+    await page.locator('[data-reel-mute="video_test"]').click();
+    assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), true, 'Re-mute affects all reel videos');
+    await page.evaluate(() => {
+      const visual=document.querySelector('[data-reel-visual="video_test"]');
+      const box=visual.getBoundingClientRect();
+      visual.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true,isPrimary:true,button:0,clientX:box.left+20,clientY:box.top+box.height*.25}));
+    });
+    await page.waitForTimeout(260);
+    assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.playbackRate), 2, 'Upper hold sets temporary 2x');
+    await page.locator('[data-reel-visual="video_test"]').evaluate(visual => visual.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,isPrimary:true,button:0})));
+    assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.playbackRate), 1, 'Releasing restores previous speed');
     await page.locator('[data-comment-input="video_test"]').fill('Local reel comment'); await page.locator('[data-comment-send="video_test"]').click();
     assert.equal(await page.evaluate(() => getState().reels.find(r => r.id === 'video_test').comments.length), 1);
     // Reels: a wheel burst is one item, media-area touch is one item, keyboard remains usable.
@@ -378,6 +403,10 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('dialog.story-viewer').count(),1);
     await page.locator('[data-sv="next"]').click();
     assert.match(await page.locator('dialog.story-viewer').textContent(),/2\/3/);
+    await page.locator('[data-sv-stage]').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.match(await page.locator('dialog.story-viewer').textContent(),/3\/3/,'Stage ArrowRight moves one story');
+
     await page.keyboard.press('Escape');
     await page.waitForFunction(()=>!document.querySelector('dialog.story-viewer'));
     await page.locator('[data-feed-filter="following"]').click();
