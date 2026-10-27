@@ -254,7 +254,50 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       return deck && Math.abs(deck.scrollTop - deck.clientHeight) < 3;
     });
     await page.evaluate(() => navigate('messages'));
+    assert.equal(await page.locator('main.cx-message-screen').count(), 1);
+    await page.locator('[data-cx-group-new]').click();
+    assert.equal(await page.locator('main[aria-label="Group draft editor"]').count(), 1);
+    await page.locator('[data-cx-group-save]').click();
+    assert.match(await page.locator('[data-cx-group-status]').textContent(), /at least two/i);
+    await page.locator('[data-cx-group-member][value="user_1"]').check();
+    await page.locator('[data-cx-group-member][value="user_2"]').check();
+    await page.locator('[data-cx-group-note]').fill('Plan a local trip');
+    await page.locator('[data-cx-group-save]').click();
+    assert.match(await page.locator('[data-cx-group-status]').textContent(), /No invitation or message sent/);
+    assert.equal(await page.evaluate(() => cxGroupDraft.members.length), 2);
+    await page.locator('[data-cx-group-back]').click();
     await page.locator('[data-chat-user="user_1"]').click();
+    assert.equal(await page.locator('main.cx-chat-screen').count(), 1);
+    assert.equal(await page.locator('[data-cx-unavailable]').count(), 3);
+    await page.locator('[data-cx-unavailable="voice"]').click();
+    assert.match(await page.locator('dialog.app-dialog').textContent(), /No call or connection was started/);
+    await page.locator('[data-close-dialog]').click();
+    // Synthetic microphone is used solely for a browser test; real permission is not requested.
+    await page.evaluate(() => {
+      window.cxTestTracksStopped = 0;
+      Object.defineProperty(navigator, 'mediaDevices', { configurable:true, value:{
+        getUserMedia: async () => ({ getTracks: () => [{ stop(){ window.cxTestTracksStopped++; } }] })
+      }});
+      window.MediaRecorder = class {
+        constructor(stream){ this.stream=stream; this.state='inactive'; this.mimeType='audio/webm'; }
+        start(){ this.state='recording'; }
+        stop(){
+          this.state='inactive';
+          this.ondataavailable?.({data:new Blob(['voice-draft-audio'],{type:'audio/webm'})});
+          this.onstop?.();
+        }
+      };
+    });
+    await page.locator('[data-cx-voice-start]').click();
+    await page.waitForFunction(() => document.querySelector('[data-cx-voice-stop]')?.disabled === false);
+    await page.locator('[data-cx-voice-stop]').click();
+    await page.waitForFunction(() => !!document.querySelector('[data-cx-voice-preview]'));
+    assert.match(await page.locator('[data-cx-voice-status]').textContent(), /Nothing has been sent/);
+    assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 1);
+    assert.equal(await page.evaluate(() => window.cxTestTracksStopped), 1, 'Microphone tracks must stop');
+    await page.locator('[data-cx-voice-delete]').click();
+    assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0);
+    assert.equal(await page.locator('[data-cx-voice-preview]').count(), 0);
     await page.locator('#messageDraft').fill('Only a draft');
     await page.locator('#messagesBack').click();
     await page.locator('[data-chat-user="user_1"]').click();
