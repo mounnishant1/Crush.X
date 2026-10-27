@@ -55,7 +55,7 @@ function advancedComments(itemId,parent=null,preserveParent=false){
         edit.querySelector('[data-advanced-edit-form]').onsubmit=e=>{e.preventDefault();if(advancedModifyComment(itemId,c.id,'edit',edit.querySelector('[data-advanced-edit-text]').value)){edit.close();advancedComments(itemId,null,preserveParent);}};
       },preserveParent);
     }));
-  },preserveParent);
+  },preserveParent,true);
 }
 function advancedCreateCollection(name){
   const value=String(name||'').trim().slice(0,45);if(!value)return null;
