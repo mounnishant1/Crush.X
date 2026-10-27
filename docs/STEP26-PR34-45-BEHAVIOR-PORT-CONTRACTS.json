@@ -1,0 +1,344 @@
+{
+  "schema_version": 1,
+  "repository": "mounnishant1/Crush.X",
+  "captured_utc": "2026-10-27",
+  "scope": "Previously passing browser-source PRs; not proof of v402 Android integration",
+  "canonical_behavior_lineage": [
+    34,
+    37,
+    38,
+    39,
+    41,
+    42,
+    43,
+    44,
+    45
+  ],
+  "alternate_overlapping_prs": [
+    35,
+    36
+  ],
+  "incorporated_by_manual_adaptation": {
+    "40": 42
+  },
+  "policy": "NO_DIRECT_BROWSER_FILE_COPY; MANUAL_REACT_PORT_ONLY",
+  "pull_requests": [
+    {
+      "number": 34,
+      "head": "aa545959daebd2743f258fc24856da8cde01d32d",
+      "base": "audit/v402-zip-safety-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "reels-gestures"
+    },
+    {
+      "number": 35,
+      "head": "0539b7191d1cf45964c5ae3a9267552c9043ba68",
+      "base": "audit/v402-source-audit-consolidation-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "tests/experience-flows.cjs"
+      ],
+      "feature": "story-pointer-alternative"
+    },
+    {
+      "number": 36,
+      "head": "cfe4942452c31f5d3537d7b360e6c55ab4d7b2ec",
+      "base": "fix/story-pointer-ownership-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "reels-touch-alternative"
+    },
+    {
+      "number": 37,
+      "head": "c8e1749a04cd8e82c772e58945908262bcab61b7",
+      "base": "fix/reel-single-burst-and-touch-identity-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "tests/experience-flows.cjs",
+        "tests/frontend.cjs"
+      ],
+      "feature": "story-gestures"
+    },
+    {
+      "number": 38,
+      "head": "cdaf0bf7364c74e78104133ed3577d3367641370",
+      "base": "fix/story-gesture-pointer-ownership-20261027",
+      "changed_paths": [
+        "index.html",
+        "tests/frontend.cjs"
+      ],
+      "feature": "messages-back"
+    },
+    {
+      "number": 39,
+      "head": "57db7d473794445445456caa528566fc00b37368",
+      "base": "fix/messages-back-history-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "index.html",
+        "tests/frontend.cjs"
+      ],
+      "feature": "profile-back"
+    },
+    {
+      "number": 40,
+      "head": "304bc7fda1184a8f161e7f308e1b459231d03361",
+      "base": "fix/story-gesture-pointer-ownership-20261027",
+      "changed_paths": [
+        "app-experience.css",
+        "docs/WHOLE-APP-RELEASE-ACCEPTANCE-20261027.md",
+        "tests/frontend.cjs"
+      ],
+      "feature": "story-fullscreen-reference"
+    },
+    {
+      "number": 41,
+      "head": "c4b3de3698455da3034a3b799330b684ce047672",
+      "base": "fix/profile-back-history-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "group-back"
+    },
+    {
+      "number": 42,
+      "head": "64cb60cc71c6db5d8c47e07003450d1252592edd",
+      "base": "fix/group-draft-back-deeplink-20261027",
+      "changed_paths": [
+        "app-experience.css",
+        "docs/WHOLE-APP-RELEASE-ACCEPTANCE-20261027.md",
+        "tests/frontend.cjs"
+      ],
+      "feature": "story-fullscreen-consolidated"
+    },
+    {
+      "number": 43,
+      "head": "a0b2a35b38e7828b0aca847a7c06289f6bbbcc0a",
+      "base": "audit/navigation-story-fullscreen-consolidated-20261027",
+      "changed_paths": [
+        "app-experience.css",
+        "social-interactions.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "media-detail"
+    },
+    {
+      "number": 44,
+      "head": "6d755fe008aaad10a9f8637ccda5ad1e7db0b4c5",
+      "base": "fix/media-detail-fullscreen-20261027",
+      "changed_paths": [
+        "app-improvements.js",
+        "social-advanced.js",
+        "social-interactions.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "nested-overlay-back"
+    },
+    {
+      "number": 45,
+      "head": "b9c815b7f4c1fe2960000e4da67f36232c064972",
+      "base": "fix/media-detail-nested-back-20261027",
+      "changed_paths": [
+        "app-experience.css",
+        "app-improvements.js",
+        "social-advanced.js",
+        "social-interactions.js",
+        "tests/frontend.cjs"
+      ],
+      "feature": "comments-share-expand"
+    }
+  ],
+  "behavior_contracts": [
+    {
+      "key": "reels-gestures",
+      "priority": "P0",
+      "terms": [
+        "reel",
+        "player",
+        "feed"
+      ],
+      "tokens": [
+        "touch",
+        "pointer",
+        "swipe",
+        "scroll"
+      ],
+      "expect": [
+        "one gesture -> one reel",
+        "multi-touch ownership",
+        "overscroll, wheel burst control"
+      ]
+    },
+    {
+      "key": "story-gestures",
+      "priority": "P0",
+      "terms": [
+        "story",
+        "stories",
+        "viewer"
+      ],
+      "tokens": [
+        "touch",
+        "pointer",
+        "swipe",
+        "gesture"
+      ],
+      "expect": [
+        "one gesture -> one story",
+        "secondary-finger ignored",
+        "vertical scroll not treated as skip"
+      ]
+    },
+    {
+      "key": "story-fullscreen-consolidated",
+      "priority": "P0",
+      "terms": [
+        "story",
+        "viewer"
+      ],
+      "tokens": [
+        "safe-area",
+        "100dvh",
+        "height",
+        "close"
+      ],
+      "expect": [
+        "full screen across mobile/tablet",
+        "safe-area aware close",
+        "44px controls"
+      ]
+    },
+    {
+      "key": "messages-back",
+      "priority": "P0",
+      "terms": [
+        "message",
+        "chat",
+        "inbox",
+        "route"
+      ],
+      "tokens": [
+        "back",
+        "history",
+        "navigate",
+        "popstate"
+      ],
+      "expect": [
+        "inbox-owned chat Back no new entry",
+        "direct-link safe fallback",
+        "Forward restores target"
+      ]
+    },
+    {
+      "key": "group-back",
+      "priority": "P0",
+      "terms": [
+        "group",
+        "message",
+        "chat"
+      ],
+      "tokens": [
+        "back",
+        "history",
+        "navigate",
+        "escape"
+      ],
+      "expect": [
+        "group draft Back/Escape from inbox",
+        "direct group link keeps user in app"
+      ]
+    },
+    {
+      "key": "profile-back",
+      "priority": "P0",
+      "terms": [
+        "profile",
+        "route",
+        "app"
+      ],
+      "tokens": [
+        "back",
+        "navigate",
+        "popstate",
+        "history"
+      ],
+      "expect": [
+        "profile Back/Forward stable",
+        "deep link replace fallback"
+      ]
+    },
+    {
+      "key": "media-detail",
+      "priority": "P1",
+      "terms": [
+        "post",
+        "media",
+        "profile",
+        "grid"
+      ],
+      "tokens": [
+        "dialog",
+        "modal",
+        "fullscreen",
+        "sheet"
+      ],
+      "expect": [
+        "opened media uses full viewport",
+        "44px Close",
+        "focus restore"
+      ]
+    },
+    {
+      "key": "nested-overlay-back",
+      "priority": "P1",
+      "terms": [
+        "comment",
+        "share",
+        "post",
+        "media"
+      ],
+      "tokens": [
+        "modal",
+        "dialog",
+        "back",
+        "escape"
+      ],
+      "expect": [
+        "Comments/Share preserves media detail",
+        "Escape dismisses top layer only"
+      ]
+    },
+    {
+      "key": "comments-share-expand",
+      "priority": "P1",
+      "terms": [
+        "comment",
+        "share",
+        "sheet"
+      ],
+      "tokens": [
+        "expand",
+        "scroll",
+        "safe-area",
+        "dialog"
+      ],
+      "expect": [
+        "partial->full sheet",
+        "independent scroll",
+        "44px Close/Expand"
+      ]
+    }
+  ],
+  "caveats": [
+    "#35/#36 overlap #34/#37; do not cherry-pick together without manual diff",
+    "#40 Story UI changes were manually consolidated into #42; avoid double-applying CSS",
+    "#34-#45 are legacy browser-preview PRs; React/Capacitor v402 requires component-level rewrite",
+    "Evidence is pinned at capture time; not a signed distribution manifest."
+  ]
+}
