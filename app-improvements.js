@@ -38,6 +38,7 @@ let pcDraft = pcFresh();
 
 // Step 6 is a browser-local preview, NOT a connected messenger or WebRTC calling service.
 const cxVoiceDrafts = new Map();
+let cxLocalMessagingOwnerId = null;
 let cxGroupDraft = { open: false, members: [], note: '', saved: false };
 let cxVoiceRecorder = null, cxVoiceStream = null, cxVoiceChunks = [], cxVoiceChatId = null;
 let cxVoiceToken = 0, cxVoiceTimer = null, cxVoiceNotice = '';
@@ -751,6 +752,15 @@ bindRepairEvents = function() {
 };
 renderApp = function() {
   const cxRoute = getState();
+  if (cxLocalMessagingOwnerId !== cxRoute.currentUserId) {
+    // Do not leak in-memory group drafts or voice object URLs across local personas.
+    cxVoiceDiscardActive();
+    for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url);
+    cxVoiceDrafts.clear();
+    cxGroupDraft = { open: false, members: [], note: '', saved: false };
+    cxVoiceNotice = '';
+    cxLocalMessagingOwnerId = cxRoute.currentUserId;
+  }
   if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
   if (cxRoute.activeTab !== 'messages') cxGroupDraft.open = false;
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
