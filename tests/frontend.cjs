@@ -511,6 +511,48 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-open-story]').first().focus();
     await page.locator('[data-open-story]').first().press('Enter');
     assert.equal(await page.locator('dialog.story-viewer').count(),1);
+    // Step 6: a Story swipe must be owned by its initiating pointer and
+    // must not turn vertical movement or a second finger into navigation.
+    const storyGestureRegression = await page.evaluate(() => {
+      const stage = document.querySelector('[data-sv-stage]');
+      const send = (kind, id, x, y, isPrimary=true) =>
+        stage.dispatchEvent(new PointerEvent(kind, {
+          bubbles:true, cancelable:true, button:0, isPrimary,
+          pointerId:id, pointerType:'touch', clientX:x, clientY:y
+        }));
+      const first = storyViewerIndex;
+      send('pointerdown', 31, 250, 240);
+      send('pointerup', 32, 40, 243);
+      const wrongFingerIgnored = storyViewerIndex === first && storyViewerPointerId === 31 && storyViewerHold;
+      send('pointerup', 31, 255, 242);
+      const released = storyViewerPointerId === null && !storyViewerHold;
+      send('pointerdown', 41, 250, 240);
+      send('pointerdown', 42, 245, 242, false);
+      send('pointerup', 42, 30, 240, false);
+      send('pointerup', 41, 40, 240);
+      const multitouchIgnored = storyViewerIndex === first && storyViewerPointerId === null;
+      send('pointerdown', 51, 250, 240);
+      send('pointerup', 51, 120, 50);
+      const verticalIgnored = storyViewerIndex === first;
+      send('pointerdown', 61, 250, 240);
+      send('pointercancel', 61, 200, 240);
+      const cancelReleased = storyViewerPointerId === null && !storyViewerHold;
+      send('pointerdown', 71, 250, 240);
+      send('pointerup', 71, 80, 240);
+      const oneHorizontalSwipe = storyViewerIndex === first + 1;
+      const nextStage = document.querySelector('[data-sv-stage]');
+      nextStage.dispatchEvent(new MouseEvent('click', {bubbles:true, clientX:290, clientY:240}));
+      const ghostClickIgnored = storyViewerIndex === first + 1;
+      return {wrongFingerIgnored,released,multitouchIgnored,verticalIgnored,cancelReleased,
+        oneHorizontalSwipe,ghostClickIgnored,hold:storyViewerHold,active:storyViewerPointerId};
+    });
+    assert.deepEqual(storyGestureRegression, {
+      wrongFingerIgnored:true, released:true, multitouchIgnored:true, verticalIgnored:true,
+      cancelReleased:true, oneHorizontalSwipe:true, ghostClickIgnored:true, hold:false,active:null
+    });
+    // Reopen resets swipe suppression and pointer ownership.
+    await page.evaluate(() => {closeStoryViewer();openSampleStory(getState().stories[0].id);});
+    assert.equal(await page.evaluate(()=>storyViewerPointerId),null);
     await page.locator('[data-sv="next"]').click();
     assert.match(await page.locator('dialog.story-viewer').textContent(),/2\/3/);
     await page.locator('[data-sv-stage]').focus();

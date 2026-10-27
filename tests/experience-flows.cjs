@@ -57,9 +57,31 @@ dialogs[0].events.input({target:{value:'test unsent reply',matches(selector){ret
 assert.equal(run('storyViewerDrafts["story_2"]'),'test unsent reply');
 dialogs[0].events.submit({target:{matches(selector){return selector==='[data-sv-reply-form]';}},preventDefault(){}});
 assert.match(dialogs[0].innerHTML,/no message sent/);
-dialogs[0].events.pointerdown({pointerId:3,clientX:250,target:{closest(selector){return selector==='[data-sv-stage]'?{setPointerCapture(){}}:null;}}});
-dialogs[0].events.pointerup({pointerId:3,clientX:120});
-assert.equal(run('storyViewerIndex'),2);
+// Events must resemble real PointerEvents (button, isPrimary, X/Y coordinates).
+const storyStage={setPointerCapture(){}};
+const storyPointer=(id,x,y,isPrimary=true)=>({
+  pointerId:id,clientX:x,clientY:y,isPrimary,button:0,
+  target:{closest(selector){return selector==='[data-sv-stage]'?storyStage:null;}}
+});
+dialogs[0].events.pointerdown(storyPointer(3,250,240));
+dialogs[0].events.pointerup(storyPointer(4,120,240));
+assert.equal(run('storyViewerIndex'),1,'foreign pointer must not finish the swipe');
+assert.equal(run('storyViewerHold'),true);
+dialogs[0].events.pointerup(storyPointer(3,255,241));
+assert.equal(run('storyViewerHold'),false);
+dialogs[0].events.pointerdown(storyPointer(5,250,240));
+dialogs[0].events.pointerdown(storyPointer(6,250,240,false));
+dialogs[0].events.pointerup(storyPointer(5,120,240));
+assert.equal(run('storyViewerIndex'),1,'multitouch must cancel story navigation');
+dialogs[0].events.pointerdown(storyPointer(7,250,240));
+dialogs[0].events.pointerup(storyPointer(7,120,50));
+assert.equal(run('storyViewerIndex'),1,'vertical drag must not navigate');
+dialogs[0].events.pointerdown(storyPointer(8,250,240));
+dialogs[0].events.pointercancel(storyPointer(8,220,240));
+assert.equal(run('storyViewerHold'),false,'cancel releases hold');
+dialogs[0].events.pointerdown(storyPointer(9,250,240));
+dialogs[0].events.pointerup(storyPointer(9,120,240));
+assert.equal(run('storyViewerIndex'),2,'horizontal swipe moves one story');
 run('storyViewerMove(-1)');
 const eventFor=(action,props={})=>({target:{closest(selector){return selector==='[data-sv]'?{dataset:{sv:action,...props}}:null;}}});
 context.clickEvent=eventFor('reaction',{svEmoji:'🔥'});
