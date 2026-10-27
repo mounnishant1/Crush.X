@@ -1592,7 +1592,12 @@
       saveState(state);
       const routeId = tab === 'messages' ? state.chatUserId : tab === 'profile' && typeof appProfileUserId !== 'undefined' ? appProfileUserId : null;
       const hash = `#${tab}${routeId ? '/' + encodeURIComponent(routeId) : ''}`;
-      if (push && location.hash !== hash) history.pushState(null, '', hash);
+      if (push && location.hash !== hash) {
+        // A chat opened from Messages inbox is nested in the existing route;
+        // the Back control must not push another inbox entry.
+        const openedFromInbox = tab === 'messages' && Boolean(state.chatUserId) && location.hash === '#messages';
+        history.pushState(openedFromInbox ? { cxChatFromInbox: true } : null, '', hash);
+      }
       renderApp();
       window.scrollTo(0, 0);
     }
@@ -1636,7 +1641,18 @@
         } catch (error) { if (error.name !== 'AbortError') status('Sharing failed. Please try again.'); }
       }));
       document.querySelectorAll('[data-chat-user]').forEach(button => button.addEventListener('click', () => navigate('messages', button.dataset.chatUser)));
-      document.getElementById('messagesBack')?.addEventListener('click', () => navigate('messages'));
+      document.getElementById('messagesBack')?.addEventListener('click', () => {
+        if (location.hash.startsWith('#messages/')) {
+          if (history.state?.cxChatFromInbox === true) {
+            history.back();
+          } else {
+            // Direct deep links have no guaranteed inbox entry to go back to.
+            // Replace their URL with the inbox rather than creating a Back loop.
+            history.replaceState(null, '', '#messages');
+            routeFromLocation();
+          }
+        } else navigate('messages');
+      });
       document.getElementById('messageDraft')?.addEventListener('input', event => {
         const state = getState(); state.messageDrafts ||= {}; state.messageDrafts[state.chatUserId] = event.target.value.slice(0, 4000); saveState(state);
       });
