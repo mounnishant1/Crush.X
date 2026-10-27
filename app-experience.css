@@ -197,3 +197,34 @@
   .cx-messages-toolbar h1 { font-size:17px; }
   .cx-voice-actions button,.cx-call-actions button { flex:1 1 auto; }
 }
+
+/* Step 7: edge-to-edge Activity and Privacy screens; app dialogs elsewhere stay sized. */
+.app-dialog.cx-permissions-dialog,.app-dialog.cx-activity-fullscreen {
+  position:fixed; inset:0; margin:0; width:100vw; max-width:100vw;
+  height:100dvh; max-height:100dvh; padding:0; border:0; border-radius:0;
+  overflow:hidden; box-sizing:border-box; background:var(--strong); color:var(--text);
+}
+.cx-permissions-dialog>section,.cx-activity-fullscreen>section {
+  box-sizing:border-box; width:100%; max-width:760px; height:100%; margin:0 auto;
+  overflow-y:auto; overscroll-behavior-y:contain;
+  padding:calc(12px + env(safe-area-inset-top)) 20px calc(18px + env(safe-area-inset-bottom));
+}
+.cx-permissions-dialog>section>header,.cx-activity-fullscreen>section>header {
+  position:sticky; top:calc(-12px - env(safe-area-inset-top)); z-index:4;
+  background:var(--strong); min-height:54px; padding:12px 0;
+  border-bottom:1px solid var(--line);
+}
+.cx-permissions-dialog [data-permission-request] { min-height:44px; }
+.cx-permissions-dialog [data-permission-kind] { min-width:0; }
+.cx-permissions-dialog [data-permission-kind]>div { min-width:0; overflow-wrap:anywhere; }
+.cx-activity-fullscreen .social-notif-items { max-height:none; overflow:visible; }
+.cx-local-privacy { display:grid; gap:12px; border-top:1px solid var(--line); padding-top:18px; margin-top:20px; }
+.cx-local-privacy h3 { font-size:17px; font-weight:800; }
+.cx-local-privacy p { color:var(--muted); font-size:12px; line-height:1.55; }
+.cx-local-privacy label { display:flex; min-width:0; gap:12px; align-items:center; min-height:48px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; cursor:pointer; }
+.cx-local-privacy input { width:21px; height:21px; flex:none; accent-color:#db2777; }
+.cx-local-privacy input:focus-visible { outline:2px solid #db2777; outline-offset:3px; }
+@media(max-width:639px) {
+ .cx-permissions-dialog>section,.cx-activity-fullscreen>section { max-width:none; padding-inline:13px; }
+ .cx-activity-fullscreen .social-notif-tabs button { min-height:44px; }
+}
