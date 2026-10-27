@@ -600,6 +600,9 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await assertStoryFullScreen();
     await page.setViewportSize({width:320,height:640});
     await assertStoryFullScreen();
+    // The first Story belongs to the local sample owner and intentionally
+    // has no reply/reaction form. Test the second person's Story instead.
+    await page.evaluate(() => openSampleStory('story_2'));
     // Verify actual actionable reaction and reply controls, not visual sizes alone.
     const footerTouchControls = await page.locator('dialog.story-viewer .sv-reactions button, dialog.story-viewer .sv-footer form button').evaluateAll(
       buttons => buttons.map(button => {
@@ -609,6 +612,8 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.ok(footerTouchControls.length >= 6 &&
       footerTouchControls.every(control => control.width >= 44 && control.height >= 44),
       'Story reaction and reply buttons must remain usable at 320px width');
+    // Restore the owner's first Story before existing gesture regressions.
+    await page.evaluate(() => openSampleStory('story_1'));
     // Step 6: a Story swipe must be owned by its initiating pointer and
     // must not turn vertical movement or a second finger into navigation.
     const storyGestureRegression = await page.evaluate(() => {
