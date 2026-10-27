@@ -17,6 +17,7 @@ namespace CrushX.LensEngine
         private GestureOwner owner;
         private bool waitForAllReleased;
         private int gestureWidth, gestureHeight;
+        private int activeTouchId = -1;
 
         private void Awake() { Resolve(); }
         private void Resolve()
@@ -48,9 +49,10 @@ namespace CrushX.LensEngine
             if (owner == GestureOwner.Shutter && ui != null) ui.EndShutter(true);
             if (carousel != null) carousel.CancelDrag();
             owner = GestureOwner.None;
+            activeTouchId = -1;
         }
 
-        private void Begin(Vector2 position)
+        private void Begin(Vector2 position, int touchId = -1)
         {
             Cancel();
             if (waitForAllReleased) return;
@@ -65,13 +67,16 @@ namespace CrushX.LensEngine
                 else if ((ui != null ? ui.CameraGestureRect : layout.CameraGesture(false)).Contains(point))
                     owner = GestureOwner.Camera;
             }
+            activeTouchId = touchId;
             startPosition = position;
             gestureWidth = Screen.width;
             gestureHeight = Screen.height;
         }
 
-        private void Move(Vector2 position)
+        private void Move(Vector2 position, int touchId = -1)
         {
+            if (owner != GestureOwner.None && activeTouchId != touchId)
+            { Cancel(); waitForAllReleased = true; return; }
             if (gestureWidth != Screen.width || gestureHeight != Screen.height) { Cancel(); return; }
             if (owner == GestureOwner.Carousel && carousel != null)
                 carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
@@ -80,10 +85,13 @@ namespace CrushX.LensEngine
                 Cancel();
         }
 
-        private void End(Vector2 position, bool canceled)
+        private void End(Vector2 position, bool canceled, int touchId = -1)
         {
+            if (owner != GestureOwner.None && activeTouchId != touchId)
+            { Cancel(); waitForAllReleased = true; return; }
             GestureOwner completed = owner;
             owner = GestureOwner.None;
+            activeTouchId = -1;
             if (completed == GestureOwner.Shutter) { if (ui != null) ui.EndShutter(canceled); return; }
             if (carousel != null) carousel.CancelDrag();
             if (canceled) return;
@@ -116,10 +124,10 @@ namespace CrushX.LensEngine
                 if (pressed > 1) { Cancel(); waitForAllReleased = true; return; }
                 if (waitForAllReleased) { if (pressed == 0) waitForAllReleased = false; return; }
                 var touch = screen.primaryTouch;
-                if (touch.press.wasPressedThisFrame) Begin(touch.position.ReadValue());
-                if (touch.press.isPressed) Move(touch.position.ReadValue());
+                if (touch.press.wasPressedThisFrame) Begin(touch.position.ReadValue(), touch.touchId.ReadValue());
+                if (touch.press.isPressed) Move(touch.position.ReadValue(), touch.touchId.ReadValue());
                 if (touch.press.wasReleasedThisFrame)
-                    End(touch.position.ReadValue(), touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled);
+                    End(touch.position.ReadValue(), touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled, touch.touchId.ReadValue());
                 if (touch.press.isPressed || touch.press.wasReleasedThisFrame) return;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
@@ -136,10 +144,10 @@ namespace CrushX.LensEngine
             if (Input.touchCount == 1)
             {
                 Touch touch = Input.GetTouch(0);
-                if (touch.phase == TouchPhase.Began) Begin(touch.position);
-                if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary) Move(touch.position);
+                if (touch.phase == TouchPhase.Began) Begin(touch.position, touch.fingerId);
+                if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary) Move(touch.position, touch.fingerId);
                 if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
-                    End(touch.position, touch.phase == TouchPhase.Canceled);
+                    End(touch.position, touch.phase == TouchPhase.Canceled, touch.fingerId);
                 return;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
