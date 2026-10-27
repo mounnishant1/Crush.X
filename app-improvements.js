@@ -550,18 +550,27 @@ function bindReelControls() {
       moveOne(event.key === 'ArrowDown' ? 1 : -1);
     });
     deck.addEventListener('touchstart', event => {
+      // The active reel gesture belongs to exactly one touch identifier.
+      // A second finger cancels the one-reel swipe rather than replacing it.
       touchStart = null;
       if (event.touches.length !== 1 || !event.target.closest('.reel-visual')) return;
-      touchStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      const touch = event.touches[0];
+      touchStart = { id: touch.identifier, x: touch.clientX, y: touch.clientY };
     }, { passive: true });
     deck.addEventListener('touchend', event => {
-      if (!touchStart || event.changedTouches.length !== 1) { touchStart = null; return; }
-      const dx = event.changedTouches[0].clientX - touchStart.x;
-      const dy = event.changedTouches[0].clientY - touchStart.y;
+      if (!touchStart) return;
+      const endingTouch = Array.from(event.changedTouches).find(touch => touch.identifier === touchStart.id);
+      if (!endingTouch) return; // A different finger has ended.
+      const dx = endingTouch.clientX - touchStart.x;
+      const dy = endingTouch.clientY - touchStart.y;
       touchStart = null;
+      if (event.touches.length !== 0) return; // A multi-touch gesture is never a reel swipe.
       if (Math.abs(dy) >= 48 && Math.abs(dy) > Math.abs(dx) * 1.3) moveOne(dy < 0 ? 1 : -1);
     }, { passive: true });
-    deck.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
+    deck.addEventListener('touchcancel', event => {
+      if (!touchStart || !event.changedTouches?.length ||
+          Array.from(event.changedTouches).some(touch => touch.identifier === touchStart.id)) touchStart = null;
+    }, { passive: true });
   }
   document.querySelectorAll('[data-reel-speed]').forEach(button=>button.addEventListener('click',()=>{
     const video=button.closest('.reel-slide')?.querySelector('video');
