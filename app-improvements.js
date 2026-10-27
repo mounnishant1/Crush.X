@@ -189,7 +189,7 @@ function closeAppDialog() {
   closeStoryViewer();
   document.querySelectorAll('dialog[data-app-dialog]').forEach(dialog => { dialog.close(); dialog.remove(); });
 }
-function appDialog(title, body, bind = () => {}, preserveParent = false) {
+function appDialog(title, body, bind = () => {}, preserveParent = false, expandableSheet = false) {
   const opener = document.activeElement;
   // Only explicitly nested item actions keep the underlying media detail open.
   // Route changes still use closeAppDialog() to dismiss the whole modal stack.
@@ -198,12 +198,29 @@ function appDialog(title, body, bind = () => {}, preserveParent = false) {
   const dialog = document.createElement('dialog');
   dialog.dataset.appDialog = 'true';
   dialog.setAttribute('aria-label', title);
-  dialog.className = 'app-dialog';
+  dialog.className = expandableSheet ? 'app-dialog cx-social-sheet' : 'app-dialog';
   dialog.innerHTML = `<section><header class="flex items-center justify-between gap-4 mb-4"><h2 class="text-xl font-bold">${escapeHTML(title)}</h2><button data-close-dialog aria-label="Close dialog" class="rounded-lg border px-3 py-2">Close</button></header>${body}</section>`;
   dialog.addEventListener('close', () => { dialog.remove(); if (opener?.isConnected) opener.focus(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   document.body.append(dialog);
   dialog.querySelector('[data-close-dialog]').onclick = () => dialog.close();
+  if (expandableSheet) {
+    const header = dialog.querySelector('section > header');
+    const expand = document.createElement('button');
+    expand.type = 'button';
+    expand.dataset.sheetExpand = 'true';
+    expand.setAttribute('aria-expanded', 'false');
+    expand.setAttribute('aria-label', 'Expand sheet to full screen');
+    expand.textContent = 'Expand';
+    expand.className = 'cx-sheet-expand';
+    expand.addEventListener('click', () => {
+      const full = dialog.classList.toggle('is-expanded');
+      expand.textContent = full ? 'Collapse' : 'Expand';
+      expand.setAttribute('aria-expanded', String(full));
+      expand.setAttribute('aria-label', full ? 'Collapse sheet to partial screen' : 'Expand sheet to full screen');
+    });
+    header.insertBefore(expand, dialog.querySelector('[data-close-dialog]'));
+  }
   bind(dialog);
   dialog.showModal();
   return dialog;
