@@ -160,7 +160,7 @@ function openSampleStory(id) {
   dialog.addEventListener('close',()=>{if(storyViewerDialog===dialog)closeStoryViewer();if(opener?.isConnected)opener.focus();});
   dialog.addEventListener('click',storyViewerHandleClick);
   dialog.addEventListener('keydown',event=>{
-    if(event.target.closest('input,textarea,button,a,select'))return;
+    if(event.target?.closest?.('input,textarea,button,a,select') || event.target?.matches?.('input,textarea,button,a,select'))return;
     if(event.key==='ArrowRight'){event.preventDefault();storyViewerMove(1);}
     if(event.key==='ArrowLeft'){event.preventDefault();storyViewerMove(-1);}
     if(event.key===' '){event.preventDefault();storyViewerPaused=!storyViewerPaused;storyViewerPaint();}
