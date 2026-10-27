@@ -3,8 +3,6 @@ let appFeedFilter = 'all';
 let appProfileFilter = 'posts';
 let appExploreFilter = 'all';
 let appProfileUserId = null;
-let appProfileReturnTab = 'home';
-let appProfileOpenedInSession = false;
 let captionDraft = '';
 let storyViewerDialog = null;
 let storyViewerTimer = null;
@@ -771,13 +769,19 @@ bindRepairEvents = function() {
     const state = getState();
     const user = userById(state, button.dataset.profileUser);
     if (!user) return;
-    appProfileReturnTab = state.activeTab;
-    appProfileOpenedInSession = true;
     navigate('profile', user.id === state.currentUserId ? null : user.id);
   });
   on('[data-profile-back]', () => {
-    if (appProfileOpenedInSession) { appProfileOpenedInSession = false; history.back(); }
-    else navigate(appProfileReturnTab === 'profile' ? 'home' : appProfileReturnTab);
+    // Use the origin stored on this history entry. Mutable session flags
+    // fail after browser Back/Forward restores the same creator profile.
+    if (location.hash.startsWith('#profile/') && typeof history.state?.cxProfileOrigin === 'string') {
+      history.back();
+    } else {
+      // A directly opened public-profile URL has no known in-app origin.
+      // Replace it with Home; pushing Home would cause a Back -> Profile loop.
+      history.replaceState(null, '', '#home');
+      navigate('home', null, false);
+    }
   });
   on('[data-open-story]', button => openSampleStory(button.dataset.openStory));
   document.getElementById('sampleModeInfo')?.addEventListener('click', () => appDialog('Sample mode', '<p>Stories, likes, follows, saved items, profile edits and comments use sample data in this browser. Other people using this browser may see them.</p><p class="mt-3">Message drafts are never delivered. Publishing is not connected. Drafts are cleared on logout. Your Cognito account is separate from the sample profile.</p>'));
