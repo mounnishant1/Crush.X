@@ -662,7 +662,7 @@ bindRepairEvents = function() {
       : cxGroupDraft.members.filter(member => member !== id);
     cxGroupDraft.saved = false;
   }));
-  document.querySelector('[data-cx-group-note]')?.addEventListener('input', event => {
+  document.querySelector?.('[data-cx-group-note]')?.addEventListener('input', event => {
     cxGroupDraft.note = event.target.value.slice(0, 2000); cxGroupDraft.saved = false;
   });
   on('[data-cx-group-save]', () => {
