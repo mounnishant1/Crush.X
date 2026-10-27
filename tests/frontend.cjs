@@ -574,6 +574,41 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-open-story]').first().focus();
     await page.locator('[data-open-story]').first().press('Enter');
     assert.equal(await page.locator('dialog.story-viewer').count(),1);
+    // All secondary screens must be true edge-to-edge, including desktop.
+    const assertStoryFullScreen = async () => {
+      const geometry = await page.locator('dialog.story-viewer').evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return {left:rect.left, top:rect.top, width:rect.width, height:rect.height,
+          innerWidth, innerHeight, radius:getComputedStyle(element).borderTopLeftRadius};
+      });
+      assert.ok(Math.abs(geometry.left) < 2 && Math.abs(geometry.top) < 2,
+        'Story viewer must start at viewport origin');
+      assert.ok(Math.abs(geometry.width - geometry.innerWidth) < 2 &&
+        Math.abs(geometry.height - geometry.innerHeight) < 2,
+        'Story viewer must fill entire available viewport');
+      assert.equal(geometry.radius, '0px', 'No rounded popup appearance');
+    };
+    await assertStoryFullScreen();
+    const touchControls = await page.locator('dialog.story-viewer .sv-head button').evaluateAll(
+      buttons => buttons.map(button => {
+        const rect = button.getBoundingClientRect();
+        return {width:rect.width,height:rect.height};
+      }));
+    assert.ok(touchControls.length >= 2 && touchControls.every(c => c.width >= 44 && c.height >= 44),
+      'Story pause/close controls must have at least 44px touch targets');
+    await page.setViewportSize({width:820,height:880});
+    await assertStoryFullScreen();
+    await page.setViewportSize({width:320,height:640});
+    await assertStoryFullScreen();
+    // Verify actual actionable reaction and reply controls, not visual sizes alone.
+    const footerTouchControls = await page.locator('dialog.story-viewer .sv-reactions button, dialog.story-viewer .sv-footer form button').evaluateAll(
+      buttons => buttons.map(button => {
+        const rect = button.getBoundingClientRect();
+        return {width:rect.width,height:rect.height};
+      }));
+    assert.ok(footerTouchControls.length >= 6 &&
+      footerTouchControls.every(control => control.width >= 44 && control.height >= 44),
+      'Story reaction and reply buttons must remain usable at 320px width');
     // Step 6: a Story swipe must be owned by its initiating pointer and
     // must not turn vertical movement or a second finger into navigation.
     const storyGestureRegression = await page.evaluate(() => {
