@@ -1032,10 +1032,10 @@
                 <div class="feed-author">
                   <img src="${safeMediaUrl(author.avatar)}" alt="" class="feed-author-avatar ring-2 ring-pink-200" />
                   <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1 truncate text-sm font-bold">
+                    <button data-profile-user="${escapeHTML(author.id)}" class="feed-username flex items-center gap-1 truncate text-sm font-bold" aria-label="Open ${escapeHTML(author.username)} sample profile">
                       ${escapeHTML(author.username)}
                       ${author.verified ? '<i data-lucide="badge-check" class="h-4 w-4 text-blue-500"></i>' : ''}
-                    </div>
+                    </button>
                     <div class="truncate text-xs text-slate-500">${escapeHTML(post.location || 'Original audio')}</div>
                   </div>
                   ${author.id !== state.currentUserId ? `<button data-follow-user="${escapeHTML(author.id)}" aria-pressed="${author.following}" class="rounded-xl border border-current px-3 py-2 text-xs font-bold">${author.following ? 'Following' : 'Follow'}</button>` : ''}
@@ -1583,8 +1583,13 @@
       const state = getState();
       state.activeTab = tab;
       state.chatUserId = tab === 'messages' && chatUserId !== 'me' && userById(state, chatUserId) ? chatUserId : null;
+      // Profile route IDs refer only to validated browser-local sample people.
+      if (typeof appProfileUserId !== 'undefined') {
+        appProfileUserId = tab === 'profile' && typeof chatUserId === 'string' && chatUserId !== state.currentUserId && userById(state, chatUserId) ? chatUserId : null;
+      }
       saveState(state);
-      const hash = `#${tab}${state.chatUserId ? '/' + encodeURIComponent(state.chatUserId) : ''}`;
+      const routeId = tab === 'messages' ? state.chatUserId : tab === 'profile' && typeof appProfileUserId !== 'undefined' ? appProfileUserId : null;
+      const hash = `#${tab}${routeId ? '/' + encodeURIComponent(routeId) : ''}`;
       if (push && location.hash !== hash) history.pushState(null, '', hash);
       renderApp();
       window.scrollTo(0, 0);

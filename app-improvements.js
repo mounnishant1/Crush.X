@@ -2,6 +2,9 @@
 let appFeedFilter = 'all';
 let appProfileFilter = 'posts';
 let appExploreFilter = 'all';
+let appProfileUserId = null;
+let appProfileReturnTab = 'home';
+let appProfileOpenedInSession = false;
 let captionDraft = '';
 let storyViewerDialog = null;
 let storyViewerTimer = null;
@@ -53,6 +56,17 @@ function localItemMedia(item) {
   const url = safeMediaUrl(item.source || item.image);
   const video = item.contentType?.startsWith('video/') || item.mediaType === 'video' || /\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
   return video ? `<video src="${url}" controls playsinline class="w-full rounded-xl max-h-[60vh]" aria-label="Saved video"></video>` : `<img src="${url}" alt="Sample media" class="w-full rounded-xl max-h-[60vh] object-contain">`;
+}
+function openGridMedia(id) {
+  const state = getState();
+  const index = state.reels.findIndex(item => item.id === id);
+  if (index >= 0) {
+    navigate('reels');
+    const deck = document.querySelector('.reels-deck');
+    if (deck) deck.scrollTop = index * deck.clientHeight;
+    return;
+  }
+  showLocalItem(id);
 }
 function showLocalItem(id) {
   const state = getState();
@@ -187,7 +201,7 @@ renderDiscover = function(state) {
     <label class="explore-search"><i data-lucide="search" aria-hidden="true">⌕</i><input id="searchInput" value="${escapeHTML(state.searchQuery)}" maxlength="200" placeholder="Search people, posts, hashtags…" aria-label="Search local sample content"></label>
     <nav class="explore-filters" aria-label="Explore filters">${categories.map(([id,label])=>`<button data-explore-filter="${id}" aria-pressed="${appExploreFilter===id}">${label}</button>`).join('')}</nav>
     ${showTags?`<section class="explore-tags" aria-label="Sample hashtags"><h2>Hashtags</h2><div>${visibleTags.map(tag=>`<button data-explore-tag="${escapeHTML(tag)}">#${escapeHTML(tag)}</button>`).join('')||'<p>No matching hashtags in sample captions.</p>'}</div></section>`:''}
-    ${showPeople?`<section class="explore-people" aria-label="People"><h2>People</h2>${users.length?users.slice(0,appExploreFilter==='all'?5:30).map(user=>`<article><img src="${safeMediaUrl(user.avatar)}" alt=""><div><strong>@${escapeHTML(user.username)}</strong><small>${escapeHTML(user.fullName)}</small></div>${user.id===state.currentUserId?'<span>Sample persona</span>':`<button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${user.following}">${user.following?'Following':'Follow'}</button>`}</article>`).join(''):'<p>No matching sample people.</p>'}</section>`:''}
+    ${showPeople?`<section class="explore-people" aria-label="People"><h2>People</h2>${users.length?users.slice(0,appExploreFilter==='all'?5:30).map(user=>`<article><img src="${safeMediaUrl(user.avatar)}" alt=""><div><button class="cx-creator-link" data-profile-user="${escapeHTML(user.id)}" aria-label="Open ${escapeHTML(user.username)} sample profile">@${escapeHTML(user.username)}</button><small>${escapeHTML(user.fullName)}</small></div>${user.id===state.currentUserId?'<span>Sample persona</span>':`<button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${user.following}">${user.following?'Following':'Follow'}</button>`}</article>`).join(''):'<p>No matching sample people.</p>'}</section>`:''}
     ${showMedia?`<section class="explore-media" aria-label="Explore media"><h2>${appExploreFilter==='reels'?'Reels':appExploreFilter==='posts'?'Posts':'Media'}</h2><div class="explore-grid">${media.map(item=>{
       const src=safeMediaUrl(item.source||item.image),video=item.mediaType==='video'||item.contentType?.startsWith('video/')||/\.(mp4|webm)(?:[?#]|$)/i.test(item.source||'');
       return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample ${item.kind}">${video?`<video src="${src}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>`:`<img src="${src}" alt="Sample ${item.kind} thumbnail">`}<span>${item.kind==='reel'?'Reel':'Post'}</span></button>`;
@@ -218,6 +232,34 @@ function openSamplePostOptions(postId) {
 }
 renderProfile = function(state) {
   const me = currentUser(state);
+  if (appProfileUserId && appProfileUserId !== me.id) {
+    const user = userById(state, appProfileUserId);
+    if (!user) return '<main><p>Sample profile unavailable.</p></main>';
+    const posts = state.posts.filter(item => item.userId === user.id);
+    const reels = state.reels.filter(item => item.userId === user.id);
+    const activeStories = state.stories.filter(item => item.userId === user.id && item.expiresAt > Date.now());
+    const grid = [...posts, ...reels].map(item => {
+      const url = safeMediaUrl(item.source || item.image);
+      const video = item.mediaType === 'video' || item.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
+      return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample media">${video ? `<video src="${url}" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>` : `<img src="${url}" alt="Sample post thumbnail" loading="lazy">`}</button>`;
+    }).join('');
+    return `<main class="cx-public-profile" aria-label="Profile of ${escapeHTML(user.username)}">
+      <header class="cx-profile-toolbar"><button type="button" data-profile-back aria-label="Back to previous screen">← Back</button><h1>@${escapeHTML(user.username)}</h1></header>
+      <section class="cx-public-overview">
+        <img class="cx-public-avatar" src="${safeMediaUrl(user.avatar)}" alt="" loading="lazy">
+        <div class="cx-public-info">
+          <h2>${escapeHTML(user.fullName)}</h2>
+          <p>@${escapeHTML(user.username)}</p>
+          <div class="cx-public-stats"><span><b>${posts.length + reels.length}</b> Posts/Reels</span><span><b>${Number(user.followers || 0).toLocaleString()}</b> Sample followers</span></div>
+          <button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${!!user.following}" class="cx-public-follow">${user.following ? 'Following' : 'Follow'}</button>
+        </div>
+      </section>
+      <p class="cx-public-bio">${escapeHTML(user.info || 'No sample bio yet.')}</p>
+      ${activeStories.length ? `<section class="cx-public-stories" aria-label="Active stories"><h2>Stories</h2><div>${activeStories.map(story => `<button data-open-story="${escapeHTML(story.id)}" aria-label="View sample story"><img src="${safeMediaUrl(user.avatar)}" alt=""><span>Story</span></button>`).join('')}</div></section>` : ''}
+      <section class="cx-public-posts" aria-label="Sample creator posts"><h2>Posts and reels</h2><div class="app-media-grid">${grid}</div>${grid ? '' : '<p>No sample media yet.</p>'}</section>
+      <p class="explore-disclaimer">Browser-local profile preview, not a verified live account.</p>
+    </main>`;
+  }
   const own = state.posts.filter(post => post.userId === me.id);
   const saved = [...state.posts, ...state.reels].filter(post => post.saved);
   let html = originalProfile(state).replace('<div class="font-black">416</div>', `<div class="font-black">${state.users.filter(user => user.following).length}</div>`).replace(`<div class="font-black">${state.posts.length}</div>`, `<div class="font-black">${own.length}</div>`);
@@ -243,7 +285,7 @@ renderReels = function(state) {
         <button data-reel-speed="${id}" aria-label="Change playback speed">${glyph('gauge','◷')}<span>1×</span></button>
         <button data-reel-mute="${id}" aria-label="Unmute reel">${glyph('volume-x','♩')}<span>Sound</span></button>
       </div>
-      <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><strong>@${escapeHTML(creator.username)}</strong>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
+      <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><button data-profile-user="${escapeHTML(creator.id)}" aria-label="Open ${escapeHTML(creator.username)} sample profile">@${escapeHTML(creator.username)}</button>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
       <p class="reel-caption">${formatText(reel.caption)}</p>
       <button data-reel-audio="${id}" class="reel-audio" aria-label="Audio details">${glyph('music-2','♫')} ${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</button>
       <div class="reel-extra"><button data-reel-template="${id}">${glyph('layout-template','▦')} Template</button><button data-reel-caption="${id}" aria-pressed="false">${glyph('captions','CC')} Caption</button></div>
@@ -399,7 +441,19 @@ bindRepairEvents = function() {
   on('[data-profile-filter]', button => { appProfileFilter = button.dataset.profileFilter; renderApp(); });
   on('[data-explore-filter]', button => { appExploreFilter=button.dataset.exploreFilter;renderApp(); });
   on('[data-explore-tag]', button => { const state=getState();state.searchQuery='#'+button.dataset.exploreTag;appExploreFilter='all';saveState(state);renderApp(); });
-  on('[data-open-local-item]', button => showLocalItem(button.dataset.openLocalItem));
+  on('[data-open-local-item]', button => openGridMedia(button.dataset.openLocalItem));
+  on('[data-profile-user]', button => {
+    const state = getState();
+    const user = userById(state, button.dataset.profileUser);
+    if (!user) return;
+    appProfileReturnTab = state.activeTab;
+    appProfileOpenedInSession = true;
+    navigate('profile', user.id === state.currentUserId ? null : user.id);
+  });
+  on('[data-profile-back]', () => {
+    if (appProfileOpenedInSession) { appProfileOpenedInSession = false; history.back(); }
+    else navigate(appProfileReturnTab === 'profile' ? 'home' : appProfileReturnTab);
+  });
   on('[data-open-story]', button => openSampleStory(button.dataset.openStory));
   document.getElementById('sampleModeInfo')?.addEventListener('click', () => appDialog('Sample mode', '<p>Stories, likes, follows, saved items, profile edits and comments use sample data in this browser. Other people using this browser may see them.</p><p class="mt-3">Message drafts are never delivered. Publishing is not connected. Drafts are cleared on logout. Your Cognito account is separate from the sample profile.</p>'));
   document.getElementById('captionInput')?.addEventListener('input', event => { captionDraft = event.target.value.slice(0, 2200); });
@@ -439,6 +493,12 @@ renderApp = function() {
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
   originalRenderApp();
+  // Failed sample media is visibly marked, with no repeated network retry loop.
+  document.querySelectorAll('main .feed-media img, main .feed-media video, main .explore-grid img, main .explore-grid video, main .app-media-grid img, main .app-media-grid video').forEach(media => {
+    const unavailable = () => { if (media.isConnected) media.parentElement?.classList.add('cx-media-unavailable'); };
+    media.addEventListener('error', unavailable, { once: true });
+    if (media.tagName === 'IMG' && media.complete && media.currentSrc && media.naturalWidth === 0) unavailable();
+  });
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
 logout = function() { closeAppDialog(); captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
