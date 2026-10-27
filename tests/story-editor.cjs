@@ -224,8 +224,22 @@ Promise.resolve(run('ssDrawCard(cardCanvasContext)')).then(()=>{
   assert.ok(painted.includes('Crush.X moments'));
   run('ssSession.stickerKind="EmojiSlider"');
   return run('ssDrawCard(cardCanvasContext)');
-}).then(()=>{
+}).then(async()=>{
   assert.ok(painted.some(x=>String(x).includes('85%')));
+  await assert.rejects(run('ssLoadImage({url:"",type:"video/mp4"})'),/Choose valid image or video/);
+  const priorCreate=context.document.createElement,priorTimeout=context.setTimeout;
+  let fireTimeout=null;
+  try {
+    context.document.createElement=()=>({crossOrigin:'',muted:false,preload:'',src:''});
+    context.setTimeout=callback=>{fireTimeout=callback;return 999;};
+    const stuck=run('ssLoadImage({url:"blob:stalled-video",type:"video/mp4"})');
+    assert.equal(typeof fireTimeout,'function');
+    fireTimeout();
+    await assert.rejects(stuck,/Media loading timed out/);
+  } finally {
+    context.document.createElement=priorCreate;
+    context.setTimeout=priorTimeout;
+  }
   run('ssClean()');
-console.log('Story editor screen, 18 stickers, state, security and icon checks PASS');
+  console.log('Story editor screen, 18 stickers, state, security, media timeout and icon checks PASS');
 }).catch(error=>{console.error(error);process.exitCode=1;});
