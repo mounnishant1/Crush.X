@@ -30,11 +30,34 @@ def audit(source_root: Path) -> dict[str, Any]:
         "frontend/package.json", "frontend/android/app/build.gradle",
         "frontend/android/app/src/main/AndroidManifest.xml"
     ))
+    # v378 is an incremental source-only release, not the same tree as old GitHub browser UI.
+    # Do NOT infer v378 from the presence of a Gradle file or a user-set version string alone.
+    source_version = None
+    if has("frontend/package.json"):
+        try:
+            package = json.loads((root / "frontend/package.json").read_text(encoding="utf-8-sig"))
+            source_version = package.get("version") if isinstance(package, dict) else None
+        except (OSError, UnicodeError, ValueError):
+            pass
+    v378_markers = all(has(path) for path in (
+        "frontend/src/lib/editor-export-boundary-v378.mjs",
+        "tests/v378/editor-end-frame-v378.test.mjs"
+    ))
+    v378_source = cap_sources and source_version == "20.378.0-v378" and v378_markers
+    android_evidence = (
+        "Exact v378 frontend version and end-frame test/source markers found. "
+        "Neither native build nor device/editor export is proven."
+        if v378_source else
+        ("v377 is only an installer base: apply v378 solely via verified INSTALL-V378.ps1 "
+         "dry-run, SHA checks and rollback backup." if source_version == "20.377.0-v377" else
+         "Full exact v378 React/Capacitor source, version and editor end-frame markers are absent.")
+    )
     gates.append(_item(
-        "latest_capacitor_android_source", "SOURCE_PRESENT_UNVERIFIED" if cap_sources else "BLOCKED",
-        "Capacitor Android source indicators present, but no build is proven." if cap_sources
-        else "This checkout lacks the complete latest frontend/Capacitor Gradle project.",
-        "Import the exact owner-approved latest Android source, record SHA and compare to installed package."
+        "latest_capacitor_android_source",
+        "SOURCE_PRESENT_UNVERIFIED" if v378_source else "BLOCKED",
+        android_evidence,
+        "Preserve original v377/v378 source. Inspect vendor preimage hashes and run local Node/Gradle "
+        "build and OnePlus acceptance before release; never copy old browser-preview files over React source."
     ))
     unity_source = has("UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraSwipe.cs")
     gates.append(_item(
