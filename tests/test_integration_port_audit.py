@@ -84,6 +84,22 @@ class PortAuditTests(unittest.TestCase):
             self.assertFalse(rec["automatic_copy_allowed"])
             self.assertEqual(path.read_text(), "// EXISTING ANDROID NATIVE FILE")
 
+    def test_symlinked_collision_is_flagged_for_manual_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            create_fake_target(root)
+            target = root / COLLISION
+            target.parent.mkdir(parents=True, exist_ok=True)
+            outside = root.parent / (root.name + "-external-marker")
+            try:
+                target.symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation unavailable in this environment")
+            report = audit(MANIFEST, root)
+            record = next(x for x in report["review_entries"] if x["path"] == COLLISION)
+            self.assertEqual(record["collision_risk"], "REVIEW_REQUIRED")
+            self.assertFalse(record["automatic_copy_allowed"])
+
     def test_unsafe_manifest_path_is_denied(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "evil.json"

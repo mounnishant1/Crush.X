@@ -106,7 +106,7 @@ def audit(manifest_path: Path, target_root: Path | None = None,
     for path, prs_for_path in sorted(changed_by_path.items()):
         category = _kind(path)
         counts[category] = counts.get(category, 0) + 1
-        exists_in_target = (target / path).is_file() if source_state == "SOURCE_STRUCTURE_PRESENT_UNATTESTED" else None
+        exists_in_target = ((target / path).is_file() or (target / path).is_symlink()) if source_state == "SOURCE_STRUCTURE_PRESENT_UNATTESTED" else None
         entries.append({
             "path": path, "changed_in_prs": sorted(set(prs_for_path)),
             "port_decision": category,
