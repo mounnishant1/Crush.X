@@ -712,6 +712,26 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await checkMediaDetailFullScreen();
     await page.setViewportSize({width:320,height:640});
     await checkMediaDetailFullScreen();
+    // Comments and Share are sheets layered over the full-screen item.
+    // Escape must dismiss the top sheet first, never silently lose the item.
+    await page.locator('dialog.cx-media-detail-fullscreen [data-social-item-comments]').click();
+    assert.equal(await page.locator('dialog[data-app-dialog][open]').count(),2,
+      'Opening item comments must preserve the underlying detail');
+    assert.equal(await page.locator('dialog[data-app-dialog][open] .advanced-thread').count(),1);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelectorAll('dialog[data-app-dialog][open]').length===1);
+    assert.equal(await page.locator('dialog.cx-media-detail-fullscreen[open]').count(),1,
+      'Back from comments must return to item detail');
+    await page.locator('dialog.cx-media-detail-fullscreen [data-social-item-share]').click();
+    assert.equal(await page.locator('dialog[data-app-dialog][open]').count(),2,
+      'Opening item share must preserve the underlying detail');
+    assert.equal(await page.locator('dialog[data-app-dialog][open] .social-recipient-list').count(),1);
+    assert.equal(await page.locator('dialog[data-app-dialog][open] .advanced-link-button').count(),1,
+      'Advanced Story draft link belongs to the share sheet, not the detail');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.querySelectorAll('dialog[data-app-dialog][open]').length===1);
+    assert.equal(await page.locator('dialog.cx-media-detail-fullscreen[open]').count(),1,
+      'Back from share must return to item detail');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('dialog.cx-media-detail-fullscreen'));
     assert.equal(await page.locator('[data-open-local-item="post_1"]').evaluate(node => node===document.activeElement),
