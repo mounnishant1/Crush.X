@@ -1596,7 +1596,12 @@
         // A chat opened from Messages inbox is nested in the existing route;
         // the Back control must not push another inbox entry.
         const openedFromInbox = tab === 'messages' && Boolean(state.chatUserId) && location.hash === '#messages';
-        history.pushState(openedFromInbox ? { cxChatFromInbox: true } : null, '', hash);
+        // Preserve the actual source route for public-profile Back, including
+        // browser Forward re-entry. Never infer the origin from mutable globals.
+        const profileOrigin = tab === 'profile' && routeId ? (location.hash || '#home') : null;
+        const entryState = profileOrigin ? { cxProfileOrigin: profileOrigin }
+          : openedFromInbox ? { cxChatFromInbox: true } : null;
+        history.pushState(entryState, '', hash);
       }
       renderApp();
       window.scrollTo(0, 0);
