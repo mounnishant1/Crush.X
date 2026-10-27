@@ -40,9 +40,27 @@ class ReleaseReadinessTests(unittest.TestCase):
                 path.write_text("placeholder", encoding="utf-8")
             data = audit(root)
             self.assertFalse(data["production_release_ready"])
-            self.assertEqual(next(x for x in data["gates"] if x["gate"] == "latest_capacitor_android_source")["status"],
-                             "SOURCE_PRESENT_UNVERIFIED")
             self.assertTrue(any(x["status"] == "BLOCKED" for x in data["gates"]))
+            # Gradle alone does not certify v378. This test is an intentionally malformed tree.
+            self.assertEqual(next(x for x in data["gates"] if x["gate"] == "latest_capacitor_android_source")["status"],
+                             "BLOCKED")
+            # Exact v378 markers raise source status only, not production approval.
+            version_file = root / "frontend/package.json"
+            version_file.write_text(json.dumps({"version": "20.378.0-v378", "scripts": {"build": "vite build"}}))
+            for name in ("frontend/src/lib/editor-export-boundary-v378.mjs",
+                         "tests/v378/editor-end-frame-v378.test.mjs"):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("export const marker = true;", encoding="utf-8")
+            verified_source = audit(root)
+            self.assertFalse(verified_source["production_release_ready"])
+            self.assertEqual(next(x for x in verified_source["gates"]
+                                  if x["gate"] == "latest_capacitor_android_source")["status"],
+                             "SOURCE_PRESENT_UNVERIFIED")
+            # A v377 base must never be called the latest v378 release.
+            version_file.write_text(json.dumps({"version": "20.377.0-v377"}))
+            self.assertEqual(next(x for x in audit(root)["gates"]
+                                  if x["gate"] == "latest_capacitor_android_source")["status"], "BLOCKED")
 
     def test_json_output_and_strict_release_guard(self):
         with tempfile.TemporaryDirectory() as temp:
