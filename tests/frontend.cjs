@@ -221,6 +221,25 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-profile-back]').click();
     await page.waitForFunction(() => getState().activeTab === 'discover');
     assert.equal(await page.locator('#searchInput').count(), 1, 'Back returns to Explore');
+    const profileHistoryLength = await page.evaluate(() => history.length);
+    // Browser Forward reopening the same public profile must not revive a stale
+    // global flag or push a duplicate Explore entry when Back is clicked again.
+    await page.goForward();
+    await page.waitForFunction(() => location.hash === '#profile/user_2' && !!document.querySelector('main.cx-public-profile'));
+    assert.equal(await page.evaluate(() => history.state?.cxProfileOrigin), '#discover');
+    await page.locator('[data-profile-back]').click();
+    await page.waitForFunction(() => location.hash === '#discover' && !!document.querySelector('#searchInput'));
+    assert.equal(await page.evaluate(() => history.length), profileHistoryLength, 'Profile Back after Forward must not push history');
+    // Direct public-profile links carry no known history origin. Back replaces
+    // the deep link with Home, rather than recreating Profile through Back.
+    await page.evaluate(() => { history.replaceState(null, '', '#profile/user_2'); routeFromLocation(); });
+    await page.waitForFunction(() => !!document.querySelector('main.cx-public-profile'));
+    const directProfileHistoryLength = await page.evaluate(() => history.length);
+    await page.locator('[data-profile-back]').click();
+    assert.equal(await page.evaluate(() => location.hash), '#home');
+    assert.equal(await page.evaluate(() => history.length), directProfileHistoryLength, 'Deep-link fallback must not add a history entry');
+    assert.equal(await page.evaluate(() => history.state), null, 'Unknown direct-link origin must be cleared');
+    await page.evaluate(() => navigate('discover'));
     // Search reel thumbnail opens the Reel player instead of a generic media dialog.
     await page.locator('[data-explore-filter="reels"]').click();
     await page.locator('[data-open-local-item="reel_1"]').click();
