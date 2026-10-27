@@ -133,7 +133,7 @@ openSamplePostOptions=function(id){
 showLocalItem=function(id){
   const s=getState(),item=socialItem(s,id);if(!item)return;
   const author=userById(s,item.userId);
-  appDialog('Sample '+socialKind(s,item),`
+  const detailDialog=appDialog('Sample '+socialKind(s,item),`
     ${localItemMedia(item)}
     <p class="social-item-caption"><strong>@${escapeHTML(author?.username||'sample')}</strong> ${formatText(item.caption||'')}</p>
     ${socialBubble(s,item)}
@@ -159,4 +159,7 @@ showLocalItem=function(id){
     dialog.querySelector('[data-social-item-share]').onclick=()=>socialOpenShare(id);
     dialog.querySelectorAll('[data-social-friends]').forEach(button=>button.addEventListener('click',()=>socialOpenFriends(id)));
   });
+  // A selected item is a secondary screen, not a centered desktop popup.
+  detailDialog?.classList?.add?.('cx-media-detail-fullscreen');
+  return detailDialog;
 };

@@ -198,6 +198,35 @@
   .cx-voice-actions button,.cx-call-actions button { flex:1 1 auto; }
 }
 
+/* Opened grid media is a full-screen detail route, not a centered popup.
+   Keep the modal semantic so Escape and focus-return work without extra history. */
+.app-dialog.cx-media-detail-fullscreen {
+  position:fixed; inset:0; margin:0; width:100vw; max-width:none;
+  height:100dvh; max-height:none; box-sizing:border-box;
+  padding:0; border:0; border-radius:0; overflow:hidden;
+}
+.cx-media-detail-fullscreen>section {
+  box-sizing:border-box; width:100%; max-width:900px; height:100%;
+  margin-inline:auto; overflow-y:auto; overscroll-behavior-y:contain;
+  padding:calc(12px + env(safe-area-inset-top)) clamp(12px,3vw,28px)
+    calc(24px + env(safe-area-inset-bottom));
+}
+.cx-media-detail-fullscreen>section>header {
+  position:sticky; top:calc(-12px - env(safe-area-inset-top));
+  z-index:6; min-height:54px; background:var(--strong);
+  padding:8px 0 12px; border-bottom:1px solid var(--line);
+}
+.cx-media-detail-fullscreen [data-close-dialog] {
+  min-width:44px; min-height:44px; flex:none;
+}
+.cx-media-detail-fullscreen img,.cx-media-detail-fullscreen video {
+  max-width:100%; max-height:min(65dvh,700px); object-fit:contain;
+}
+.cx-media-detail-fullscreen .social-item-actions { margin-block:16px; }
+@media(max-width:639px) {
+  .cx-media-detail-fullscreen>section { max-width:none; }
+}
+
 /* Step 7: edge-to-edge Activity and Privacy screens; app dialogs elsewhere stay sized. */
 .app-dialog.cx-permissions-dialog,.app-dialog.cx-activity-fullscreen {
   position:fixed; inset:0; margin:0; width:100vw; max-width:100vw;
