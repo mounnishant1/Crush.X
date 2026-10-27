@@ -652,6 +652,37 @@ bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
+  on('[data-cx-group-new]', () => { cxGroupDraft.open = true; cxGroupDraft.saved = false; renderApp(); });
+  on('[data-cx-group-back]', () => { cxGroupDraft.open = false; renderApp(); });
+  document.querySelectorAll('[data-cx-group-member]').forEach(input => input.addEventListener('change', () => {
+    const id = input.value, state = getState();
+    if (!state.users.some(user => user.id === id && user.id !== state.currentUserId)) return;
+    cxGroupDraft.members = input.checked
+      ? [...new Set([...cxGroupDraft.members, id])].slice(0, 20)
+      : cxGroupDraft.members.filter(member => member !== id);
+    cxGroupDraft.saved = false;
+  }));
+  document.querySelector('[data-cx-group-note]')?.addEventListener('input', event => {
+    cxGroupDraft.note = event.target.value.slice(0, 2000); cxGroupDraft.saved = false;
+  });
+  on('[data-cx-group-save]', () => {
+    const status = document.querySelector('[data-cx-group-status]');
+    const valid = getState().users.filter(user => user.id !== getState().currentUserId && cxGroupDraft.members.includes(user.id));
+    if (valid.length < 2) {
+      if (status) status.textContent = 'Select at least two valid sample people.'; return;
+    }
+    cxGroupDraft.saved = true;
+    if (status) status.textContent = 'Group draft saved for this browser session only. No invitation or message sent.';
+  });
+  on('[data-cx-voice-start]', () => { void cxVoiceStart(); });
+  on('[data-cx-voice-stop]', cxVoiceStop);
+  on('[data-cx-voice-delete]', cxVoiceDelete);
+  on('[data-cx-unavailable]', button => {
+    const kind = button.dataset.cxUnavailable;
+    const label = kind === 'voice' ? 'Voice calls' : kind === 'video' ? 'Video calls' : 'Offline P2P';
+    appDialog(label + ' unavailable', '<p>There is no verified authenticated signaling, call transport, or nearby encrypted link in this browser preview. No call or connection was started.</p>');
+  });
+
   // Mark a successfully submitted comment before the base click handler rerenders the screen.
   document.querySelectorAll('[data-comment-send]').forEach(button => button.addEventListener('click', () => {
     const id = button.dataset.commentSend;
@@ -719,6 +750,9 @@ bindRepairEvents = function() {
   });
 };
 renderApp = function() {
+  const cxRoute = getState();
+  if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
+  if (cxRoute.activeTab !== 'messages') cxGroupDraft.open = false;
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
   // Preserve only browser-local unsent comments when likes/saves/tabs trigger a rerender.
@@ -740,4 +774,4 @@ renderApp = function() {
   });
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
-logout = function() { closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
