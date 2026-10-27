@@ -264,13 +264,27 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     });
     assert.equal(await page.evaluate(() => Math.round(document.querySelector('.reels-deck').scrollTop / document.querySelector('.reels-deck').clientHeight)), 1, 'wheel burst must move only one reel');
     await page.waitForTimeout(600);
-    await page.evaluate(() => {
+    const touchOwnership = await page.evaluate(() => {
+      const deck = document.querySelector('.reels-deck');
       const visual = document.querySelectorAll('.reel-visual')[1];
       const start = new Touch({identifier:1,target:visual,clientX:150,clientY:300});
       const end = new Touch({identifier:1,target:visual,clientX:153,clientY:490});
-      visual.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
-      visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],targetTouches:[],changedTouches:[end]}));
+      const unrelated = new Touch({identifier:9,target:visual,clientX:151,clientY:480});
+      const scrollTo = deck.scrollTo.bind(deck);
+      let reelMoves = 0;
+      deck.scrollTo = (...args) => { reelMoves++; return scrollTo(...args); };
+      try {
+        visual.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
+        visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[start],targetTouches:[start],changedTouches:[unrelated]}));
+        const afterUnrelatedFinger = reelMoves;
+        visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],targetTouches:[],changedTouches:[end]}));
+        return {afterUnrelatedFinger, afterOwnerFinger:reelMoves};
+      } finally {
+        deck.scrollTo = scrollTo;
+      }
     });
+    assert.deepEqual(touchOwnership,{afterUnrelatedFinger:0,afterOwnerFinger:1},
+      'A foreign finger may not consume the swipe; the owner moves exactly one Reel');
     await page.waitForFunction(() => {
       const deck = document.querySelector('.reels-deck');
       return deck && deck.scrollTop < 3;
