@@ -541,6 +541,31 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.evaluate(()=>CrushXLivePreview.status().demoBalance),null,'Logout erases demo ledger state');
     assert.equal(await page.evaluate(()=>captionDraft),'');
     await page.evaluate(()=>{document.getElementById('authOverlay').style.display='none';appProfileFilter='posts';saveState(clone(defaultState));navigate('home');});
+    // Step 10: navigation must dismiss stale dialogs, editors and media surfaces.
+    await page.evaluate(() => openStoryStudio());
+    assert.equal(await page.locator('dialog.story-studio').count(),1);
+    await page.evaluate(() => navigate('discover'));
+    await page.waitForFunction(() => !document.querySelector('dialog.story-studio'));
+    assert.equal(await page.evaluate(() => ssSession),null,'Story Studio objects are released on route change');
+    await page.evaluate(() => navigate('profile'));
+    await page.locator('#privacyPermissionsButton').click();
+    assert.equal(await page.locator('dialog.cx-permissions-dialog').count(),1);
+    await page.goBack();
+    await page.waitForFunction(() => getState().activeTab === 'discover' && !document.querySelector('dialog.cx-permissions-dialog'));
+    await page.evaluate(() => navigate('profile'));
+    await page.locator('[data-cx-open-live]').click();
+    assert.equal(await page.locator('dialog.cx-live-dialog').count(),1);
+    await page.evaluate(() => navigate('reels'));
+    await page.waitForFunction(() => !document.querySelector('dialog.cx-live-dialog'));
+    await page.locator('[data-ax-global]').click();
+    assert.equal(await page.locator('dialog[aria-label="AURA-X"]').count(),1);
+    await page.evaluate(() => navigate('home'));
+    await page.waitForFunction(() => !document.querySelector('dialog[aria-label="AURA-X"]'));
+    await page.locator('[data-open-story]').first().click();
+    assert.equal(await page.locator('dialog.story-viewer').count(),1);
+    await page.evaluate(() => navigate('discover'));
+    await page.waitForFunction(() => !document.querySelector('dialog.story-viewer'));
+    assert.equal(await page.locator('dialog[open]').count(),0,'No stale overlay should cover the routed destination');
     // Malformed shapes/references and prototype keys from persisted state.
     for (const value of ['{bad json', 'null', '{"users":[],"posts":[null],"reels":"wrong","searchQuery":{}}']) {
       await page.evaluate(value => {localStorage.setItem(STATE_KEY,value);renderApp();}, value);

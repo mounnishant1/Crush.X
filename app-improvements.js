@@ -800,3 +800,19 @@ document.addEventListener('keydown', event => {
   history.back();
 });
 logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+
+
+/* Step 10 route lifecycle: a tab/Back navigation dismisses transient overlays.
+ * Keep the navigation/history implementation authoritative in index.html.
+ * This only prevents stale Story, privacy, Live and AURA surfaces across routes.
+ */
+const cxNavigateBeforeReleaseAudit = navigate;
+navigate = function(tab, chatUserId = null, push = true) {
+  // The native Back equivalent reaches this path through hashchange/popstate.
+  // Close editors before navigating so camera/microphone/object URLs are released.
+  if (typeof ssClose === 'function' && typeof ssDialog !== 'undefined' && ssDialog?.open) ssClose();
+  window.CrushXPermissions?.close?.();
+  window.CrushXLivePreview?.close?.();
+  closeAppDialog();
+  return cxNavigateBeforeReleaseAudit(tab, chatUserId, push);
+};
