@@ -22,6 +22,7 @@ const storyViewerDuration = 6500;
 let reelObserver = null;
 let reelAudioEnabled = false;
 const localCommentDrafts = Object.create(null);
+let submittingCommentId = null;
 const originalHome = renderHome;
 const originalProfile = renderProfile;
 const originalReels = renderReels;
@@ -503,6 +504,12 @@ bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
+  // Mark a successfully submitted comment before the base click handler rerenders the screen.
+  document.querySelectorAll('[data-comment-send]').forEach(button => button.addEventListener('click', () => {
+    const id = button.dataset.commentSend;
+    const input = [...document.querySelectorAll('[data-comment-input]')].find(el => el.dataset.commentInput === id);
+    if (input?.value.trim()) submittingCommentId = id;
+  }, { capture: true }));
   on('[data-feed-filter]', button => { appFeedFilter = button.dataset.feedFilter; renderApp(); });
   document.getElementById('activityButton')?.addEventListener('click', openSampleActivity);
   on('[data-story-create]', () => openStoryStudio());
@@ -566,7 +573,17 @@ bindRepairEvents = function() {
 renderApp = function() {
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
+  // Preserve only browser-local unsent comments when likes/saves/tabs trigger a rerender.
+  document.querySelectorAll('[data-comment-input]').forEach(input => {
+    const id = input.dataset.commentInput;
+    if (id === submittingCommentId) delete localCommentDrafts[id];
+    else localCommentDrafts[id] = input.value.slice(0, 2000);
+  });
   originalRenderApp();
+  document.querySelectorAll('[data-comment-input]').forEach(input => {
+    input.value = localCommentDrafts[input.dataset.commentInput] || '';
+  });
+  submittingCommentId = null;
   // Failed sample media is visibly marked, with no repeated network retry loop.
   document.querySelectorAll('main .feed-media img, main .feed-media video, main .explore-grid img, main .explore-grid video, main .app-media-grid img, main .app-media-grid video').forEach(media => {
     const unavailable = () => { if (media.isConnected) media.parentElement?.classList.add('cx-media-unavailable'); };
@@ -575,4 +592,4 @@ renderApp = function() {
   });
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
-logout = function() { closeAppDialog(); captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+logout = function() { closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
