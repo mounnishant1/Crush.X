@@ -16,6 +16,9 @@ let storyViewerPaused = false;
 let storyViewerHold = false;
 let storyViewerSwipeUntil = 0;
 let storyViewerStartX = null;
+let storyViewerStartY = null;
+let storyViewerPointerId = null;
+let storyViewerMultiPointer = false;
 let storyViewerStatus = '';
 let storyViewerDrafts = {};
 const storyViewerDuration = 6500;
@@ -226,12 +229,21 @@ function showLocalItem(id) {
   if (!item) return;
   appDialog('Sample post', `${localItemMedia(item)}<p class="mt-3">${formatText(item.caption)}</p><p class="text-xs text-slate-500 mt-2">Local sample · ${item.comments.length} comments</p>`);
 }
+function storyViewerReleasePointer() {
+  storyViewerHold = false;
+  storyViewerStartX = null;
+  storyViewerStartY = null;
+  storyViewerPointerId = null;
+  storyViewerMultiPointer = false;
+  storyViewerLastTick = Date.now();
+}
 function closeStoryViewer() {
   if(storyViewerTimer){clearInterval(storyViewerTimer);storyViewerTimer=null;}
   const dialog=storyViewerDialog;
   storyViewerDialog=null;
   storyViewerStories=[];
-  storyViewerStartX=null;
+  storyViewerReleasePointer();
+  storyViewerSwipeUntil=0;
   if(dialog){if(dialog.open)dialog.close();dialog.remove();}
 }
 function storyViewerHTML() {
@@ -303,7 +315,7 @@ function openSampleStory(id) {
   const index=stories.findIndex(story=>story.id===id);
   if(index<0)return;
   closeAppDialog();
-  storyViewerStories=stories;storyViewerIndex=index;storyViewerElapsed=0;storyViewerLastTick=Date.now();storyViewerPaused=!!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;storyViewerHold=false;storyViewerStatus='';storyViewerDrafts={};
+  storyViewerStories=stories;storyViewerIndex=index;storyViewerElapsed=0;storyViewerLastTick=Date.now();storyViewerPaused=!!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;storyViewerReleasePointer();storyViewerSwipeUntil=0;storyViewerStatus='';storyViewerDrafts={};
   const dialog=document.createElement('dialog'),opener=document.activeElement;
   dialog.className='story-viewer';dialog.setAttribute('aria-label','Crush.X Story viewer');
   dialog.addEventListener('close',()=>{if(storyViewerDialog===dialog)closeStoryViewer();if(opener?.isConnected)opener.focus();});
@@ -323,14 +335,39 @@ function openSampleStory(id) {
     storyViewerStatus=value?'Reply preview saved in this viewer only — no message sent.':'Write a reply draft first.';
     storyViewerPaused=true;storyViewerPaint();
   });
-  dialog.addEventListener('pointerdown',event=>{const stage=event.target.closest('[data-sv-stage]');if(stage){storyViewerHold=true;storyViewerStartX=event.clientX;stage.setPointerCapture?.(event.pointerId);}});
-  dialog.addEventListener('pointerup',event=>{
-    if(storyViewerStartX===null)return;
-    const delta=event.clientX-storyViewerStartX;
-    storyViewerStartX=null;storyViewerHold=false;storyViewerLastTick=Date.now();
-    if(Math.abs(delta)>55){storyViewerSwipeUntil=Date.now()+250;storyViewerMove(delta<0?1:-1);}
+  dialog.addEventListener('pointerdown', event => {
+    const stage = event.target.closest('[data-sv-stage]');
+    if (!stage) return;
+    // Own exactly one pointer. A second finger cancels navigation rather than
+    // finishing a gesture started by a different finger.
+    if (storyViewerPointerId !== null) { storyViewerMultiPointer = true; return; }
+    if (event.isPrimary === false || event.button !== 0) return;
+    storyViewerPointerId = event.pointerId;
+    storyViewerStartX = event.clientX;
+    storyViewerStartY = event.clientY;
+    storyViewerMultiPointer = false;
+    storyViewerHold = true;
+    try { stage.setPointerCapture?.(event.pointerId); } catch {} // synthetic event cannot capture
   });
-  dialog.addEventListener('pointercancel',()=>{storyViewerHold=false;storyViewerStartX=null;});
+  dialog.addEventListener('pointerup', event => {
+    if (storyViewerPointerId === null || event.pointerId !== storyViewerPointerId) return;
+    const dx = event.clientX - storyViewerStartX;
+    const dy = event.clientY - storyViewerStartY;
+    const blocked = storyViewerMultiPointer;
+    storyViewerReleasePointer();
+    // Vertical gestures, mixed fingers, and unintended diagonal swipes
+    // must not advance a Story.
+    if (!blocked && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      storyViewerSwipeUntil = Date.now() + 400;
+      storyViewerMove(dx < 0 ? 1 : -1);
+    }
+  });
+  dialog.addEventListener('pointercancel', event => {
+    if (event.pointerId === storyViewerPointerId) storyViewerReleasePointer();
+  });
+  dialog.addEventListener('lostpointercapture', event => {
+    if (event.pointerId === storyViewerPointerId) storyViewerReleasePointer();
+  });
   document.body.append(dialog);storyViewerDialog=dialog;
   storyViewerPaint();dialog.showModal();
   storyViewerTimer=setInterval(storyViewerTick,80);
