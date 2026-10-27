@@ -144,13 +144,13 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="collection"]').click();
     await page.locator('[data-advanced-name]').fill('Travel');
-    await page.locator('[data-advanced-collection-form] button').click();
+    await page.locator('[data-advanced-collection-form]').getByRole('button', {name: 'Create & save', exact: true}).click();
     assert.equal(await page.evaluate(() => getState().socialCollections[0].itemIds.includes('post_2')), true);
     await page.locator('[data-close-dialog]').click();
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="story"]').click();
     await page.locator('[data-advanced-story-note]').fill('Weekend inspiration');
-    await page.locator('[data-advanced-story-form] button').click();
+    await page.getByRole('button', {name: 'Save Story draft', exact: true}).click();
     assert.equal(await page.evaluate(() => getState().socialStoryDrafts.length), 1);
     await page.locator('[data-close-dialog]').click();
     await page.locator('[data-social-friends="post_1"]').click();
@@ -195,7 +195,13 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       for (const tab of ['home','discover','messages','reels','profile','create']) {
         await page.evaluate(tab => navigate(tab), tab);
         const overflow = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(e => {const r=e.getBoundingClientRect(); return r.width && r.right > innerWidth+1}).map(e => [e.tagName,e.id,e.className,e.getBoundingClientRect().right]).slice(0,15));
-        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, JSON.stringify(overflow) + `${width}px ${tab} overflow`);
+        const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+        const extra = pageWidth > width ? await page.evaluate(() => ({
+          bodyWidth: document.body.scrollWidth,
+          htmlWidth: document.documentElement.scrollWidth,
+          outside: [...document.querySelectorAll('body *')].map(e => ({element: e.tagName, id: e.id, cls: String(e.className || '').slice(0,90), left: Math.round(e.getBoundingClientRect().left), right: Math.round(e.getBoundingClientRect().right), scroll: e.scrollWidth, client: e.clientWidth})).filter(e => e.left < -1 || e.right > innerWidth + 1 || e.scroll > e.client + 30).slice(0,30)
+        })) : null;
+        assert.equal(pageWidth <= width, true, JSON.stringify({overflow, extra}) + `${width}px ${tab} overflow`);
         const desktop = await page.locator('.desktop-nav').isVisible(), mobile = await page.locator('.bottom-nav').isVisible();
         assert.equal(desktop || mobile, true, `${width}px missing navigation`);
         assert.equal(desktop && mobile, false, `${width}px duplicate navigation`);
@@ -341,7 +347,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-edit-sample]').click();
     await page.locator('[data-sample-name]').fill('<b>Local name</b>');
     await page.locator('[data-sample-bio]').fill('Updated sample bio');
-    await page.locator('[data-edit-sample-form] button').click();
+    await page.locator('[data-edit-sample-form]').getByRole('button', {name: 'Save', exact: true}).click();
     assert.equal(await page.locator('main b').count(),0,'Names render as text');
     assert.match(await page.locator('main').textContent(),/Updated sample bio/);
     await page.evaluate(()=>navigate('reels'));
