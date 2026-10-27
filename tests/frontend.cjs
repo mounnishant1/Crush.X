@@ -174,6 +174,21 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('#searchInput').pressSequentially('aanya');
     assert.equal(await page.locator('#searchInput').inputValue(), 'aanya');
     assert.equal(await page.locator('#searchInput').evaluate(e => e === document.activeElement), true);
+    // Step 3: search usernames open full-screen sample profiles, browser Back restores Explore.
+    await page.evaluate(() => { const s=getState(); s.searchQuery=''; saveState(s); renderApp(); });
+    await page.locator('[data-profile-user="user_2"]').click();
+    assert.equal(await page.locator('main.cx-public-profile').count(), 1);
+    assert.equal(await page.evaluate(() => location.hash), '#profile/user_2');
+    assert.equal(await page.locator('.cx-public-profile [data-follow-user="user_2"]').count(), 1);
+    assert.equal(await page.locator('dialog.app-dialog').count(), 0, 'Creator profile must not open in centered popup');
+    await page.locator('[data-profile-back]').click();
+    await page.waitForFunction(() => getState().activeTab === 'discover');
+    assert.equal(await page.locator('#searchInput').count(), 1, 'Back returns to Explore');
+    // Search reel thumbnail opens the Reel player instead of a generic media dialog.
+    await page.locator('[data-explore-filter="reels"]').click();
+    await page.locator('[data-open-local-item="reel_1"]').click();
+    assert.equal(await page.locator('.reels-deck').count(), 1);
+    assert.equal(await page.locator('dialog.app-dialog').count(), 0);
     await page.evaluate(() => {const s = getState(); s.reels.push({...s.reels[0],id:'video_test',userId:'user_2',source:'https://example.com/movie.webm?x=1',mediaType:'video'}); saveState(s); navigate('reels');});
     assert.equal(await page.locator('main video').count(), 1); assert.equal(await page.locator('main video').getAttribute('controls'), '');
     assert.equal(await page.locator('main img[alt^="Sample image reel by"]').count(), 1);
