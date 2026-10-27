@@ -144,7 +144,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="collection"]').click();
     await page.locator('[data-advanced-name]').fill('Travel');
-    await page.locator('[data-advanced-collection-form] button').click();
+    await page.locator('[data-advanced-collection-form]').getByRole('button', {name: 'Create & save', exact: true}).click();
     assert.equal(await page.evaluate(() => getState().socialCollections[0].itemIds.includes('post_2')), true);
     await page.locator('[data-close-dialog]').click();
     await page.locator('[data-post-options="post_2"]').click();
@@ -347,7 +347,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-edit-sample]').click();
     await page.locator('[data-sample-name]').fill('<b>Local name</b>');
     await page.locator('[data-sample-bio]').fill('Updated sample bio');
-    await page.locator('[data-edit-sample-form] button').click();
+    await page.locator('[data-edit-sample-form]').getByRole('button', {name: 'Save', exact: true}).click();
     assert.equal(await page.locator('main b').count(),0,'Names render as text');
     assert.match(await page.locator('main').textContent(),/Updated sample bio/);
     await page.evaluate(()=>navigate('reels'));
