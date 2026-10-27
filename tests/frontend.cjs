@@ -298,16 +298,16 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-cx-voice-delete]').click();
     assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0);
     assert.equal(await page.locator('[data-cx-voice-preview]').count(), 0);
-    // Local sample identity change clears in-memory group/voice previews.
+    // This preview's normalized currentUserId is intentionally fixed to "me".
+    // Simulate a changed in-memory owner marker to test the privacy cleanup branch.
     await page.evaluate(() => {
-      cxVoiceDrafts.set('user_1', URL.createObjectURL(new Blob(['previous account audio'], {type:'audio/webm'})));
-      const s=getState();s.currentUserId='user_2';saveState(s);renderApp();
+      cxVoiceDrafts.set('user_1', URL.createObjectURL(new Blob(['previous owner audio'], {type:'audio/webm'})));
+      cxLocalMessagingOwnerId = 'previous-local-owner';
+      renderApp();
     });
-    assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0, 'Voice preview must not cross sample persona');
-    assert.equal(await page.evaluate(() => cxGroupDraft.members.length), 0, 'Group draft must not cross sample persona');
-    await page.evaluate(() => {
-      const s=getState();s.currentUserId='me';saveState(s);navigate('messages','user_1');
-    });
+    assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0, 'Voice blob URLs must be revoked at an owner boundary');
+    assert.equal(await page.evaluate(() => cxGroupDraft.members.length), 0, 'Group draft must be cleared at an owner boundary');
+    await page.evaluate(() => navigate('messages','user_1'));
     await page.locator('#messageDraft').fill('Only a draft');
     await page.locator('#messagesBack').click();
     await page.locator('[data-chat-user="user_1"]').click();
