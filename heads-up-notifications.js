@@ -4,6 +4,8 @@
   const DISPLAY_MS = 3900, EXIT_MS = 290, MAX_BANNERS = 4, BURST_COOLDOWN_MS = 15000;
   const TYPES = new Set(['message', 'reel', 'post', 'story', 'reaction', 'mention', 'follow', 'comment', 'like']);
   const queue = [], seen = new Set();
+  // Browser-session display preferences only; delivery, push and permissions are unaffected.
+  const preferences = { banners: true, previewText: true };
   let region = null, active = null, timer = null, exitTimer = null, exiting = false;
   let burstCount = 0, burstLockedUntil = 0, overflowCount = 0;
   const short = (value, max) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
@@ -58,6 +60,7 @@
     }[event.type];
   }
   function previewFor(event) {
+    if (!preferences.previewText) return 'Preview hidden in this browser';
     if (event.text) return event.text;
     return event.type === 'reel' ? 'Tap to view the shared reel'
       : event.type === 'message' ? 'Tap to open chat' : 'Tap to view';
@@ -170,6 +173,7 @@
         detail: { id: event.id, type: event.type, senderId: event.senderId, recipientId: event.recipientId }
       }));
     }
+    if (!preferences.banners) return true;
     const now = Date.now();
     if (!active && !queue.length && !exiting && now >= burstLockedUntil) {
       burstCount = 0;
@@ -189,6 +193,24 @@
     pump();
     return true;
   }
+  function setPreferences(next) {
+    if (!next || typeof next !== 'object') return getPreferences();
+    const changedBanners = typeof next.banners === 'boolean' && preferences.banners !== next.banners;
+    const changedPreview = typeof next.previewText === 'boolean' && preferences.previewText !== next.previewText;
+    if (typeof next.banners === 'boolean') preferences.banners = next.banners;
+    if (typeof next.previewText === 'boolean') preferences.previewText = next.previewText;
+    if (changedBanners || changedPreview) {
+      // Discard already-rendered sensitive text before reflecting new privacy settings.
+      clearTimeout(timer); clearTimeout(exitTimer); timer = null; exitTimer = null;
+      active?.panel.remove(); active = null; exiting = false;
+      if (!preferences.banners || changedPreview) queue.length = 0;
+      overflowCount = 0;
+      if (preferences.banners) pump();
+    }
+    return getPreferences();
+  }
+  function getPreferences() { return { banners: preferences.banners, previewText: preferences.previewText }; }
+
   document.addEventListener('crushx:incoming-notification', e => notify(e.detail));
   document.addEventListener('crushx:incoming-message', e => notify(e.detail));
   document.addEventListener('crushx:incoming-reel', e => notify({ ...(e.detail || {}), type: 'reel' }));
@@ -197,6 +219,7 @@
     queue.length = 0; seen.clear(); clearTimeout(timer); clearTimeout(exitTimer);
     burstCount = 0; burstLockedUntil = 0; overflowCount = 0;
     active?.panel.remove(); active = null; exiting = false;
+    preferences.banners = true; preferences.previewText = true;
   });
-  window.CrushXHeadsUp = Object.freeze({ notify, dismiss });
+  window.CrushXHeadsUp = Object.freeze({ notify, dismiss, setPreferences, getPreferences });
 })();
