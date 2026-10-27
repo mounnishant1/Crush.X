@@ -195,7 +195,13 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       for (const tab of ['home','discover','messages','reels','profile','create']) {
         await page.evaluate(tab => navigate(tab), tab);
         const overflow = await page.evaluate(() => [...document.querySelectorAll('body *')].filter(e => {const r=e.getBoundingClientRect(); return r.width && r.right > innerWidth+1}).map(e => [e.tagName,e.id,e.className,e.getBoundingClientRect().right]).slice(0,15));
-        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, JSON.stringify(overflow) + `${width}px ${tab} overflow`);
+        const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+        const extra = pageWidth > width ? await page.evaluate(() => ({
+          bodyWidth: document.body.scrollWidth,
+          htmlWidth: document.documentElement.scrollWidth,
+          outside: [...document.querySelectorAll('body *')].map(e => ({element: e.tagName, id: e.id, cls: String(e.className || '').slice(0,90), left: Math.round(e.getBoundingClientRect().left), right: Math.round(e.getBoundingClientRect().right), scroll: e.scrollWidth, client: e.clientWidth})).filter(e => e.left < -1 || e.right > innerWidth + 1 || e.scroll > e.client + 30).slice(0,30)
+        })) : null;
+        assert.equal(pageWidth <= width, true, JSON.stringify({overflow, extra}) + `${width}px ${tab} overflow`);
         const desktop = await page.locator('.desktop-nav').isVisible(), mobile = await page.locator('.bottom-nav').isVisible();
         assert.equal(desktop || mobile, true, `${width}px missing navigation`);
         assert.equal(desktop && mobile, false, `${width}px duplicate navigation`);
