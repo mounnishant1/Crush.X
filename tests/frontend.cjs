@@ -501,6 +501,23 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-feed-filter="all"]').click();
     await page.locator('[data-save="post_1"]').click();
     await page.evaluate(()=>navigate('profile'));
+    // Step 8: local live/wallet sandbox never starts streaming or charges INR.
+    await page.locator('[data-cx-open-live]').click();
+    assert.equal(await page.locator('dialog.cx-live-dialog').count(),1);
+    assert.equal(await page.locator('dialog.cx-live-dialog').evaluate(d => Math.abs(d.getBoundingClientRect().width - innerWidth) <= 2),true);
+    assert.match(await page.locator('.cx-live-preview').textContent(),/not connected/);
+    assert.equal(await page.locator('.cx-live-feature button').isDisabled(),true);
+    assert.equal(await page.locator('[data-cx-demo-balance]').textContent(),'120');
+    await page.locator('[data-cx-live-gift="25"]').click();
+    assert.equal(await page.locator('[data-cx-demo-balance]').textContent(),'95');
+    assert.equal(await page.evaluate(() => CrushXLivePreview.status().demoAudit.ok),true);
+    assert.equal(await page.locator('[data-cx-live-ledger] p').count(),1);
+    await page.locator('[data-cx-live-inr]').click();
+    assert.match(await page.locator('[data-cx-live-status]').textContent(),/No payment started/);
+    assert.deepEqual(await page.evaluate(() => ({paid:CrushXLivePreview.status().realPayments,broadcast:CrushXLivePreview.status().broadcast})),{paid:false,broadcast:false});
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('dialog.cx-live-dialog'));
+    assert.equal(await page.evaluate(() => CrushXLivePreview.status().demoBalance),95);
     await page.locator('[data-profile-filter="saved"]').click();
     assert.equal(await page.locator('[data-open-local-item="post_1"]').count(),1);
     await page.locator('[data-open-local-item="post_1"]').click();
@@ -521,6 +538,7 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.evaluate(()=>navigate('create'));
     assert.equal((await page.locator('#captionInput').inputValue()).trim(),'Caption kept across navigation');
     await page.evaluate(()=>logout());
+    assert.equal(await page.evaluate(()=>CrushXLivePreview.status().demoBalance),null,'Logout erases demo ledger state');
     assert.equal(await page.evaluate(()=>captionDraft),'');
     await page.evaluate(()=>{document.getElementById('authOverlay').style.display='none';appProfileFilter='posts';saveState(clone(defaultState));navigate('home');});
     // Malformed shapes/references and prototype keys from persisted state.
