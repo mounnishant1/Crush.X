@@ -252,6 +252,9 @@
 .cx-social-sheet.is-expanded>section>header {
   top:calc(-12px - env(safe-area-inset-top));
 }
+.cx-social-sheet>section>header h2 {
+  flex:1; min-width:0; overflow-wrap:anywhere;
+}
 .cx-social-sheet .cx-sheet-expand,
 .cx-social-sheet [data-close-dialog] {
   min-height:44px; min-width:44px; flex:none;
