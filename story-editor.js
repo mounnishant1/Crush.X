@@ -478,19 +478,29 @@ function ssCover(ctx,image,x,y,width,height) {
   ctx.drawImage(image,(iw-cropW)/2,(ih-cropH)/2,cropW,cropH,x,y,width,height);
 }
 function ssLoadImage(media) {
+  // Export must resolve or reject: a stalled decoder cannot hold the editor forever.
   return new Promise((resolve,reject)=>{
+    if(!media || typeof media.url!=='string' || !media.url || typeof media.type!=='string')
+      return reject(new Error('Choose valid image or video media before export.'));
+    let settled=false;
+    const timeout=setTimeout(()=>finish(new Error('Media loading timed out. Try another file.')),15000);
+    function finish(error,element) {
+      if(settled)return;
+      settled=true;clearTimeout(timeout);
+      if(error)reject(error);else resolve(element);
+    }
     if(media.type.startsWith('video/')){
       const video=document.createElement('video');
       video.crossOrigin='anonymous';video.muted=true;video.preload='auto';
-      video.onloadeddata=()=>resolve(video);
-      video.onerror=()=>reject(new Error('Video frame could not be loaded.'));
+      video.onloadeddata=()=>finish(null,video);
+      video.onerror=()=>finish(new Error('Video frame could not be loaded.'));
       video.src=media.url;
       return;
     }
     const img=new Image();
     img.crossOrigin='anonymous';
-    img.onload=()=>resolve(img);
-    img.onerror=()=>reject(new Error('This image cannot be exported. Try an image from your device.'));
+    img.onload=()=>finish(null,img);
+    img.onerror=()=>finish(new Error('This image cannot be exported. Try an image from your device.'));
     img.src=media.url;
   });
 }
