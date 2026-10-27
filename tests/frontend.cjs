@@ -149,6 +149,35 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.evaluate(() => socialNotificationUnread('me')), 0, 'Notification opens as read');
     await page.locator('[data-close-dialog]').click();
     assert.equal(await page.locator('[data-notif-badge]').count(), 0, 'Unread badge clears');
+    // Step 7: Activity and Privacy & Permissions are full-screen, Escape restores focus.
+    await page.locator('#activityButton').click();
+    assert.equal(await page.locator('dialog.cx-activity-fullscreen').count(), 1);
+    assert.equal(await page.locator('dialog.cx-activity-fullscreen').evaluate(d => Math.abs(d.getBoundingClientRect().width - innerWidth) <= 2), true);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('dialog.cx-activity-fullscreen'));
+    await page.evaluate(() => navigate('profile'));
+    await page.locator('#privacyPermissionsButton').click();
+    assert.equal(await page.locator('dialog.cx-permissions-dialog').count(), 1);
+    assert.equal(await page.locator('dialog.cx-permissions-dialog').evaluate(d => Math.abs(d.getBoundingClientRect().width - innerWidth) <= 2), true);
+    await page.locator('[data-cx-private-preview]').uncheck();
+    assert.equal(await page.evaluate(() => CrushXHeadsUp.getPreferences().previewText), false);
+    await page.locator('[data-cx-private-banners]').uncheck();
+    assert.equal(await page.evaluate(() => CrushXHeadsUp.getPreferences().banners), false);
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('crushx:incoming-message', {
+      detail: {id:'step7_hidden_message',type:'message',recipientId:'me',senderId:'user_1',text:'Do not show this',senderName:'Sample'}
+    })));
+    assert.equal(await page.locator('.cx-heads-up').count(), 0, 'Banner opt-out hides active banner');
+    assert.equal(await page.evaluate(() => CrushXMessageIndicators.unreadTotal() > 0), true, 'Unread still counts private events');
+    await page.locator('[data-cx-private-banners]').check();
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('crushx:incoming-message', {
+      detail: {id:'step7_redacted_message',type:'message',recipientId:'me',senderId:'user_1',text:'Sensitive text',senderName:'Sample'}
+    })));
+    assert.equal(await page.locator('.cx-heads-up-preview').first().textContent(), 'Preview hidden in this browser');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('dialog.cx-permissions-dialog'));
+    await page.evaluate(() => document.dispatchEvent(new Event('crushx:session-ended')));
+    assert.equal(await page.evaluate(() => CrushXHeadsUp.getPreferences().previewText), true, 'Session cleanup restores defaults');
+    await page.evaluate(() => navigate('home'));
     await page.locator('[data-post-options="post_2"]').click();
     await page.locator('[data-advanced-menu="collection"]').click();
     await page.locator('[data-advanced-name]').fill('Travel');
@@ -257,6 +286,11 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     assert.equal(await page.locator('main.cx-message-screen').count(), 1);
     await page.locator('[data-cx-group-new]').click();
     assert.equal(await page.locator('main[aria-label="Group draft editor"]').count(), 1);
+    assert.equal(await page.evaluate(() => location.hash), '#messages/group-draft');
+    await page.goBack();
+    await page.waitForFunction(() => location.hash === '#messages' && !document.querySelector('main[aria-label="Group draft editor"]'));
+    await page.goForward();
+    await page.waitForFunction(() => location.hash === '#messages/group-draft' && !!document.querySelector('main[aria-label="Group draft editor"]'));
     await page.locator('[data-cx-group-save]').click();
     assert.match(await page.locator('[data-cx-group-status]').textContent(), /at least two/i);
     await page.locator('[data-cx-group-member][value="user_1"]').check();

@@ -88,7 +88,7 @@ function socialNotificationActivity(viewUserId=null){
   const sampleUsers=state.users.filter(u=>u.id!==me);
   const ownTarget=socialNotificationDemoTarget();
   const selected=userById(state,userId);
-  appDialog('Activity',`<p class="social-disclaimer">Local simulation only — real comment likes, cross-account alerts and Android push are not connected.</p>
+  const activityDialog = appDialog('Activity',`<p class="social-disclaimer">Local simulation only — real comment likes, cross-account alerts and Android push are not connected.</p>
     <div class="social-notif-tabs">
       <button type="button" data-notif-viewer="${escapeHTML(me)}" aria-pressed="${userId===me}">My sample inbox</button>
       ${sampleUsers.map(u=>`<button type="button" data-notif-viewer="${escapeHTML(u.id)}" aria-pressed="${userId===u.id}">@${escapeHTML(u.username)}</button>`).join('')}
@@ -124,6 +124,7 @@ function socialNotificationActivity(viewUserId=null){
       dialog.close();socialNotificationActivity(userId);socialNotificationPaintBadge();
     });
   });
+  activityDialog?.classList?.add('cx-activity-fullscreen');
 }
 openSampleActivity=function(){socialNotificationActivity();};
 function socialNotificationPaintBadge(){
