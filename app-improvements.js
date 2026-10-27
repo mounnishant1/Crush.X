@@ -189,9 +189,12 @@ function closeAppDialog() {
   closeStoryViewer();
   document.querySelectorAll('dialog[data-app-dialog]').forEach(dialog => { dialog.close(); dialog.remove(); });
 }
-function appDialog(title, body, bind = () => {}) {
+function appDialog(title, body, bind = () => {}, preserveParent = false) {
   const opener = document.activeElement;
-  closeAppDialog();
+  // Only explicitly nested item actions keep the underlying media detail open.
+  // Route changes still use closeAppDialog() to dismiss the whole modal stack.
+  if (preserveParent) closeStoryViewer();
+  else closeAppDialog();
   const dialog = document.createElement('dialog');
   dialog.dataset.appDialog = 'true';
   dialog.setAttribute('aria-label', title);
