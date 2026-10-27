@@ -182,6 +182,37 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('main video').evaluate(video => video.pause());
     await page.locator('[data-comment-input="video_test"]').fill('Local reel comment'); await page.locator('[data-comment-send="video_test"]').click();
     assert.equal(await page.evaluate(() => getState().reels.find(r => r.id === 'video_test').comments.length), 1);
+    // Reels: a wheel burst is one item, media-area touch is one item, keyboard remains usable.
+    assert.equal(await page.locator('.reel-visual').first().evaluate(e => getComputedStyle(e).touchAction), 'none');
+    await page.evaluate(() => {
+      const deck = document.querySelector('.reels-deck');
+      deck.scrollTop = 0;
+      for (let i = 0; i < 3; i++) deck.dispatchEvent(new WheelEvent('wheel', {deltaY:120, bubbles:true, cancelable:true}));
+    });
+    await page.waitForFunction(() => {
+      const deck = document.querySelector('.reels-deck');
+      return deck && Math.abs(deck.scrollTop - deck.clientHeight) < 3;
+    });
+    assert.equal(await page.evaluate(() => Math.round(document.querySelector('.reels-deck').scrollTop / document.querySelector('.reels-deck').clientHeight)), 1, 'wheel burst must move only one reel');
+    await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      const visual = document.querySelectorAll('.reel-visual')[1];
+      const start = new Touch({identifier:1,target:visual,clientX:150,clientY:490});
+      const end = new Touch({identifier:1,target:visual,clientX:153,clientY:300});
+      visual.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
+      visual.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],targetTouches:[],changedTouches:[end]}));
+    });
+    await page.waitForFunction(() => {
+      const deck = document.querySelector('.reels-deck');
+      return deck && Math.abs(deck.scrollTop - 2 * deck.clientHeight) < 3;
+    });
+    await page.waitForTimeout(600);
+    await page.locator('.reels-deck').focus();
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(() => {
+      const deck = document.querySelector('.reels-deck');
+      return deck && Math.abs(deck.scrollTop - deck.clientHeight) < 3;
+    });
     await page.evaluate(() => navigate('messages'));
     await page.locator('[data-chat-user="user_1"]').click();
     await page.locator('#messageDraft').fill('Only a draft');
