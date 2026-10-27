@@ -151,3 +151,13 @@
  .cx-public-stats { gap:8px; }
 }
 @media(max-width:350px) { .cx-public-avatar { width:70px; height:70px; } .cx-public-overview { gap:11px; } }
+
+/* Step 4: thin, accessible reel seek line (source playback only, not export). */
+.reel-progress { position:absolute; z-index:5; bottom:5px; left:10px; right:10px; width:calc(100% - 20px); height:4px; margin:0; padding:0; cursor:pointer; accent-color:#fff; background:transparent; touch-action:pan-x; }
+.reel-progress::-webkit-slider-runnable-track { height:3px; border-radius:99px; background:#ffffff80; }
+.reel-progress::-moz-range-track { height:3px; border-radius:99px; background:#ffffff80; }
+.reel-progress::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; margin-top:-4.5px; background:#fff; box-shadow:0 0 4px #0009; }
+.reel-progress::-moz-range-thumb { width:12px; height:12px; border:0; border-radius:50%; background:#fff; }
+.reel-progress:focus-visible { outline:2px solid #fff; outline-offset:7px; }
+.reel-rail button:active,.feed-action:active { transform:scale(.95); }
+@media(prefers-reduced-motion:reduce) { .reel-rail button,.feed-action { transition:none; } }
