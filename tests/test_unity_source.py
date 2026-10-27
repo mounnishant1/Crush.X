@@ -126,6 +126,22 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('Touchscreen.current',swipe)
         self.assertIn('ENABLE_LEGACY_INPUT_MANAGER',swipe)
 
+    def test_single_touch_identity_and_permission_recovery_guards(self):
+        swipe=source('Scripts/Runtime/CrushXCameraSwipe.cs')
+        gate=source('Scripts/Runtime/CrushXCameraPermissionGate.cs')
+        # Static contracts only: these do not replace real multi-touch/device checks.
+        self.assertIn('private int activeTouchId = -1;',swipe)
+        self.assertIn('activeTouchId != touchId',swipe)
+        self.assertIn('waitForAllReleased = true; return;',swipe)
+        self.assertIn('touch.touchId.ReadValue()',swipe)
+        self.assertIn('touch.fingerId',swipe)
+        self.assertIn('activeTouchId = -1;',swipe)
+        self.assertIn('RequestPending = false;',gate)
+        self.assertIn('Permission.RequestUserPermission(Permission.Camera, callbacks);',gate)
+        self.assertIn('catch (System.Exception ex)',gate)
+        self.assertIn('Time.realtimeSinceStartup - requestedAt > 35f',gate)
+        self.assertNotIn('Permission.RequestUserPermission(Permission.Camera, new PermissionCallbacks())',gate)
+
     def test_all_original_procedural_lenses_retained(self):
         ids=set(re.findall(r'new LensManifest\("([^"]+)"',source('Scripts/Runtime/LensCatalog.cs')))
         self.assertTrue({'cat-ears','puppy','cyber-visor','fox','holo-crown','butterfly','robo-helmet','celestial-halo','neon-mask','dragon'}<=ids)

@@ -12,6 +12,19 @@ namespace CrushX.LensEngine
         private const string AskedKey = "CrushX.CameraPermissionRequested.v1";
         private const string PreviouslyGrantedKey = "CrushX.CameraPermissionGranted.v1";
         public bool RequestPending { get; private set; }
+        private float requestedAt;
+        private void Update()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Android can drop a permission callback when the activity is recreated.
+            // Fail open to a NEW explicit user action, never request in the background.
+            if (RequestPending && Time.realtimeSinceStartup - requestedAt > 35f)
+            {
+                RequestPending = false;
+                Debug.LogWarning("[CrushX] Camera permission request timed out; user may retry.");
+            }
+#endif
+        }
         public bool WasAsked { get { return PlayerPrefs.GetInt(AskedKey, 0) != 0; } }
         public bool Granted
         {
@@ -68,7 +81,13 @@ namespace CrushX.LensEngine
             callbacks.PermissionGranted += _ => RequestPending = false;
             callbacks.PermissionDenied += _ => RequestPending = false;
             callbacks.PermissionDeniedAndDontAskAgain += _ => RequestPending = false;
-            Permission.RequestUserPermission(Permission.Camera, callbacks);
+            requestedAt = Time.realtimeSinceStartup;
+            try { Permission.RequestUserPermission(Permission.Camera, callbacks); }
+            catch (System.Exception ex)
+            {
+                RequestPending = false;
+                Debug.LogWarning("[CrushX] Camera permission request failed: " + ex.Message);
+            }
 #endif
         }
 
