@@ -232,6 +232,34 @@ function openSamplePostOptions(postId) {
 }
 renderProfile = function(state) {
   const me = currentUser(state);
+  if (appProfileUserId && appProfileUserId !== me.id) {
+    const user = userById(state, appProfileUserId);
+    if (!user) return '<main><p>Sample profile unavailable.</p></main>';
+    const posts = state.posts.filter(item => item.userId === user.id);
+    const reels = state.reels.filter(item => item.userId === user.id);
+    const activeStories = state.stories.filter(item => item.userId === user.id && item.expiresAt > Date.now());
+    const grid = [...posts, ...reels].map(item => {
+      const url = safeMediaUrl(item.source || item.image);
+      const video = item.mediaType === 'video' || item.contentType?.startsWith('video/') || /\\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
+      return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample media">${video ? `<video src="${url}" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>` : `<img src="${url}" alt="Sample post thumbnail" loading="lazy">`}</button>`;
+    }).join('');
+    return `<main class="cx-public-profile" aria-label="Profile of ${escapeHTML(user.username)}">
+      <header class="cx-profile-toolbar"><button type="button" data-profile-back aria-label="Back to previous screen">← Back</button><h1>@${escapeHTML(user.username)}</h1></header>
+      <section class="cx-public-overview">
+        <img class="cx-public-avatar" src="${safeMediaUrl(user.avatar)}" alt="" loading="lazy">
+        <div class="cx-public-info">
+          <h2>${escapeHTML(user.fullName)}</h2>
+          <p>@${escapeHTML(user.username)}</p>
+          <div class="cx-public-stats"><span><b>${posts.length + reels.length}</b> Posts/Reels</span><span><b>${Number(user.followers || 0).toLocaleString()}</b> Sample followers</span></div>
+          <button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${!!user.following}" class="cx-public-follow">${user.following ? 'Following' : 'Follow'}</button>
+        </div>
+      </section>
+      <p class="cx-public-bio">${escapeHTML(user.info || 'No sample bio yet.')}</p>
+      ${activeStories.length ? `<section class="cx-public-stories" aria-label="Active stories"><h2>Stories</h2><div>${activeStories.map(story => `<button data-open-story="${escapeHTML(story.id)}" aria-label="View sample story"><img src="${safeMediaUrl(user.avatar)}" alt=""><span>Story</span></button>`).join('')}</div></section>` : ''}
+      <section class="cx-public-posts" aria-label="Sample creator posts"><h2>Posts and reels</h2><div class="app-media-grid">${grid}</div>${grid ? '' : '<p>No sample media yet.</p>'}</section>
+      <p class="explore-disclaimer">Browser-local profile preview, not a verified live account.</p>
+    </main>`;
+  }
   const own = state.posts.filter(post => post.userId === me.id);
   const saved = [...state.posts, ...state.reels].filter(post => post.saved);
   let html = originalProfile(state).replace('<div class="font-black">416</div>', `<div class="font-black">${state.users.filter(user => user.following).length}</div>`).replace(`<div class="font-black">${state.posts.length}</div>`, `<div class="font-black">${own.length}</div>`);
