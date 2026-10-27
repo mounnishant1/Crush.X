@@ -20,6 +20,8 @@ let storyViewerStatus = '';
 let storyViewerDrafts = {};
 const storyViewerDuration = 6500;
 let reelObserver = null;
+let reelAudioEnabled = false;
+const localCommentDrafts = Object.create(null);
 const originalHome = renderHome;
 const originalProfile = renderProfile;
 const originalReels = renderReels;
@@ -157,7 +159,7 @@ function openSampleStory(id) {
   dialog.addEventListener('close',()=>{if(storyViewerDialog===dialog)closeStoryViewer();if(opener?.isConnected)opener.focus();});
   dialog.addEventListener('click',storyViewerHandleClick);
   dialog.addEventListener('keydown',event=>{
-    if(event.target.matches('input,textarea'))return;
+    if(event.target.closest('input,textarea,button,a,select'))return;
     if(event.key==='ArrowRight'){event.preventDefault();storyViewerMove(1);}
     if(event.key==='ArrowLeft'){event.preventDefault();storyViewerMove(-1);}
     if(event.key===' '){event.preventDefault();storyViewerPaused=!storyViewerPaused;storyViewerPaint();}
@@ -276,15 +278,16 @@ renderReels = function(state) {
     const video=reel.mediaType==='video'||reel.contentType?.startsWith('video/')||/\.(mp4|webm|mov)(?:[?#]|$)/i.test(reel.source);
     const comments=Array.isArray(reel.comments)?reel.comments:[];
     return `<section class="reel-slide" data-reel-slide="${id}" aria-label="Reel ${i+1} of ${state.reels.length}">
-      <div class="reel-visual" data-reel-visual="${id}">${video?`<video src="${src}" data-reel-video="${id}" muted loop playsinline controls preload="metadata" aria-label="Reel video"></video>`:`<img src="${src}" alt="Sample image reel by ${escapeHTML(creator.username)}"><span class="reel-image-note">Sample photo reel</span>`}</div>
+      <div class="reel-visual" data-reel-visual="${id}">${video?`<video src="${src}" data-reel-video="${id}" ${reelAudioEnabled?'':'muted'} loop playsinline controls preload="metadata" aria-label="Reel video"></video>`:`<img src="${src}" alt="Sample image reel by ${escapeHTML(creator.username)}"><span class="reel-image-note">Sample photo reel</span>`}</div>
       <div class="reel-rail" aria-label="Reel actions">
         <button data-like="${id}" aria-pressed="${!!reel.liked}" aria-label="${reel.liked?'Unlike':'Like'} reel">${glyph('heart','♡')}<span>${Number(reel.likes).toLocaleString()}</span></button>
         <button data-comment-focus="${id}" aria-label="Open comments">${glyph('message-circle','▢')}<span>${comments.length}</span></button>
         <button data-share="${id}" aria-label="Share media link">${glyph('send','↗')}<span>Share</span></button>
         <button data-save="${id}" aria-pressed="${!!reel.saved}" aria-label="${reel.saved?'Unsave':'Save'} reel">${glyph('bookmark','♧')}<span>${reel.saved?'Saved':'Save'}</span></button>
         <button data-reel-speed="${id}" aria-label="Change playback speed">${glyph('gauge','◷')}<span>1×</span></button>
-        <button data-reel-mute="${id}" aria-label="Unmute reel">${glyph('volume-x','♩')}<span>Sound</span></button>
+        <button data-reel-mute="${id}" aria-label="${reelAudioEnabled?'Mute':'Unmute'} reel">${glyph(reelAudioEnabled?'volume-2':'volume-x','♩')}<span>${reelAudioEnabled?'Mute':'Sound'}</span></button>
       </div>
+      ${video?`<input class="reel-progress" data-reel-progress="${id}" aria-label="Reel playback position" type="range" min="0" max="1000" value="0" step="1">`:''}
       <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><button data-profile-user="${escapeHTML(creator.id)}" aria-label="Open ${escapeHTML(creator.username)} sample profile">@${escapeHTML(creator.username)}</button>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
       <p class="reel-caption">${formatText(reel.caption)}</p>
       <button data-reel-audio="${id}" class="reel-audio" aria-label="Audio details">${glyph('music-2','♫')} ${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</button>
@@ -299,6 +302,35 @@ function bindReelControls() {
   const slides=[...document.querySelectorAll('.reel-slide')];
   if(!slides.length)return;
   const videos=[...document.querySelectorAll('[data-reel-video]')];
+  // Sound choice remains consistent when switching between sample reels.
+  const applyReelSound = () => {
+    videos.forEach(video => { video.muted = !reelAudioEnabled; });
+    document.querySelectorAll('[data-reel-mute]').forEach(button => {
+      const isVideo = !!button.closest('.reel-slide')?.querySelector('video');
+      if (!isVideo) return;
+      button.setAttribute('aria-label', reelAudioEnabled ? 'Mute reel' : 'Unmute reel');
+      const word = button.querySelector('span'); if (word) word.textContent = reelAudioEnabled ? 'Mute' : 'Sound';
+      const glyph = button.querySelector('[data-lucide]');
+      if (glyph) glyph.setAttribute('data-lucide', reelAudioEnabled ? 'volume-2' : 'volume-x');
+    });
+    try { window.lucide?.createIcons?.(); } catch {}
+  };
+  applyReelSound();
+  videos.forEach(video => {
+    const scrub = video.closest('.reel-slide')?.querySelector('[data-reel-progress]');
+    if (!scrub) return;
+    const sync = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0 || !Number.isFinite(video.currentTime)) return;
+      scrub.value = String(Math.round(Math.max(0, Math.min(1, video.currentTime / video.duration)) * 1000));
+    };
+    video.addEventListener('timeupdate', sync);
+    video.addEventListener('loadedmetadata', sync);
+    video.addEventListener('durationchange', sync);
+    scrub.addEventListener('input', () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Number(scrub.value) * video.duration / 1000;
+    });
+    sync();
+  });
   if(window.IntersectionObserver){
     reelObserver=new window.IntersectionObserver(entries=>{
       for(const entry of entries){
@@ -367,19 +399,61 @@ function bindReelControls() {
     const rates=[.5,1,1.5,2],next=rates[(rates.indexOf(video.playbackRate)+1)%rates.length];
     video.playbackRate=next;button.querySelector('span').textContent=next+'×';
   }));
-  document.querySelectorAll('[data-reel-mute]').forEach(button=>button.addEventListener('click',()=>{
-    const video=button.closest('.reel-slide')?.querySelector('video');
-    if(!video)return appDialog('Audio','<p>This sample reel has no soundtrack. Choose your own audio in Story Studio.</p>');
-    video.muted=!video.muted;button.setAttribute('aria-label',video.muted?'Unmute reel':'Mute reel');button.querySelector('span').textContent=video.muted?'Sound':'Mute';
+  document.querySelectorAll('[data-reel-mute]').forEach(button => button.addEventListener('click', () => {
+    if (!button.closest('.reel-slide')?.querySelector('video')) return appDialog('Audio', '<p>This sample reel has no soundtrack.</p>');
+    reelAudioEnabled = !reelAudioEnabled;
+    applyReelSound();
   }));
   document.querySelectorAll('[data-reel-caption]').forEach(button=>button.addEventListener('click',()=>{
     const details=button.closest('.reel-details');if(!details)return;
     const expanded=details.classList.toggle('caption-expanded');button.setAttribute('aria-pressed',String(expanded));
   }));
-  document.querySelectorAll('[data-reel-visual]').forEach(media=>media.addEventListener('dblclick',()=>{
-    const slide=media.closest('.reel-slide'),like=slide?.querySelector('[data-like]');
-    if(like?.getAttribute('aria-pressed')==='false')like.click();
-  }));
+  document.querySelectorAll('[data-reel-visual]').forEach(media => {
+    const video = media.querySelector('video');
+    if (!video) return;
+    let pressTimer = null, tapTimer = null, pressMode = null, preventTapUntil = 0, pointerOrigin = null;
+    const finish = () => {
+      if (pressTimer !== null) { clearTimeout(pressTimer); pressTimer = null; }
+      if (pressMode === 'fast') video.playbackRate = pointerOrigin?.rate || 1;
+      if (pressMode === 'pause' && pointerOrigin?.wasPlaying && !document.hidden) video.play().catch(() => {});
+      if (pressMode) preventTapUntil = Date.now() + 300;
+      pressMode = null; pointerOrigin = null;
+    };
+    media.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      finish();
+      const rect = media.getBoundingClientRect();
+      pointerOrigin = {x:event.clientX, y:event.clientY, upper:event.clientY < rect.top + rect.height / 2, rate:video.playbackRate, wasPlaying:!video.paused};
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        if (!pointerOrigin) return;
+        pressMode = pointerOrigin.upper ? 'fast' : 'pause';
+        if (pressMode === 'fast') video.playbackRate = 2;
+        else video.pause();
+      }, 220);
+    });
+    media.addEventListener('pointermove', event => {
+      if (pointerOrigin && (Math.abs(event.clientY - pointerOrigin.y) > 18 || Math.abs(event.clientX - pointerOrigin.x) > 18)) finish();
+    });
+    media.addEventListener('pointerup', finish);
+    media.addEventListener('pointercancel', finish);
+    media.addEventListener('pointerleave', finish);
+    media.addEventListener('click', event => {
+      if (Date.now() < preventTapUntil || event.detail > 1) return;
+      if (tapTimer !== null) clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => {
+        tapTimer = null;
+        if (!media.isConnected) return;
+        reelAudioEnabled = !reelAudioEnabled;
+        applyReelSound();
+      }, 240);
+    });
+    media.addEventListener('dblclick', () => {
+      if (tapTimer !== null) { clearTimeout(tapTimer); tapTimer = null; }
+      const slide = media.closest('.reel-slide'), like = slide?.querySelector('[data-like]');
+      if (like?.getAttribute('aria-pressed') === 'false') like.click();
+    });
+  });
   document.querySelectorAll('[data-reel-audio]').forEach(button=>button.addEventListener('click',()=>{
     const reel=getState().reels.find(item=>item.id===button.dataset.reelAudio);if(!reel)return;
     appDialog('Reel audio',`<p class="mb-2 font-bold">${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</p><p class="text-sm text-slate-500">Audio metadata is from sample content. Licensed catalog and Use Audio from this reel are not connected.</p><button data-own-audio class="mt-4 rounded-xl border p-3">Choose my own audio for a Story</button>`,dialog=>{
