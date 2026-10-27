@@ -35,6 +35,155 @@ const pcRatios = {Original:'auto',Square:'1 / 1',Portrait:'4 / 5',Story:'9 / 16'
 function pcFresh() { return {filter:'Original',ratio:'Original',audience:'Everyone',location:'',tags:'',audioName:'',audioUrl:'',poll:false,pollQuestion:'',pollOne:'Yes',pollTwo:'No',hideLikes:false,hideComments:false,onlyProfile:false,aiLabel:false,moreOpen:false}; }
 let pcDraft = pcFresh();
 
+
+// Step 6 is a browser-local preview, NOT a connected messenger or WebRTC calling service.
+const cxVoiceDrafts = new Map();
+let cxLocalMessagingOwnerId = null;
+let cxGroupDraft = { open: false, members: [], note: '', saved: false };
+let cxVoiceRecorder = null, cxVoiceStream = null, cxVoiceChunks = [], cxVoiceChatId = null;
+let cxVoiceToken = 0, cxVoiceTimer = null, cxVoiceNotice = '';
+const cxVoiceMaxMs = 30000, cxVoiceMaxBytes = 5 * 1024 * 1024;
+
+function cxVoiceReleaseStream() {
+  if (cxVoiceTimer !== null) { clearTimeout(cxVoiceTimer); cxVoiceTimer = null; }
+  if (cxVoiceStream) {
+    for (const track of cxVoiceStream.getTracks()) track.stop();
+    cxVoiceStream = null;
+  }
+}
+function cxVoiceDiscardActive() {
+  ++cxVoiceToken;
+  if (cxVoiceRecorder) {
+    cxVoiceRecorder.ondataavailable = null;
+    cxVoiceRecorder.onstop = null;
+    cxVoiceRecorder.onerror = null;
+    try { if (cxVoiceRecorder.state !== 'inactive') cxVoiceRecorder.stop(); } catch {}
+    cxVoiceRecorder = null;
+  }
+  cxVoiceChunks = [];
+  cxVoiceChatId = null;
+  cxVoiceReleaseStream();
+}
+function cxVoiceStatus(message) {
+  cxVoiceNotice = message;
+  const element = document.querySelector('[data-cx-voice-status]');
+  if (element) element.textContent = message;
+}
+async function cxVoiceStart() {
+  const state = getState(), recipient = state.chatUserId;
+  if (state.activeTab !== 'messages' || !recipient || cxVoiceRecorder || cxVoiceStream) return;
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder !== 'function') {
+    cxVoiceStatus('Audio recording is unsupported here. No voice message was sent.');
+    return;
+  }
+  const token = ++cxVoiceToken;
+  cxVoiceStatus('Requesting microphone access for a local recording…');
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (token !== cxVoiceToken || getState().chatUserId !== recipient || getState().activeTab !== 'messages') {
+      stream.getTracks().forEach(track => track.stop()); return;
+    }
+    cxVoiceStream = stream;
+    cxVoiceChunks = [];
+    cxVoiceChatId = recipient;
+    const recorder = new MediaRecorder(stream);
+    cxVoiceRecorder = recorder;
+    recorder.ondataavailable = event => { if (token === cxVoiceToken && event.data?.size) cxVoiceChunks.push(event.data); };
+    recorder.onerror = () => {
+      if (token !== cxVoiceToken) return;
+      cxVoiceDiscardActive();
+      cxVoiceStatus('Recording failed. No audio was sent or saved.');
+    };
+    recorder.onstop = () => {
+      if (token !== cxVoiceToken) return;
+      const blob = new Blob(cxVoiceChunks, { type: recorder.mimeType || 'audio/webm' });
+      const id = cxVoiceChatId;
+      cxVoiceRecorder = null; cxVoiceChunks = []; cxVoiceChatId = null;
+      cxVoiceReleaseStream();
+      if (blob.size === 0 || blob.size > cxVoiceMaxBytes || !id) {
+        cxVoiceStatus('Recording empty or over 5 MB. Please retry.');
+        return;
+      }
+      const previous = cxVoiceDrafts.get(id);
+      if (previous) URL.revokeObjectURL(previous);
+      cxVoiceDrafts.set(id, URL.createObjectURL(blob));
+      cxVoiceStatus('Voice draft recorded locally. Nothing has been sent.');
+      if (getState().activeTab === 'messages' && getState().chatUserId === id) renderApp();
+    };
+    recorder.start(200);
+    cxVoiceStatus('Recording on this device — maximum 30 seconds. Tap Stop to preview.');
+    const stop = document.querySelector('[data-cx-voice-stop]'), start = document.querySelector('[data-cx-voice-start]');
+    if (stop) stop.disabled = false;
+    if (start) start.disabled = true;
+    cxVoiceTimer = setTimeout(() => cxVoiceStop(), cxVoiceMaxMs);
+  } catch (error) {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (token !== cxVoiceToken) return;
+    cxVoiceDiscardActive();
+    cxVoiceStatus('Microphone unavailable or permission denied. No audio recorded.');
+  }
+}
+function cxVoiceStop() {
+  if (cxVoiceRecorder?.state === 'recording') {
+    try { cxVoiceRecorder.stop(); } catch {
+      cxVoiceDiscardActive();
+      cxVoiceStatus('Could not stop recording. Audio was discarded.');
+    }
+  }
+}
+function cxVoiceDelete() {
+  const id = getState().chatUserId, url = cxVoiceDrafts.get(id);
+  if (url) URL.revokeObjectURL(url);
+  cxVoiceDrafts.delete(id);
+  cxVoiceStatus('Local voice draft discarded.');
+  renderApp();
+}
+function cxGroupView(state) {
+  const users = state.users.filter(user => user.id !== state.currentUserId).slice(0, 30);
+  return '<main class="cx-message-screen" aria-label="Group draft editor">' +
+    '<header class="cx-messages-toolbar"><button data-cx-group-back type="button">← Messages</button><h1>New group draft</h1></header>' +
+    '<p class="cx-message-warning">Local planning only. No group is created, no invitation or message is sent.</p>' +
+    '<fieldset class="cx-group-people"><legend>Choose 2–20 sample people</legend>' +
+    users.map(user => '<label><input type="checkbox" data-cx-group-member value="' + escapeHTML(user.id) + '" ' +
+      (cxGroupDraft.members.includes(user.id) ? 'checked' : '') + '><span>@' + escapeHTML(user.username) + '</span></label>').join('') +
+    '</fieldset><label class="cx-group-note-label">Group draft note<textarea data-cx-group-note maxlength="2000" placeholder="Plan a local group note…">' +
+    escapeHTML(cxGroupDraft.note) + '</textarea></label>' +
+    '<button data-cx-group-save class="cx-group-save" type="button">Save group draft locally</button>' +
+    '<p data-cx-group-status role="status">' + (cxGroupDraft.saved ? 'Local group draft saved in this browser session — no delivery.' : 'Select at least two sample people.') + '</p></main>';
+}
+const cxPriorRenderMessages = renderMessages;
+renderMessages = function(state) {
+  const user = userById(state, state.chatUserId);
+  if (!user && cxGroupDraft.open) return cxGroupView(state);
+  if (!user) {
+    return '<main class="cx-message-screen" aria-label="Messages">' +
+      '<header class="cx-messages-toolbar"><h1>Messages</h1><button data-cx-group-new type="button">New group draft</button></header>' +
+      '<p class="cx-message-warning">Local drafts only. Message delivery, calls and offline P2P are not connected.</p>' +
+      '<div class="cx-chat-list">' + state.users.filter(item => item.id !== state.currentUserId).map(item =>
+        '<button data-chat-user="' + escapeHTML(item.id) + '" class="cx-chat-row" type="button">' +
+        '<img src="' + safeMediaUrl(item.avatar) + '" alt="" loading="lazy"><span><strong>@' +
+        escapeHTML(item.username) + '</strong><small>Open local draft</small></span></button>').join('') + '</div></main>';
+  }
+  const voiceUrl = cxVoiceDrafts.get(user.id);
+  return '<main class="cx-message-screen cx-chat-screen" aria-label="Draft chat with ' + escapeHTML(user.username) + '">' +
+    '<header class="cx-messages-toolbar"><button id="messagesBack" type="button">← Back to Messages</button><h1>@' +
+      escapeHTML(user.username) + '</h1></header>' +
+    '<p class="cx-message-warning">This is a local draft. Nothing here is delivered or queued.</p>' +
+    '<div class="cx-chat-draft"><label for="messageDraft">Message draft</label>' +
+    '<textarea id="messageDraft" maxlength="4000" placeholder="Write a draft…">' + escapeHTML(state.messageDrafts?.[user.id] || '') + '</textarea></div>' +
+    '<section class="cx-voice-panel" aria-label="Local voice draft"><h2>Voice note preview</h2>' +
+    '<div class="cx-voice-actions"><button type="button" data-cx-voice-start>Record</button>' +
+    '<button type="button" data-cx-voice-stop disabled>Stop</button>' +
+    (voiceUrl ? '<button type="button" data-cx-voice-delete>Delete draft</button>' : '') + '</div>' +
+    (voiceUrl ? '<audio data-cx-voice-preview controls src="' + voiceUrl + '"></audio>' : '') +
+    '<p data-cx-voice-status role="status">' + escapeHTML(cxVoiceNotice || 'Recording requires microphone permission. Nothing is sent.') + '</p></section>' +
+    '<div class="cx-call-actions"><button data-cx-unavailable="voice" type="button">Voice call</button>' +
+    '<button data-cx-unavailable="video" type="button">Video call</button>' +
+    '<button data-cx-unavailable="p2p" type="button">Offline nearby</button></div>' +
+    '<p class="cx-message-warning">Calls and P2P require authenticated signaling, encryption and device testing; unavailable in this preview.</p></main>';
+};
+
 function closeAppDialog() {
   closeStoryViewer();
   document.querySelectorAll('dialog[data-app-dialog]').forEach(dialog => { dialog.close(); dialog.remove(); });
@@ -504,6 +653,37 @@ bindRepairEvents = function() {
   originalRepairEvents();
   bindReelControls();
   const on = (selector, fn) => document.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => fn(button)));
+  on('[data-cx-group-new]', () => { cxGroupDraft.open = true; cxGroupDraft.saved = false; renderApp(); });
+  on('[data-cx-group-back]', () => { cxGroupDraft.open = false; renderApp(); });
+  document.querySelectorAll('[data-cx-group-member]').forEach(input => input.addEventListener('change', () => {
+    const id = input.value, state = getState();
+    if (!state.users.some(user => user.id === id && user.id !== state.currentUserId)) return;
+    cxGroupDraft.members = input.checked
+      ? [...new Set([...cxGroupDraft.members, id])].slice(0, 20)
+      : cxGroupDraft.members.filter(member => member !== id);
+    cxGroupDraft.saved = false;
+  }));
+  document.querySelector?.('[data-cx-group-note]')?.addEventListener('input', event => {
+    cxGroupDraft.note = event.target.value.slice(0, 2000); cxGroupDraft.saved = false;
+  });
+  on('[data-cx-group-save]', () => {
+    const status = document.querySelector('[data-cx-group-status]');
+    const valid = getState().users.filter(user => user.id !== getState().currentUserId && cxGroupDraft.members.includes(user.id));
+    if (valid.length < 2) {
+      if (status) status.textContent = 'Select at least two valid sample people.'; return;
+    }
+    cxGroupDraft.saved = true;
+    if (status) status.textContent = 'Group draft saved for this browser session only. No invitation or message sent.';
+  });
+  on('[data-cx-voice-start]', () => { void cxVoiceStart(); });
+  on('[data-cx-voice-stop]', cxVoiceStop);
+  on('[data-cx-voice-delete]', cxVoiceDelete);
+  on('[data-cx-unavailable]', button => {
+    const kind = button.dataset.cxUnavailable;
+    const label = kind === 'voice' ? 'Voice calls' : kind === 'video' ? 'Video calls' : 'Offline P2P';
+    appDialog(label + ' unavailable', '<p>There is no verified authenticated signaling, call transport, or nearby encrypted link in this browser preview. No call or connection was started.</p>');
+  });
+
   // Mark a successfully submitted comment before the base click handler rerenders the screen.
   document.querySelectorAll('[data-comment-send]').forEach(button => button.addEventListener('click', () => {
     const id = button.dataset.commentSend;
@@ -571,6 +751,18 @@ bindRepairEvents = function() {
   });
 };
 renderApp = function() {
+  const cxRoute = getState();
+  if (cxLocalMessagingOwnerId !== cxRoute.currentUserId) {
+    // Do not leak in-memory group drafts or voice object URLs across local personas.
+    cxVoiceDiscardActive();
+    for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url);
+    cxVoiceDrafts.clear();
+    cxGroupDraft = { open: false, members: [], note: '', saved: false };
+    cxVoiceNotice = '';
+    cxLocalMessagingOwnerId = cxRoute.currentUserId;
+  }
+  if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
+  if (cxRoute.activeTab !== 'messages') cxGroupDraft.open = false;
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
   // Preserve only browser-local unsent comments when likes/saves/tabs trigger a rerender.
@@ -592,4 +784,4 @@ renderApp = function() {
   });
   if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
 };
-logout = function() { closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
