@@ -298,6 +298,42 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
       const deck = document.querySelector('.reels-deck');
       return deck && deck.scrollTop < 3;
     });
+    // A synthesized click arriving after a vertical touch swipe is not a tap.
+    // It must not change the user-wide audio preference.
+    await page.evaluate(() => {
+      const visual = document.querySelector('[data-reel-visual="video_test"]');
+      visual.dispatchEvent(new MouseEvent('click', {bubbles:true, detail:1,clientX:150,clientY:250}));
+    });
+    await page.waitForTimeout(280);
+    assert.equal(await page.evaluate(() => reelAudioEnabled), false,
+      'Touch swipe ghost click must not unmute reels');
+    // Once the swipe cooldown expires, a genuine single tap must still work.
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      document.querySelector('[data-reel-visual="video_test"]').dispatchEvent(
+        new MouseEvent('click', {bubbles:true, detail:1,clientX:150,clientY:250}));
+    });
+    await page.waitForTimeout(280);
+    assert.equal(await page.evaluate(() => reelAudioEnabled), true,
+      'A new isolated tap must change the sound preference');
+    await page.evaluate(() => {
+      document.querySelector('[data-reel-mute="video_test"]').click();
+    });
+    assert.equal(await page.evaluate(() => reelAudioEnabled), false);
+    // A pointer drag can synthesize the same spurious click without TouchEvents.
+    await page.evaluate(() => {
+      const visual = document.querySelector('[data-reel-visual="video_test"]');
+      const rect = visual.getBoundingClientRect();
+      const begin = {bubbles:true,isPrimary:true,button:0,pointerId:19,
+        clientX:rect.left+40,clientY:rect.top+50};
+      visual.dispatchEvent(new PointerEvent('pointerdown', begin));
+      visual.dispatchEvent(new PointerEvent('pointermove', {...begin,clientY:rect.top+140}));
+      visual.dispatchEvent(new PointerEvent('pointerup', {...begin,clientY:rect.top+140}));
+      visual.dispatchEvent(new MouseEvent('click', {bubbles:true,detail:1}));
+    });
+    await page.waitForTimeout(280);
+    assert.equal(await page.evaluate(() => reelAudioEnabled), false,
+      'Pointer drag ghost click must not toggle reel sound');
     await page.waitForTimeout(600);
     await page.locator('.reels-deck').focus();
     await page.keyboard.press('ArrowDown');
