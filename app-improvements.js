@@ -44,7 +44,7 @@ const cxVoiceDrafts = new Map();
 let cxLocalMessagingOwnerId = null;
 let cxGroupDraft = { open: false, members: [], note: '', saved: false };
 let cxVoiceRecorder = null, cxVoiceStream = null, cxVoiceChunks = [], cxVoiceChatId = null;
-let cxVoiceToken = 0, cxVoiceTimer = null, cxVoiceNotice = '';
+let cxVoiceToken = 0, cxVoiceTimer = null, cxVoiceNotice = '', cxVoicePending = false;
 const cxVoiceMaxMs = 30000, cxVoiceMaxBytes = 5 * 1024 * 1024;
 
 function cxVoiceReleaseStream() {
@@ -56,6 +56,7 @@ function cxVoiceReleaseStream() {
 }
 function cxVoiceDiscardActive() {
   ++cxVoiceToken;
+  cxVoicePending = false;
   if (cxVoiceRecorder) {
     cxVoiceRecorder.ondataavailable = null;
     cxVoiceRecorder.onstop = null;
@@ -74,19 +75,27 @@ function cxVoiceStatus(message) {
 }
 async function cxVoiceStart() {
   const state = getState(), recipient = state.chatUserId;
-  if (state.activeTab !== 'messages' || !recipient || cxVoiceRecorder || cxVoiceStream) return;
+  if (state.activeTab !== 'messages' || !recipient || cxVoicePending || cxVoiceRecorder || cxVoiceStream || document.hidden) return;
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder !== 'function') {
     cxVoiceStatus('Audio recording is unsupported here. No voice message was sent.');
     return;
   }
   const token = ++cxVoiceToken;
+  cxVoicePending = true;
+  cxVoiceChatId = recipient;
   cxVoiceStatus('Requesting microphone access for a local recording…');
+  const pendingButton = document.querySelector('[data-cx-voice-start]');
+  if (pendingButton) pendingButton.disabled = true;
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    if (token !== cxVoiceToken || getState().chatUserId !== recipient || getState().activeTab !== 'messages') {
-      stream.getTracks().forEach(track => track.stop()); return;
+    if (token !== cxVoiceToken || getState().chatUserId !== recipient ||
+        getState().activeTab !== 'messages' || document.hidden) {
+      stream.getTracks().forEach(track => track.stop());
+      if (token === cxVoiceToken) cxVoiceDiscardActive();
+      return;
     }
+    cxVoicePending = false;
     cxVoiceStream = stream;
     cxVoiceChunks = [];
     cxVoiceChatId = recipient;
@@ -125,6 +134,8 @@ async function cxVoiceStart() {
     if (token !== cxVoiceToken) return;
     cxVoiceDiscardActive();
     cxVoiceStatus('Microphone unavailable or permission denied. No audio recorded.');
+    const start = document.querySelector('[data-cx-voice-start]');
+    if (start) start.disabled = false;
   }
 }
 function cxVoiceStop() {
@@ -135,6 +146,13 @@ function cxVoiceStop() {
     }
   }
 }
+// Discard rather than silently recording audio after the browser tab is hidden.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || !(cxVoicePending || cxVoiceRecorder || cxVoiceStream)) return;
+  cxVoiceDiscardActive();
+  cxVoiceStatus('Recording discarded when the app became hidden. Nothing was sent.');
+  // Never render while hidden; the next safe navigation/rerender reads inactive state.
+});
 function cxVoiceDelete() {
   const id = getState().chatUserId, url = cxVoiceDrafts.get(id);
   if (url) URL.revokeObjectURL(url);
@@ -176,8 +194,10 @@ renderMessages = function(state) {
     '<div class="cx-chat-draft"><label for="messageDraft">Message draft</label>' +
     '<textarea id="messageDraft" maxlength="4000" placeholder="Write a draft…">' + escapeHTML(state.messageDrafts?.[user.id] || '') + '</textarea></div>' +
     '<section class="cx-voice-panel" aria-label="Local voice draft"><h2>Voice note preview</h2>' +
-    '<div class="cx-voice-actions"><button type="button" data-cx-voice-start>Record</button>' +
-    '<button type="button" data-cx-voice-stop disabled>Stop</button>' +
+    '<div class="cx-voice-actions"><button type="button" data-cx-voice-start' +
+    (cxVoicePending || cxVoiceRecorder || cxVoiceStream ? ' disabled' : '') + '>Record</button>' +
+    '<button type="button" data-cx-voice-stop' +
+    (cxVoiceRecorder?.state === 'recording' ? '' : ' disabled') + '>Stop</button>' +
     (voiceUrl ? '<button type="button" data-cx-voice-delete>Delete draft</button>' : '') + '</div>' +
     (voiceUrl ? '<audio data-cx-voice-preview controls src="' + voiceUrl + '"></audio>' : '') +
     '<p data-cx-voice-status role="status">' + escapeHTML(cxVoiceNotice || 'Recording requires microphone permission. Nothing is sent.') + '</p></section>' +
@@ -825,7 +845,7 @@ renderApp = function() {
     cxVoiceNotice = '';
     cxLocalMessagingOwnerId = cxRoute.currentUserId;
   }
-  if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
+  if ((cxVoicePending || cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
   cxGroupDraft.open = cxRoute.activeTab === 'messages' && !cxRoute.chatUserId && location.hash === '#messages/group-draft';
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
   const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
