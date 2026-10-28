@@ -24,6 +24,7 @@ let storyViewerDrafts = {};
 const storyViewerDuration = 6500;
 let reelObserver = null;
 let reelAudioEnabled = false;
+let reelSuppressTapUntil = 0;
 const localCommentDrafts = Object.create(null);
 let submittingCommentId = null;
 const originalHome = renderHome;
@@ -615,7 +616,12 @@ function bindReelControls() {
       const dx = event.changedTouches[0].clientX - touchStart.x;
       const dy = event.changedTouches[0].clientY - touchStart.y;
       touchStart = null;
-      if (Math.abs(dy) >= 48 && Math.abs(dy) > Math.abs(dx) * 1.3) moveOne(dy < 0 ? 1 : -1);
+      if (Math.abs(dy) >= 48 && Math.abs(dy) > Math.abs(dx) * 1.3) {
+        // Touch browsers may synthesize a click after a swipe. That click
+        // must not toggle the global sound choice on the old or new reel.
+        reelSuppressTapUntil = Date.now() + 450;
+        moveOne(dy < 0 ? 1 : -1);
+      }
     }, { passive: true });
     deck.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
   }
@@ -659,17 +665,20 @@ function bindReelControls() {
       }, 220);
     });
     media.addEventListener('pointermove', event => {
-      if (pointerOrigin && (Math.abs(event.clientY - pointerOrigin.y) > 18 || Math.abs(event.clientX - pointerOrigin.x) > 18)) finish();
+      if (pointerOrigin && (Math.abs(event.clientY - pointerOrigin.y) > 18 || Math.abs(event.clientX - pointerOrigin.x) > 18)) {
+        reelSuppressTapUntil = Date.now() + 450;
+        finish();
+      }
     });
     media.addEventListener('pointerup', finish);
     media.addEventListener('pointercancel', finish);
     media.addEventListener('pointerleave', finish);
     media.addEventListener('click', event => {
-      if (Date.now() < preventTapUntil || event.detail > 1) return;
+      if (Date.now() < preventTapUntil || Date.now() < reelSuppressTapUntil || event.detail > 1) return;
       if (tapTimer !== null) clearTimeout(tapTimer);
       tapTimer = setTimeout(() => {
         tapTimer = null;
-        if (!media.isConnected) return;
+        if (!media.isConnected || Date.now() < reelSuppressTapUntil) return;
         reelAudioEnabled = !reelAudioEnabled;
         applyReelSound();
       }, 240);
@@ -875,7 +884,7 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   history.back();
 });
-logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; reelSuppressTapUntil = 0; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
 
 
 /* Step 10 route lifecycle: a tab/Back navigation dismisses transient overlays.
