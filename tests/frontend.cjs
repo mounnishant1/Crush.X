@@ -355,6 +355,53 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('[data-cx-voice-delete]').click();
     assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0);
     assert.equal(await page.locator('[data-cx-voice-preview]').count(), 0);
+    // Double tapping Record before permission resolution must not request
+    // two microphone streams or leave an unusable disabled Stop state.
+    await page.evaluate(() => {
+      window.cxPendingMicCalls = 0;
+      window.cxPendingTracksStopped = 0;
+      window.cxNormalGetUserMedia = navigator.mediaDevices.getUserMedia;
+      navigator.mediaDevices.getUserMedia = () => {
+        window.cxPendingMicCalls++;
+        return new Promise(resolve => { window.cxResolvePendingMic = resolve; });
+      };
+    });
+    await page.locator('[data-cx-voice-start]').click();
+    await page.evaluate(() => { void cxVoiceStart(); });
+    assert.equal(await page.evaluate(() => window.cxPendingMicCalls), 1, 'Pending mic permission must not be duplicated');
+    assert.equal(await page.locator('[data-cx-voice-start]').isDisabled(), true);
+    await page.evaluate(() => renderApp());
+    assert.equal(await page.locator('[data-cx-voice-start]').isDisabled(), true, 'Pending mic state survives rerender');
+    await page.evaluate(() => navigate('home'));
+    await page.evaluate(() => {
+      window.cxResolvePendingMic({getTracks: () => [{stop(){window.cxPendingTracksStopped++;}}]});
+    });
+    await page.waitForFunction(() => cxVoicePending === false && window.cxPendingTracksStopped === 1);
+    assert.equal(await page.evaluate(() => cxVoiceRecorder === null && cxVoiceStream === null), true,
+      'Navigation must discard a permission response that arrives too late');
+    await page.evaluate(() => {
+      navigator.mediaDevices.getUserMedia = window.cxNormalGetUserMedia;
+      navigate('messages', 'user_1');
+    });
+    await page.locator('[data-cx-voice-start]').click();
+    await page.waitForFunction(() => cxVoiceRecorder?.state === 'recording');
+    await page.evaluate(() => renderApp());
+    assert.equal(await page.locator('[data-cx-voice-start]').isDisabled(), true,
+      'Rerender cannot re-enable Record during active capture');
+    assert.equal(await page.locator('[data-cx-voice-stop]').isDisabled(), false,
+      'Rerender must keep Stop available during capture');
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', {configurable:true, value:true});
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    assert.equal(await page.evaluate(() => cxVoiceRecorder === null && cxVoiceStream === null), true,
+      'Hiding the app must release microphone capture');
+    assert.equal(await page.evaluate(() => cxVoiceDrafts.size), 0,
+      'Backgrounded capture is discarded without a draft');
+    await page.evaluate(() => { delete document.hidden; renderApp(); });
+    assert.equal(await page.locator('[data-cx-voice-start]').isDisabled(), false,
+      'Record becomes available after safe foreground return');
+    assert.match(await page.locator('[data-cx-voice-status]').textContent(), /Recording discarded/);
     // This preview's normalized currentUserId is intentionally fixed to "me".
     // Simulate a changed in-memory owner marker to test the privacy cleanup branch.
     await page.evaluate(() => {
