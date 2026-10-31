@@ -121,7 +121,7 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('RequireComponent(typeof(CrushXCameraSwipe))',ui)
         self.assertIn('gameObject.AddComponent<CrushXCameraSwipe>()',ui)
         self.assertNotIn('engine.Step(',ui)
-        self.assertIn('if (canceled) return;',swipe)
+        self.assertIn('if (canceled) { if (carousel != null) carousel.CancelDrag(); return; }',swipe)
         self.assertIn('pressed > 1',swipe)
         self.assertIn('Touchscreen.current',swipe)
         self.assertIn('ENABLE_LEGACY_INPUT_MANAGER',swipe)

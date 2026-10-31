@@ -80,7 +80,6 @@ namespace CrushX.LensEngine
             var callbacks = new PermissionCallbacks();
             callbacks.PermissionGranted += _ => RequestPending = false;
             callbacks.PermissionDenied += _ => RequestPending = false;
-            callbacks.PermissionDeniedAndDontAskAgain += _ => RequestPending = false;
             requestedAt = Time.realtimeSinceStartup;
             try { Permission.RequestUserPermission(Permission.Camera, callbacks); }
             catch (System.Exception ex)

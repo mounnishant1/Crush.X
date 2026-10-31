@@ -83,6 +83,7 @@ namespace CrushX.LensEngine
         public bool BeginShutter(Vector2 screenPosition)
         {
             if (capture == null || BlocksCameraGestures) return false;
+            if (engine != null && engine.CameraSession != null && !engine.CameraSession.PreviewReady) return false;
             NativeCameraLayout layout = NativeCameraLayout.Current;
             if (!layout.Shutter.Contains(layout.ToGui(screenPosition, Screen.height))) return false;
             shutterHeld = true;
@@ -203,7 +204,20 @@ namespace CrushX.LensEngine
             }
             GUI.enabled = true;
             GUI.Box(new Rect(12, 62, layout.Width - 24, 46), GUIContent.none);
-            GUI.Label(new Rect(18, 62, layout.Width - 36, 46), engine.TrackingStatus, status);
+            var session = engine.CameraSession;
+            GUI.Label(new Rect(18, 62, layout.Width - (session != null ? 126 : 36), 46),
+                session != null && !session.PreviewReady ? session.StatusMessage : engine.TrackingStatus, status);
+            if (session != null)
+            {
+                GUI.enabled = !BlocksCameraGestures;
+                bool retry = session.State == CameraSessionState.Unavailable;
+                if (GUI.Button(new Rect(layout.Width - 100, 63, 82, 44), retry ? "Retry" : "Switch", button))
+                {
+                    if (retry) session.Retry();
+                    else if (!session.SwitchCamera()) engine.Say(session.StatusMessage);
+                }
+                GUI.enabled = true;
+            }
             string notice = !string.IsNullOrEmpty(engine.Notice) ? engine.Notice : capture.StatusMessage;
             if (!string.IsNullOrEmpty(notice)) GUI.Label(new Rect(18, 112, layout.Width - (capture.SupportsVideo ? 174 : 36), 40), notice, status);
 

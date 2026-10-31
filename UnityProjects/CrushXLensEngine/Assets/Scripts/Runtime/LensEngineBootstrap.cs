@@ -27,11 +27,12 @@ namespace CrushX.LensEngine
         private ARCameraManager frontCamera;
         private float nextRigLookup;
         private readonly List<string> recentLensIds = new List<string>();
+        public CameraSessionController CameraSession { get; private set; }
 
         public event Action<string, LensRuntimeState> LensStateChanged;
         public LensRuntimeState State { get; private set; }
         public string LastLensError { get; private set; }
-        public string TrackingStatus { get { return diagnostics != null ? diagnostics.CurrentMessage : TrackingActive ? "Face tracking active" : "Initializing face tracking"; } }
+        public string TrackingStatus { get { return CameraSession != null && CameraSession.UsingNativeFallback ? CameraSession.StatusMessage : diagnostics != null ? diagnostics.CurrentMessage : TrackingActive ? "Face tracking active" : "Initializing face tracking"; } }
         public bool IsFavorite(string id) { return personalization != null && personalization.IsFavorite(id); }
         public bool PersonalizationEnabled { get { return personalization != null && personalization.UsageEnabled; } }
         public IReadOnlyList<string> RecentLensIds { get { return recentLensIds; } }
@@ -52,6 +53,9 @@ namespace CrushX.LensEngine
             personalization = new LensPersonalization();
             recentLensIds.AddRange(personalization.RecentIds());
             tracking = gameObject.AddComponent<FaceTrackingManager>();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            CameraSession = GetComponent<CameraSessionController>() ?? gameObject.AddComponent<CameraSessionController>();
+#endif
             TryBindNativeRig();
 #if UNITY_EDITOR || UNITY_STANDALONE
             if (deviceProvider == null)
@@ -116,7 +120,8 @@ namespace CrushX.LensEngine
                 if (frontCamera == null)
                     frontCamera = FindFirstObjectByType<ARCameraManager>(FindObjectsInactive.Include);
             }
-            if (frontCamera != null && frontCamera.requestedFacingDirection != CameraFacingDirection.User)
+            if (CameraSession != null) CameraSession.Bind(frontCamera, deviceProvider != null ? deviceProvider.FaceManager : null);
+            else if (frontCamera != null && frontCamera.requestedFacingDirection != CameraFacingDirection.User)
                 frontCamera.requestedFacingDirection = CameraFacingDirection.User;
         }
 
@@ -304,8 +309,7 @@ namespace CrushX.LensEngine
         {
             if (!focused) return;
             nextRigLookup = 0;
-            if (frontCamera != null && frontCamera.requestedFacingDirection != CameraFacingDirection.User)
-                frontCamera.requestedFacingDirection = CameraFacingDirection.User;
+            // CameraSession retains the user-selected facing direction across focus changes.
         }
 
         private void OnDestroy()

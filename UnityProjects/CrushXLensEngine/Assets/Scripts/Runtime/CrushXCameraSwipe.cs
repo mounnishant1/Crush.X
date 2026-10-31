@@ -17,6 +17,7 @@ namespace CrushX.LensEngine
         private GestureOwner owner;
         private bool waitForAllReleased;
         private int gestureWidth, gestureHeight;
+        private Rect gestureSafeArea;
         private int activeTouchId = -1;
 
         private void Awake() { Resolve(); }
@@ -33,15 +34,12 @@ namespace CrushX.LensEngine
 
         public static int SwipeStep(Vector2 start, Vector2 end, float screenWidth)
         {
-            Vector2 delta = end - start;
-            float threshold = Mathf.Max(65f, screenWidth * .12f);
-            if (Mathf.Abs(delta.x) < threshold || Mathf.Abs(delta.y) > Mathf.Abs(delta.x) * .7f) return 0;
-            return delta.x < 0 ? 1 : -1;
+            return LensSwipePolicy.Step((double)end.x - start.x, (double)end.y - start.y, screenWidth);
         }
 
         public static bool IsTap(Vector2 start, Vector2 end, float scale)
         {
-            return (end - start).sqrMagnitude <= 18f * 18f * scale * scale;
+            return LensSwipePolicy.IsTap((double)end.x - start.x, (double)end.y - start.y, scale);
         }
 
         private void Cancel()
@@ -71,13 +69,14 @@ namespace CrushX.LensEngine
             startPosition = position;
             gestureWidth = Screen.width;
             gestureHeight = Screen.height;
+            gestureSafeArea = Screen.safeArea;
         }
 
         private void Move(Vector2 position, int touchId = -1)
         {
             if (owner != GestureOwner.None && activeTouchId != touchId)
             { Cancel(); waitForAllReleased = true; return; }
-            if (gestureWidth != Screen.width || gestureHeight != Screen.height) { Cancel(); return; }
+            if (LayoutChanged()) { Cancel(); waitForAllReleased = true; return; }
             if (owner == GestureOwner.Carousel && carousel != null)
                 carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
             if (owner == GestureOwner.Shutter &&
@@ -93,10 +92,10 @@ namespace CrushX.LensEngine
             owner = GestureOwner.None;
             activeTouchId = -1;
             if (completed == GestureOwner.Shutter) { if (ui != null) ui.EndShutter(canceled); return; }
-            if (carousel != null) carousel.CancelDrag();
-            if (canceled) return;
+            if (carousel != null) carousel.EndDrag();
+            if (canceled) { if (carousel != null) carousel.CancelDrag(); return; }
             if (ui != null && ui.BlocksCameraGestures) return;
-            if (gestureWidth != Screen.width || gestureHeight != Screen.height) return;
+            if (LayoutChanged()) { if (carousel != null) carousel.CancelDrag(); return; }
             int step = SwipeStep(startPosition, position, Screen.width);
             if (completed == GestureOwner.Carousel && carousel != null)
             {
@@ -110,6 +109,9 @@ namespace CrushX.LensEngine
                 else if (engine != null) engine.Step(step);
             }
         }
+
+        private bool LayoutChanged() => gestureWidth != Screen.width || gestureHeight != Screen.height ||
+            gestureSafeArea != Screen.safeArea;
 
         private void Update()
         {
