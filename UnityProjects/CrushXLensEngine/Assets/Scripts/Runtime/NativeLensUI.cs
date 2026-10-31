@@ -222,6 +222,7 @@ namespace CrushX.LensEngine
             if (!string.IsNullOrEmpty(notice)) GUI.Label(new Rect(18, 112, layout.Width - (capture.SupportsVideo ? 174 : 36), 40), notice, status);
 
             GUI.enabled = !BlocksCameraGestures;
+            DrawVisualControls(layout);
             if (searchVisible)
             {
                 GUI.SetNextControlName("CrushXLensSearch");
@@ -272,6 +273,28 @@ namespace CrushX.LensEngine
             {
                 Rect micRect = new Rect(layout.Width - 140, 112, 122, 38);
                 microphone = GUI.Toggle(micRect, microphone, microphone ? "Mic on" : "Mic off", button);
+            }
+        }
+
+        private void DrawVisualControls(NativeCameraLayout layout)
+        {
+            var effects = engine.VisualEffects;
+            if (effects == null || !effects.enabled || !effects.Supported) return;
+            string grade = effects.ColorGrade == CameraColorGrade.None ? "Original" :
+                effects.ColorGrade == CameraColorGrade.WarmCinema ? "Warm Cinema" :
+                effects.ColorGrade == CameraColorGrade.Noir ? "Noir" : "Neon Duotone";
+            if (GUI.Button(new Rect(12, 156, layout.Width - 140, 44), "Color · " + grade, button))
+                effects.ColorGrade = VisualEffectPolicy.NextGrade(effects.ColorGrade);
+            if (GUI.Button(new Rect(layout.Width - 120, 156, 108, 44), LensQualitySettings.Current.ToString(), button))
+            {
+                var next = (LensQualityTier)(((int)LensQualitySettings.Current + 1) % 3);
+                LensQualitySettings.Set(next);
+                effects.SetQuality(next);
+            }
+            if (effects.SkinMaskReady)
+            {
+                GUI.Label(new Rect(12, 207, 98, 36), "Beauty", status);
+                effects.BeautyIntensity = GUI.HorizontalSlider(new Rect(112, 218, layout.Width - 132, 24), effects.BeautyIntensity, 0, 1);
             }
         }
 

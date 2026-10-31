@@ -160,4 +160,40 @@ premium art, face transformation model or production-ready rig is claimed. Exist
 per-trackable imported Fox attachments support only the face counts offered by
 the real subsystem. Next phase: GPU visual effects with honest model boundaries.
 
-Phase commit: the commit containing this entry (`calibrate prototype lenses`).
+Phase commit: `9dbd377c77a0cb906c6faf3e1f707849261607d3`.
+
+## Phase 4 — GPU visual effects
+
+**IMPLEMENTED** after Phase 3: one Built-in GPU compositor with 5/9/13-tap
+edge-aware masked skin smoothing, bounded skin tone, eye/lip/blush/hair effects,
+person-mask background blur/replacement and actual chroma compositing. Mask-specific
+effects require genuine source-owned confidence textures registered to the same
+camera/viewport and a fresh monotonic timestamp. Missing/stale masks bypass those
+effects. No inference is fabricated. Warm Cinema, Noir and Neon Duotone grading
+also work without masks in the same pass. Native controls cycle grade/quality;
+the adjustable beauty slider appears when a real skin mask is available.
+
+Inspected/created `Effects/GpuBeautyPipeline`, `VisualEffectPolicy`, retained
+`GpuBeautyComposite` shader, portable policy tests and
+`ADVANCED-AR-VISUAL-EFFECTS.md`. Bootstrap binds the current AR/native render camera,
+disables the old compositor and invalidates masks on camera lifecycle changes,
+retaining selected settings across switches. Shared safe-area layout reserves
+the effect controls. The pass runs before the existing media capture copy, omits
+camera UI and detaches when no effect is active; no CPU image processing was added.
+
+**TESTED (host):** 69 Python checks PASS, 70/70 actual C# NUnit cases PASS, zero
+build warnings/errors; patch whitespace PASS. Five new portable cases cover
+registration/freshness/finite parameters/quality/grade selection. Shader source
+reviewed; shader compilation and rendered appearance were **not tested**.
+
+**BLOCKED:** MediaPipe/segmentation/hair/hand/body model inference and licensed model
+assets; actual GPU/skin/mask alignment, visual fidelity and OnePlus measurements.
+No model files were added. Hand/body tracking, GPU particle simulation, advanced
+fire/smoke authoring and production rigged transformations are **NOT STARTED**
+beyond the existing procedural lens effects. URP renderer-feature integration is
+**BLOCKED** by the absent validated URP renderer; active Built-in rendering is
+preserved. Installed URP package alone does not establish URP support. See the
+visual-effects document for mask producer requirements and exact model boundaries.
+Next phase: real recording/export lifecycle and completed media handling.
+
+Phase commit: the commit containing this entry (`GPU compositor`).

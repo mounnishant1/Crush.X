@@ -29,6 +29,10 @@ namespace CrushX.LensEngine
         private bool selectionRestoreFailed;
         private readonly List<string> recentLensIds = new List<string>();
         public CameraSessionController CameraSession { get; private set; }
+        public GpuBeautyPipeline VisualEffects { get; private set; }
+        private VisualEffectSettings visualSettings;
+        private CameraColorGrade selectedColorGrade;
+        private float selectedBeautyIntensity, selectedGradeIntensity = 1;
 
         public event Action<string, LensRuntimeState> LensStateChanged;
         public LensRuntimeState State { get; private set; }
@@ -313,6 +317,7 @@ namespace CrushX.LensEngine
                 nextRigLookup = Time.unscaledTime + 1f;
                 TryBindNativeRig();
             }
+            BindVisualEffects();
             bool showing = !selectionRestoreFailed && TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
             if (!string.IsNullOrEmpty(activeId))
@@ -324,6 +329,30 @@ namespace CrushX.LensEngine
             effectRoot.rotation = face.Rotation;
             effectRoot.localScale = effect != null ? Vector3.one * LensAttachmentPolicy.ProceduralScale(face.FaceWidthMeters, usingMock) : Vector3.one;
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
+        }
+
+        private void BindVisualEffects()
+        {
+            Camera camera = CameraSession != null ? CameraSession.RenderCamera : Camera.main;
+            bool ready = camera != null && camera.isActiveAndEnabled && (CameraSession == null || CameraSession.PreviewReady);
+            if (VisualEffects != null && (!ready || VisualEffects.gameObject != camera.gameObject))
+            {
+                visualSettings = VisualEffects.Settings;
+                selectedColorGrade = VisualEffects.ColorGrade;
+                selectedBeautyIntensity = VisualEffects.BeautyIntensity;
+                selectedGradeIntensity = VisualEffects.GradeIntensity;
+                VisualEffects.enabled = false;
+                if (camera == null || VisualEffects.gameObject != camera.gameObject) VisualEffects = null;
+            }
+            if (ready && (VisualEffects == null || !VisualEffects.enabled))
+            {
+                VisualEffects = GpuBeautyPipeline.GetOrCreate(camera);
+                if (visualSettings != null) VisualEffects.Settings = visualSettings;
+                VisualEffects.ColorGrade = selectedColorGrade;
+                VisualEffects.BeautyIntensity = selectedBeautyIntensity;
+                VisualEffects.GradeIntensity = selectedGradeIntensity;
+                VisualEffects.SetQuality(LensQualitySettings.Current);
+            }
         }
 
         private void OnApplicationPause(bool paused)
