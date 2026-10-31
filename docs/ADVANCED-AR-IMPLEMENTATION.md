@@ -124,5 +124,40 @@ establish on-device inference. See tracking document for exact acquisition and
 association requirements. Next phase: calibrated 3D lens attachment and expression
 consumers, preserving supplied Fox assets.
 
-Phase commit: resolve the commit containing this entry with
-`git log --format='%H %s' --grep='tracking identity'`.
+Phase commit: `7218344c38cdc3154a439f0649bfb7ca7196e290`.
+
+## Phase 3 — 3D lens attachment and expressions
+
+**IMPLEMENTED** on the same branch after Phase 2. Procedural Fox/Cat/accessory
+geometry now converts its 0.54-unit mock-head width to measured metre-based face
+width (0.08–0.25m accepted; conservative 0.145m reference when unavailable).
+Synthetic Editor demonstrations retain their original scale. Imported prefabs
+retain their authored calibration. Pose application runs in LateUpdate after
+tracking updates. New lens activation is transactional; failed activation restores
+the prior selection, and a failed restore stays visibly failed until retry.
+Generated mesh release is explicit and idempotent.
+
+Puppy tongue and Dragon flame require a valid mouth-open channel; robotic eyes
+require a genuine bilateral blink. Removed clock-generated blinks and forced
+minimum flame. Cat ears can react to available brow signals while retaining their
+ordinary authored idle animation. Async expression results can update a held pose
+without extending the pose lifetime (Phase 2 review followup).
+
+Inspected/changed `LensEffects`, bootstrap selection/attachment lifecycle,
+tracking manager and its tests. Created `LensAttachmentPolicy`, portable physical
+scale tests and Unity `ExpressionLensTests`; exposed read-only current face/active
+lens root for the later creator adapter. Existing imported Fox OBJ, texture,
+material, prefab and depth occlusion assets are unchanged.
+
+**TESTED (host):** 69 Python checks PASS; 65/65 actual C# NUnit cases PASS, zero
+build warnings/errors; patch whitespace PASS. Six new portable cases validate
+physical scaling and corrupt input fallback. Four new effect/render-object tests
+and the async manager regression require Unity and were **not executed** here.
+
+**BLOCKED:** visual alignment/occlusion/lighting/artistic quality on device; properly
+licensed, rigged artistic replacements for the ten procedural prototypes. No new
+premium art, face transformation model or production-ready rig is claimed. Existing
+per-trackable imported Fox attachments support only the face counts offered by
+the real subsystem. Next phase: GPU visual effects with honest model boundaries.
+
+Phase commit: the commit containing this entry (`calibrate prototype lenses`).

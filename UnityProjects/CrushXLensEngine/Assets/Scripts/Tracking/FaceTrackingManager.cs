@@ -93,6 +93,22 @@ namespace CrushX.LensEngine
                 SetLegacyExpressions(ref incoming);
                 Current = incoming;
             }
+            else if (supplied && validPose && gate.LastRejection == TrackingSampleRejection.RepeatedOrOutOfOrder &&
+                incoming.Identity == Current.Identity && incoming.Timestamp == Current.Timestamp && gate.IsTrackingAt(now, timeout))
+            {
+                // A local model may finish between AR pose events. Consume a genuinely newer
+                // expression frame without refreshing the held pose's timestamp or lifetime.
+                FaceExpressionSample expressions = FreshExpressions(incoming.Expressions, now);
+                if (expressions.Available != FaceExpressionChannels.None && expressions.Timestamp > Current.Expressions.Timestamp)
+                {
+                    FaceSample held = Current;
+                    float dt = (float)Math.Max(0, Math.Min(.1, expressions.Timestamp - held.Expressions.Timestamp));
+                    held.Expressions = FaceExpressionSample.Smooth(held.Expressions, expressions,
+                        TrackingSampleGate.HalfLifeWeight(dt, ExpressionHalfLife));
+                    SetLegacyExpressions(ref held);
+                    Current = held;
+                }
+            }
             IsTracking = gate.IsTrackingAt(now, timeout);
             if (!IsTracking) Current = default;
             else

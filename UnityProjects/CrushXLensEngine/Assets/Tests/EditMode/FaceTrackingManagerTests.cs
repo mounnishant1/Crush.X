@@ -70,5 +70,18 @@ namespace CrushX.LensEngine.Tests
             Assert.AreEqual(0, manager.Current.MouthOpen);
             manager.ResetTracking(); Assert.IsFalse(manager.IsTracking);
         }
+
+        [Test] public void NewModelFrameWithHeldPose_UpdatesExpressionsWithoutExtendingPoseLife()
+        {
+            FaceSample pose = Sample(10, 1);
+            manager.ProcessSample(true, pose, 10);
+            pose.Expressions = new FaceExpressionSample { Available = FaceExpressionChannels.MouthOpen, MouthOpen = .8f, Timestamp = 10.05 };
+            manager.ProcessSample(true, pose, 10.05);
+            Assert.IsTrue(manager.Current.Expressions.TryGet(ExpressionSignal.MouthOpen, out float mouth));
+            Assert.AreEqual(.8f, mouth);
+            Assert.AreEqual(10, manager.Current.Timestamp);
+            manager.ProcessSample(true, pose, 10.3);
+            Assert.IsFalse(manager.IsTracking);
+        }
     }
 }
