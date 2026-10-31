@@ -12,6 +12,10 @@ namespace CrushX.LensEngine
         public float Confidence;
         public float MouthOpen;  // 0..1, only meaningful with a provider that supports expressions.
         public float Blink;      // 0..1, only meaningful with a provider that supports expressions.
+        public FaceIdentity Identity;
+        public FaceExpressionSample Expressions;
+        public float FaceWidthMeters; // 0 when no usable local face mesh is available.
+        public bool ConfidenceIsMeasured; // AR tracking state is not a model confidence score.
         public double Timestamp;
     }
 

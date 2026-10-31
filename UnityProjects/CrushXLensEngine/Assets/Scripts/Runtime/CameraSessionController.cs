@@ -44,6 +44,8 @@ namespace CrushX.LensEngine
         }
 
         private readonly CameraRecoveryPolicy policy = new CameraRecoveryPolicy();
+        private readonly CameraFrameFreshness arFreshness = new CameraFrameFreshness();
+        private bool pendingArFrame;
         private ARCameraManager arCamera;
         private ARFaceManager arFaces;
         private ARSession arSession;
@@ -71,6 +73,11 @@ namespace CrushX.LensEngine
             owner = this;
         }
 
+        private void OnEnable()
+        {
+            if (owner == this) Camera.onPostRender += ArCameraRendered;
+        }
+
         public void Bind(ARCameraManager cameraManager, ARFaceManager faceManager)
         {
             if (arCamera != cameraManager)
@@ -96,7 +103,26 @@ namespace CrushX.LensEngine
             if (UsingNativeFallback || State == CameraSessionState.ReleasingAr) StopAr();
         }
 
-        private void ArFrameReceived(ARCameraFrameEventArgs args) { arFrame++; }
+        private void ArFrameReceived(ARCameraFrameEventArgs args)
+        {
+            bool texturesReady = args.textures != null && args.textures.Count > 0;
+            if (texturesReady)
+                foreach (Texture2D texture in args.textures)
+                    if (texture == null) { texturesReady = false; break; }
+            pendingArFrame = arFreshness.TryAccept(texturesReady, args.timestampNs, Time.realtimeSinceStartupAsDouble);
+        }
+
+        private void ArCameraRendered(Camera rendered)
+        {
+            if (rendered != renderCamera || !pendingArFrame) return;
+            pendingArFrame = false;
+            // ARCameraBackground can disable itself for an empty texture set even while frameReceived keeps firing.
+            // Count only accepted sensor images after this camera's background reached its rendering callback.
+            if (arCamera != null && arCamera.isActiveAndEnabled && arBackground != null && arBackground.isActiveAndEnabled &&
+                arBackground.backgroundRenderingEnabled && arBackground.material != null &&
+                arBackground.material.shader != null && arBackground.material.shader.isSupported)
+                arFrame++;
+        }
 
         public void Retry()
         {
@@ -188,6 +214,8 @@ namespace CrushX.LensEngine
         private void StartAr()
         {
             StopNative();
+            arFreshness.Reset();
+            pendingArFrame = false;
             if (arCamera == null || arSession == null) throw new InvalidOperationException("The AR camera rig is unavailable");
             foreach (ARCameraManager other in FindObjectsByType<ARCameraManager>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 if (other != arCamera && other.isActiveAndEnabled)
@@ -203,6 +231,7 @@ namespace CrushX.LensEngine
         private void StopAr()
         {
             restartingAr = false;
+            pendingArFrame = false;
             if (arFaces != null) arFaces.enabled = false;
             if (arBackground != null) arBackground.enabled = false;
             if (arCamera != null) arCamera.enabled = false;
@@ -292,9 +321,14 @@ namespace CrushX.LensEngine
         }
         private void OnApplicationPause(bool value) { paused = value; if (value && owner == this) SuspendResources(); }
         private void OnApplicationFocus(bool value) { focused = value; if (!value && owner == this) SuspendResources(); }
-        private void OnDisable() { if (owner == this) SuspendResources(); }
+        private void OnDisable()
+        {
+            Camera.onPostRender -= ArCameraRendered;
+            if (owner == this) SuspendResources();
+        }
         private void OnDestroy()
         {
+            Camera.onPostRender -= ArCameraRendered;
             if (arCamera != null) arCamera.frameReceived -= ArFrameReceived;
             if (owner == this) { StopResources(); owner = null; }
             if (ownedRenderer != null) { Destroy(ownedRenderer); ownedRenderer = null; }

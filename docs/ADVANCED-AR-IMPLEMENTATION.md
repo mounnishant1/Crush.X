@@ -89,5 +89,40 @@ native UV correction is not applied twice to AR pixels. ARCore front support is
 never inferred from the request; a mismatched actual direction cannot become ready.
 Next phase: tracking validity, identity, smoothing and real expression ingress.
 
-Phase commit: the commit containing this entry (resolve using
-`git log --format='%H %s' --grep='repair camera ownership'`).
+Phase commit: `b4cbe3d4eba4155ccb1c2fe97da4bdf1dd0fd9c2`.
+
+## Phase 2 — tracking and expression validity
+
+**IMPLEMENTED** after Phase 1 on the same verified repository/feature branch.
+Stable AR face identity and update-event snapshots, finite pose validation,
+normalized rotations, stale/repeated/future/out-of-order rejection, identity-aware
+pose/width/expression smoothing, tracking expiry/reacquisition and per-channel
+expression validity. Added a local blendshape ingress adapter with strict face ID,
+time-skew and confidence matching. It maps genuine supplied coefficients and never
+manufactures missing model output. AR tracking-state confidence is explicitly
+marked unmeasured. Provider capabilities remain conditional on real support.
+
+Also completed the Phase 1 frame-adapter review fix: textureless callbacks and
+duplicate sensor timestamps cannot sustain preview readiness. Readiness requires
+an accepted image reaching the configured AR background render callback.
+
+Inspected/changed Core `FaceSample`, all tracking adapters/manager/mock, camera
+session adapter and PlayMode fixture. Created `TrackingSampleGate`,
+`FaceExpressions`, `BlendshapeTrackingProvider`, `CameraFrameFreshness`, portable
+expression/tracking tests, Unity manager tests and `ADVANCED-AR-TRACKING.md`.
+
+**TESTED (host):** Python suite 69/69 PASS; actual pure C# core 59/59 NUnit cases
+PASS, build zero warnings/errors; patch whitespace PASS. The 59 include the prior
+38, six new camera-frame cases and fifteen tracking/expression cases; reruns are
+not additional test cases. Unity-dependent manager and PlayMode tests were authored
+but not executed. Exact ARFace/frame event APIs checked against AR Foundation 6.0.8.
+
+**BLOCKED:** actual model inference, semantic facial landmark/eye accuracy, physical
+tracking and latency/multi-face validation. No model/runner is supplied. The
+implemented adapter and mapping policies work with validated inputs; they do not
+establish on-device inference. See tracking document for exact acquisition and
+association requirements. Next phase: calibrated 3D lens attachment and expression
+consumers, preserving supplied Fox assets.
+
+Phase commit: resolve the commit containing this entry with
+`git log --format='%H %s' --grep='tracking identity'`.

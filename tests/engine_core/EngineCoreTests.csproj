@@ -13,7 +13,12 @@
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensSwipePolicy.cs" Link="Runtime/LensSwipePolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraRecoveryPolicy.cs" Link="Runtime/CameraRecoveryPolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraPreviewTransform.cs" Link="Runtime/CameraPreviewTransform.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraFrameFreshness.cs" Link="Runtime/CameraFrameFreshness.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/ARDiagnosticClassifier.cs" Link="Runtime/ARDiagnosticClassifier.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/TrackingSampleGate.cs" Link="Runtime/TrackingSampleGate.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/FaceExpressions.cs" Link="Runtime/FaceExpressions.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs" Link="Tests/ARDiagnosticClassifierTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/TrackingPolicyTests.cs" Link="Tests/TrackingPolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/FaceExpressionTests.cs" Link="Tests/FaceExpressionTests.cs" />
   </ItemGroup>
 </Project>
