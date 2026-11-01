@@ -12,6 +12,8 @@ namespace CrushX.LensEngine
     {
         public string DraftId, CaptureId, LensId, MediaPath, MimeType, Destination, CreatedUtc;
         public string CaptureStartedUtc, CaptureCompletedUtc, Orientation, Mirroring;
+        public string CreatorPresetId, CreatorConfigurationSha256;
+        public int CreatorPresetRevision;
         public bool MirroredRelativeToPreview;
         public double FirstFrameOffsetSeconds;
         public int Width, Height;
@@ -166,7 +168,9 @@ namespace CrushX.LensEngine
                 CaptureStartedUtc = LastSavedMedia.CreatedUtc, CaptureCompletedUtc = LastSavedMedia.CompletedUtc,
                 Orientation = LastSavedMedia.Orientation, Mirroring = LastSavedMedia.Mirroring,
                 MirroredRelativeToPreview = LastSavedMedia.MirroredRelativeToPreview,
-                FirstFrameOffsetSeconds = LastSavedMedia.FirstFrameOffsetSeconds
+                FirstFrameOffsetSeconds = LastSavedMedia.FirstFrameOffsetSeconds,
+                CreatorPresetId = LastSavedMedia.CreatorPresetId, CreatorPresetRevision = LastSavedMedia.CreatorPresetRevision,
+                CreatorConfigurationSha256 = LastSavedMedia.CreatorConfigurationSha256
             };
             try
             {

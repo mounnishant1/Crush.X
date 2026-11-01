@@ -69,6 +69,8 @@ namespace CrushX.LensEngine
         private bool requestedMicrophone;
         private bool lifecycleStopping;
         private string captureLensId;
+        private string captureCreatorId, captureCreatorConfigurationSha256;
+        private int captureCreatorRevision;
         private MediaPreviewPlayer playback;
         private readonly CaptureFrameProgressPolicy frameProgress = new CaptureFrameProgressPolicy();
         private long acceptedFrames;
@@ -476,6 +478,11 @@ namespace CrushX.LensEngine
             if (!Enum.IsDefined(typeof(CaptureMirrorMode), ExportMirrorMode)) ExportMirrorMode = CaptureMirrorMode.MatchPreview;
             captureMirrorMode = ExportMirrorMode;
             captureStartedUtc = null;
+            var preset = engine != null && engine.ActiveLensTransform != null
+                ? engine.ActiveLensTransform.GetComponent<Creator.CreatorLensPreset>() : null;
+            captureCreatorId = preset != null ? preset.PresetId : string.Empty;
+            captureCreatorRevision = preset != null ? preset.PresetRevision : 0;
+            captureCreatorConfigurationSha256 = preset != null ? preset.ConfigurationSha256 : string.Empty;
         }
 
         private void PersistCompletedDraft()
@@ -662,6 +669,8 @@ namespace CrushX.LensEngine
         {
             CaptureId = Path.GetFileNameWithoutExtension(draftPath), MediaKind = kind, MimeType = mime,
             Path = draftPath, LensId = captureLensId,
+            CreatorPresetId = captureCreatorId, CreatorPresetRevision = captureCreatorRevision,
+            CreatorConfigurationSha256 = captureCreatorConfigurationSha256,
             CreatedUtc = captureStartedUtc, CompletedUtc = DateTime.UtcNow.ToString("O"), Width = width, Height = height,
             Mirroring = captureMirrorMode.ToString() + " relative to rendered preview; absolute AR selfie mirroring requires device verification",
             MirroredRelativeToPreview = captureMirrorMode == CaptureMirrorMode.FlipHorizontally,

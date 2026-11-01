@@ -235,4 +235,38 @@ native app host; metadata/events do not manufacture that integration. Exact
 commands and phone procedures are in the capture document. Next phase: local
 creator manifest save/import/validation/preview.
 
-Phase commit: the commit containing this entry (`harden rendered recording`).
+Phase commit: `54f541c5539ada3156bae11b99f4b30ac0c22e98`.
+
+## Phase 6 — local creator foundation
+
+**IMPLEMENTED** after Phase 5. The local Unity Editor window selects an installed
+procedural lens, edits bounded transform/tint/pulse/expression rules, builds an
+isolated real-geometry preview, validates dependencies and shaders, saves immutable
+versioned JSON revisions, imports hash-checked local data and exports pending-review
+metadata. Runtime application reuses the existing engine/face signals and owns
+its material overrides. Missing expression channels stay neutral. Media/local
+draft metadata retains the applied preset ID/revision/configuration fingerprint.
+
+Inspected/created the five `Creator` runtime/document/store/policy files, Editor
+window/assembly definition, portable and Unity fixtures and `CREATOR-FOUNDATION.md`.
+Adjusted primitive collider destruction for safe Editor preview cleanup. Updated
+capture/workflow metadata for creator identity; existing lenses and host routes
+are preserved. Files use strict bounded UTF-8, SHA-256-before-decode, link rejection,
+installed dependency/type/shader allowlists, atomic immutable revision saves and
+default-deny external review hooks. A package's self-claimed licence is not approval.
+
+**TESTED (host):** 70 Python checks PASS, 130/130 actual C# NUnit cases PASS,
+zero warnings/errors; patch whitespace PASS. The 27 new portable cases exercise
+tampering, trust-before-decode, invalid text/size/paths/IDs/dependencies/shaders,
+finite bounds, immutable saves and signal availability/hysteresis. Three Unity
+fixtures cover serialization/application/restoration but were **not executed**.
+
+**BLOCKED:** Editor preview/rendering interaction and Android preset/capture
+acceptance without Unity/device access. Binary AssetBundle execution, creator
+publishing transport, externally approved moderation/licensing, imported-scene
+and fullscreen-filter preset adapters are **NOT STARTED**. This is a local preset
+editor foundation, not a complete production creator platform. Full application
+draft/editor integration still needs the absent v402 host. Next phase: final
+regression automation, media validation tools and precise device handoff.
+
+Phase commit: the commit containing this entry (`local lens creator`).

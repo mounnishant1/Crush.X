@@ -13,6 +13,9 @@ namespace CrushX.LensEngine
         public string MimeType;
         public string Path;
         public string LensId;
+        public string CreatorPresetId;
+        public int CreatorPresetRevision;
+        public string CreatorConfigurationSha256;
         public string CreatedUtc;
         public string CompletedUtc;
         public string Orientation;
