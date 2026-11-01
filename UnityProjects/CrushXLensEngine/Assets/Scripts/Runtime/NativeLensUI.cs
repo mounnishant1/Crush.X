@@ -16,8 +16,9 @@ namespace CrushX.LensEngine
         private NativeMediaCapture capture;
         private GUIStyle header, status, button, small, input;
         private Texture2D dark, shutter;
-        private bool searchVisible, microphone, shutterHeld, videoStarted;
-        private float shutterPressedAt, captureAt = -1;
+        private bool searchVisible, microphone;
+        private readonly ShutterGesture shutterGesture = new ShutterGesture();
+        private float captureAt = -1;
         private int timerSeconds;
 
         public bool SearchVisible { get { return searchVisible; } }
@@ -72,12 +73,7 @@ namespace CrushX.LensEngine
                 captureAt = -1;
                 if (capture != null) capture.RequestPhoto();
             }
-            if (shutterHeld && !videoStarted && capture != null && capture.SupportsVideo &&
-                Time.unscaledTime - shutterPressedAt >= .4f)
-            {
-                videoStarted = true;
-                capture.StartVideo(microphone);
-            }
+            ApplyShutterAction(shutterGesture.Poll(Time.realtimeSinceStartupAsDouble, capture != null && capture.SupportsVideo));
         }
 
         public bool BeginShutter(Vector2 screenPosition)
@@ -86,33 +82,34 @@ namespace CrushX.LensEngine
             if (engine != null && engine.CameraSession != null && !engine.CameraSession.PreviewReady) return false;
             NativeCameraLayout layout = NativeCameraLayout.Current;
             if (!layout.Shutter.Contains(layout.ToGui(screenPosition, Screen.height))) return false;
-            shutterHeld = true;
-            videoStarted = false;
-            shutterPressedAt = Time.unscaledTime;
-            return true;
+            return shutterGesture.Begin(Time.realtimeSinceStartupAsDouble);
         }
 
         public void EndShutter(bool canceled)
         {
-            if (!shutterHeld) return;
-            shutterHeld = false;
-            if (videoStarted)
+            ApplyShutterAction(shutterGesture.End(Time.realtimeSinceStartupAsDouble, canceled, capture != null && capture.SupportsVideo));
+        }
+
+        private void ApplyShutterAction(ShutterAction action)
+        {
+            if (capture == null || action == ShutterAction.None) return;
+            if ((action & ShutterAction.StartVideo) != 0) capture.StartVideo(microphone);
+            if ((action & ShutterAction.CancelVideo) != 0 && CaptureLifecyclePolicy.CanCancelShutter(capture.CurrentState)) capture.Retry();
+            if ((action & ShutterAction.StopVideo) != 0) capture.StopVideo();
+            if ((action & ShutterAction.Photo) != 0)
             {
-                // Also cancels a pending microphone permission/encoder initialization.
-                if (canceled) capture.Retry();
-                else capture.StopVideo();
-                videoStarted = false;
-                return;
+                if (timerSeconds == 0) capture.RequestPhoto();
+                else captureAt = Time.unscaledTime + timerSeconds;
             }
-            if (canceled || capture == null) return;
-            if (timerSeconds == 0) capture.RequestPhoto();
-            else captureAt = Time.unscaledTime + timerSeconds;
+            if ((action & ShutterAction.VideoUnavailable) != 0 && engine != null) engine.Say(capture.VideoCapabilityReason);
         }
 
         private void Back()
         {
+            if (shutterGesture.IsHeld) { EndShutter(true); return; }
             if (captureAt >= 0) { captureAt = -1; return; }
-            if (capture != null && capture.CurrentState == MediaCaptureState.Preview) { capture.Retry(); return; }
+            // Completed drafts have already been persisted; leaving preview must not silently discard them.
+            if (capture != null && capture.CurrentState == MediaCaptureState.Preview) { NativeLensLifecycle.ExitToCrushX(); return; }
             if (capture != null && (capture.CurrentState == MediaCaptureState.Recording || capture.CurrentState == MediaCaptureState.Preparing))
             { capture.StopVideo(); return; }
             if (searchVisible) { searchVisible = false; carousel.SetQuery(string.Empty); return; }
@@ -128,6 +125,7 @@ namespace CrushX.LensEngine
         }
 
         private void OnDisable() { captureAt = -1; EndShutter(true); }
+        private void OnApplicationFocus(bool focused) { if (!focused) { captureAt = -1; EndShutter(true); } }
 
         private void EnsureStyles()
         {
@@ -223,6 +221,10 @@ namespace CrushX.LensEngine
 
             GUI.enabled = !BlocksCameraGestures;
             DrawVisualControls(layout);
+            if (GUI.Button(new Rect(12, 207, 132, 36),
+                capture.ExportMirrorMode == CaptureMirrorMode.MatchPreview ? "Save: preview" : "Save: flipped", button))
+                capture.ExportMirrorMode = capture.ExportMirrorMode == CaptureMirrorMode.MatchPreview
+                    ? CaptureMirrorMode.FlipHorizontally : CaptureMirrorMode.MatchPreview;
             if (searchVisible)
             {
                 GUI.SetNextControlName("CrushXLensSearch");
@@ -267,12 +269,21 @@ namespace CrushX.LensEngine
                 GUI.Label(layout.Hint, capture.RecordingSeconds.ToString("0.0") + "s / " + NativeMediaCapture.MaxRecordingSeconds + "s · release to stop", status);
                 float fraction = Mathf.Clamp01(capture.RecordingSeconds / NativeMediaCapture.MaxRecordingSeconds);
                 GUI.DrawTexture(new Rect(layout.Shutter.x, layout.Shutter.yMax + 4, layout.Shutter.width * fraction, 3), Texture2D.whiteTexture);
+                DrawRecordingRing(layout.Shutter, fraction);
             }
             else GUI.Label(layout.Hint, capture.SupportsVideo ? "Tap for photo · hold for video" : "Tap for photo", small);
             if (capture.SupportsVideo && !BlocksCameraGestures)
             {
                 Rect micRect = new Rect(layout.Width - 140, 112, 122, 38);
-                microphone = GUI.Toggle(micRect, microphone, microphone ? "Mic on" : "Mic off", button);
+                if (GUI.Button(micRect, microphone && capture.MicrophoneGranted ? "Mic on" : "Mic off", button))
+                {
+                    if (microphone) microphone = false;
+                    else
+                    {
+                        microphone = true;
+                        if (!capture.MicrophoneGranted) capture.RequestMicrophoneAccess();
+                    }
+                }
             }
         }
 
@@ -293,9 +304,26 @@ namespace CrushX.LensEngine
             }
             if (effects.SkinMaskReady)
             {
-                GUI.Label(new Rect(12, 207, 98, 36), "Beauty", status);
-                effects.BeautyIntensity = GUI.HorizontalSlider(new Rect(112, 218, layout.Width - 132, 24), effects.BeautyIntensity, 0, 1);
+                GUI.Label(new Rect(154, 207, 68, 36), "Beauty", status);
+                effects.BeautyIntensity = GUI.HorizontalSlider(new Rect(226, 218, layout.Width - 242, 24), effects.BeautyIntensity, 0, 1);
             }
+        }
+
+        private static void DrawRecordingRing(Rect shutterBounds, float progress)
+        {
+            Matrix4x4 previous = GUI.matrix;
+            Color color = GUI.color;
+            GUI.color = new Color(1, .2f, .45f, 1);
+            const int segments = 60;
+            int count = Mathf.CeilToInt(Mathf.Clamp01(progress) * segments);
+            for (int i = 0; i < count; i++)
+            {
+                GUI.matrix = previous;
+                GUIUtility.RotateAroundPivot(i * 360f / segments, shutterBounds.center);
+                GUI.DrawTexture(new Rect(shutterBounds.center.x - 2, shutterBounds.y - 5, 4, 7), Texture2D.whiteTexture);
+            }
+            GUI.matrix = previous;
+            GUI.color = color;
         }
 
         private void DrawTab(Rect rect, LensBrowseFilter value, string title)
@@ -311,11 +339,20 @@ namespace CrushX.LensEngine
             GUI.DrawTexture(layout.Bounds, dark);
             GUI.Label(new Rect(12, 12, layout.Width - 24, 44), "Preview", header);
             Rect preview = new Rect(12, 64, layout.Width - 24, layout.Height - 190);
-            if (capture.PreviewTexture != null) GUI.DrawTexture(preview, capture.PreviewTexture, ScaleMode.ScaleToFit);
+            if (capture.DisplayPreviewTexture != null) GUI.DrawTexture(preview, capture.DisplayPreviewTexture, ScaleMode.ScaleToFit);
             else GUI.Label(preview, "Video draft ready. Save to keep the MP4.", status);
+            if (capture.PreviewPlaybackReady && GUI.Button(new Rect(16, 70, 104, 44), capture.PreviewPlaying ? "Pause" : "Play", button))
+                capture.TogglePreviewPlayback();
             GUI.Label(new Rect(12, layout.Height - 120, layout.Width - 24, 32), capture.StatusMessage, small);
-            if (GUI.Button(new Rect(16, layout.Height - 80, layout.Width * .5f - 24, 56), "Retry", button)) capture.Retry();
-            if (GUI.Button(new Rect(layout.Width * .5f + 8, layout.Height - 80, layout.Width * .5f - 24, 56), "Save", button)) capture.SavePreview();
+            int actions = capture.SupportsGalleryExport ? 3 : 2;
+            float width = (layout.Width - 32 - (actions - 1) * 8) / actions;
+            if (GUI.Button(new Rect(16, layout.Height - 80, width, 56), "Retry", button)) capture.Retry();
+            if (GUI.Button(new Rect(24 + width, layout.Height - 80, width, 56), "Save", button)) capture.SavePreview();
+            if (actions == 3 && GUI.Button(new Rect(32 + width * 2, layout.Height - 80, width, 56), "Gallery", button))
+            {
+                capture.SavePreview();
+                if (capture.CurrentState == MediaCaptureState.Idle) capture.ExportLastSavedToGallery();
+            }
         }
 
         private void OnDestroy()

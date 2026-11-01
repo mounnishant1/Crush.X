@@ -10,8 +10,9 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture/CrushXMediaRecorder.java"
-TEST = ROOT / "tests/native_media/CrushXMediaRecorderTests.java"
+SOURCE_DIRECTORY = ROOT / "UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture"
+SOURCES = [SOURCE_DIRECTORY / name for name in ("CrushXMediaRecorder.java", "CrushXGalleryExporter.java")]
+TESTS = [ROOT / "tests/native_media" / name for name in ("CrushXMediaRecorderTests.java", "CrushXGalleryExporterTests.java")]
 
 
 def main():
@@ -31,9 +32,11 @@ def main():
                 target.writestr(entry, source.read(entry.filename))
     classes = args.output / "classes"
     classes.mkdir(exist_ok=True)
-    subprocess.run([args.java, "-jar", str(args.ecj), "-1.8", "-classpath", str(api), "-d", str(classes), str(SOURCE), str(TEST)], check=True)
+    subprocess.run([args.java, "-jar", str(args.ecj), "-1.8", "-classpath", str(api), "-d", str(classes),
+                    *(str(path) for path in (*SOURCES, *TESTS))], check=True)
     import os
-    subprocess.run([args.java, "-cp", os.pathsep.join((str(classes), str(api))), "in.crushx.lens.capture.CrushXMediaRecorderTests"], check=True)
+    for name in ("CrushXMediaRecorderTests", "CrushXGalleryExporterTests"):
+        subprocess.run([args.java, "-cp", os.pathsep.join((str(classes), str(api))), "in.crushx.lens.capture." + name], check=True)
 
 
 if __name__ == "__main__":

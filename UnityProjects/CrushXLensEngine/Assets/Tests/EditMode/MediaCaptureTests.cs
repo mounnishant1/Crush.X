@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -64,6 +65,77 @@ namespace CrushX.LensEngine.Tests
                 Assert.AreEqual(MediaCaptureState.Idle, capture.CurrentState);
             }
             finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void MissingVideoPreviewRetainsDraftAndDoesNotPretendToPlay()
+        {
+            var go = new GameObject("Missing video preview test");
+            try
+            {
+                var player = go.AddComponent<MediaPreviewPlayer>();
+                string status = null; player.StatusChanged += message => status = message;
+                player.Open(Path.Combine(directory, "missing.mp4"), 2, 4, false);
+                Assert.IsFalse(player.IsPrepared); Assert.IsFalse(player.IsPlaying); Assert.IsNull(player.Texture);
+                Assert.That(status, Does.Contain("draft retained"));
+                player.TogglePlayback(); player.StopAndRelease(); player.StopAndRelease();
+                Assert.IsNull(player.Texture);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void GalleryExportInEditorDoesNotReturnAFakeContentUri()
+        {
+            var go = new GameObject("Unsupported gallery test");
+            try
+            {
+                var capture = go.AddComponent<NativeMediaCapture>(); string failure = null;
+                capture.Failed += message => failure = message;
+                Assert.IsFalse(capture.SupportsGalleryExport);
+                capture.ExportLastSavedToGallery();
+                Assert.IsNotEmpty(failure); Assert.IsNull(capture.LastGalleryUri); Assert.IsFalse(capture.GalleryExporting);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void SaveFailureAndDisablePreserveCompletedPrivateDraft()
+        {
+            string draftRoot = Path.Combine(Application.persistentDataPath, "CrushXLensCaptures", "drafts");
+            string savedRoot = Path.Combine(Application.persistentDataPath, "CrushXLensCaptures", "saved");
+            string name = "qa-" + Guid.NewGuid().ToString("N") + ".png";
+            string source = Path.Combine(draftRoot, name), destination = Path.Combine(savedRoot, name);
+            var go = new GameObject("Retained photo draft test");
+            var texture = new Texture2D(2, 4, TextureFormat.RGBA32, false);
+            try
+            {
+                Directory.CreateDirectory(draftRoot); Directory.CreateDirectory(savedRoot);
+                // A conflicting directory makes the real File.Move fail without special platform permissions.
+                texture.SetPixels(new Color[8]); texture.Apply();
+                Directory.CreateDirectory(destination); File.WriteAllBytes(source, texture.EncodeToPNG());
+                var capture = go.AddComponent<NativeMediaCapture>();
+                var media = new MediaCaptureResult { Path = source, MediaKind = "photo", MimeType = "image/png", Width = 2, Height = 4 };
+                typeof(NativeMediaCapture).GetProperty(nameof(NativeMediaCapture.CurrentState)).SetValue(capture, MediaCaptureState.Preview);
+                typeof(NativeMediaCapture).GetProperty(nameof(NativeMediaCapture.PendingMedia)).SetValue(capture, media);
+                const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Instance;
+                typeof(NativeMediaCapture).GetField("draftPath", flags).SetValue(capture, source);
+                capture.SavePreview();
+                Assert.AreEqual(MediaCaptureState.Preview, capture.CurrentState);
+                Assert.AreSame(media, capture.PendingMedia); Assert.IsTrue(File.Exists(source));
+                Assert.That(capture.StatusMessage, Does.Contain("retained for retry"));
+                typeof(NativeMediaCapture).GetMethod("OnDisable", flags).Invoke(capture, null);
+                Assert.AreEqual(MediaCaptureState.Preview, capture.CurrentState);
+                Assert.AreSame(media, capture.PendingMedia); Assert.IsTrue(File.Exists(source));
+                capture.Retry(); Assert.IsFalse(File.Exists(source));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(texture);
+                if (File.Exists(source)) File.Delete(source);
+                if (Directory.Exists(destination)) Directory.Delete(destination);
+            }
         }
     }
 }

@@ -11,6 +11,9 @@ namespace CrushX.LensEngine
     public sealed class LensContentDraft
     {
         public string DraftId, CaptureId, LensId, MediaPath, MimeType, Destination, CreatedUtc;
+        public string CaptureStartedUtc, CaptureCompletedUtc, Orientation, Mirroring;
+        public bool MirroredRelativeToPreview;
+        public double FirstFrameOffsetSeconds;
         public int Width, Height;
         public double DurationSeconds;
         public bool HasAudio;
@@ -159,7 +162,11 @@ namespace CrushX.LensEngine
                 LensId = LastSavedMedia.LensId, MediaPath = LastSavedMedia.Path, MimeType = LastSavedMedia.MimeType,
                 Destination = destination.ToString(), CreatedUtc = DateTime.UtcNow.ToString("O"),
                 Width = LastSavedMedia.Width, Height = LastSavedMedia.Height,
-                DurationSeconds = LastSavedMedia.DurationSeconds, HasAudio = LastSavedMedia.HasAudio
+                DurationSeconds = LastSavedMedia.DurationSeconds, HasAudio = LastSavedMedia.HasAudio,
+                CaptureStartedUtc = LastSavedMedia.CreatedUtc, CaptureCompletedUtc = LastSavedMedia.CompletedUtc,
+                Orientation = LastSavedMedia.Orientation, Mirroring = LastSavedMedia.Mirroring,
+                MirroredRelativeToPreview = LastSavedMedia.MirroredRelativeToPreview,
+                FirstFrameOffsetSeconds = LastSavedMedia.FirstFrameOffsetSeconds
             };
             try
             {

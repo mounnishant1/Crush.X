@@ -27,12 +27,15 @@ public final class CrushXMediaRecorder {
     private static final String AAC = "audio/mp4a-latm";
     private static final int SAMPLE_RATE = 44100;
     private static final long MAX_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final long FRAME_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(3);
     private static final int MAX_PENDING_BYTES = 2 * 1024 * 1024;
     private final ArrayBlockingQueue<Frame> frames = new ArrayBlockingQueue<>(1);
     private volatile String state = "idle", error = "";
     private volatile boolean stopping, discard, audioPresent;
     private volatile long startNs;
     private volatile double durationSeconds;
+    private volatile long startedUnixMillis, firstVideoPts = -1, encodedVideoFrames;
+    private long lastEncodedNs;
     private Thread worker;
     private String path;
     private int width, height, fps, colorFormat;
@@ -63,12 +66,19 @@ public final class CrushXMediaRecorder {
         catch (RuntimeException unsupported) { return false; }
     }
 
+    public static boolean isSupportedSize(int width, int height, int fps) {
+        try { validateDimensions(width, height, fps); return findEncoder(width, height, fps) != null; }
+        catch (RuntimeException unsupported) { return false; }
+    }
+
     private static Choice findEncoder(int width, int height, int fps) {
         for (MediaCodecInfo info : new MediaCodecList(MediaCodecList.REGULAR_CODECS).getCodecInfos()) {
             if (!info.isEncoder()) continue;
             for (String type : info.getSupportedTypes()) {
                 if (!AVC.equalsIgnoreCase(type)) continue;
-                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(type);
+                MediaCodecInfo.CodecCapabilities caps;
+                try { caps = info.getCapabilitiesForType(type); }
+                catch (RuntimeException invalidCodec) { continue; }
                 if (width > 0 && !caps.getVideoCapabilities().areSizeAndRateSupported(width, height, fps)) continue;
                 // Flexible YUV420 does not specify a byte-buffer layout. Require an explicit
                 // planar/NV12 format instead of sending guessed YUV bytes to a surface codec.
@@ -83,9 +93,8 @@ public final class CrushXMediaRecorder {
 
     public synchronized void start(String outputPath, int frameWidth, int frameHeight, int framesPerSecond, boolean withAudio) {
         if (worker != null) throw new IllegalStateException("Recorder instances cannot be reused");
-        if (frameWidth < 2 || frameHeight < 2 || (frameWidth & 1) != 0 || (frameHeight & 1) != 0
-            || frameWidth > 1280 || frameHeight > 1280 || framesPerSecond < 1 || framesPerSecond > 15)
-            throw new IllegalArgumentException("Expected even dimensions <=1280 and 1..15fps");
+        validateDimensions(frameWidth, frameHeight, framesPerSecond);
+        if (outputPath == null || outputPath.isEmpty()) throw new IllegalArgumentException("Output path is required");
         File output = new File(outputPath);
         if (!output.isAbsolute() || output.exists() || !outputPath.endsWith(".mp4"))
             throw new IllegalArgumentException("Expected a new absolute private MP4 path");
@@ -98,10 +107,16 @@ public final class CrushXMediaRecorder {
     public boolean canAcceptFrame() { return "recording".equals(state) && !stopping && frames.remainingCapacity() > 0; }
 
     public boolean offerFrame(byte[] rgba) {
+        return offerFrame(rgba, 0L);
+    }
+
+    /** Age measured by Unity's monotonic clock accounts for readback time without mixing clock epochs. */
+    public boolean offerFrame(byte[] rgba, long ageMicroseconds) {
         if (!canAcceptFrame()) return false;
         if (rgba == null || rgba.length != width * height * 4) throw new IllegalArgumentException("Incorrect RGBA frame size");
+        if (ageMicroseconds < 0 || ageMicroseconds > 3000000L) throw new IllegalArgumentException("Captured frame is stale");
         // JNI owns a fresh byte[] copy. Capacity one bounds backpressure/memory.
-        return frames.offer(new Frame(rgba, Math.max(0, (System.nanoTime() - startNs) / 1000)));
+        return frames.offer(new Frame(rgba, presentationTime((System.nanoTime() - startNs) / 1000, ageMicroseconds)));
     }
 
     public void stop(boolean deleteOutput) {
@@ -114,6 +129,24 @@ public final class CrushXMediaRecorder {
     public String getError() { return error; }
     public boolean hasAudio() { return audioPresent; }
     public double getDurationSeconds() { return durationSeconds; }
+    public long getStartedUnixMillis() { return startedUnixMillis; }
+    public long getEncodedFrameCount() { return encodedVideoFrames; }
+    public double getFirstFrameOffsetSeconds() { return Math.max(0, firstVideoPts) / 1000000.0; }
+
+    static void validateDimensions(int width, int height, int fps) {
+        if (width < 2 || height < 2 || (width & 1) != 0 || (height & 1) != 0
+            || width > 1280 || height > 1280 || fps < 1 || fps > 15)
+            throw new IllegalArgumentException("Expected even dimensions <=1280 and 1..15fps");
+    }
+
+    static long presentationTime(long elapsedMicroseconds, long ageMicroseconds) {
+        if (elapsedMicroseconds < 0 || ageMicroseconds < 0) throw new IllegalArgumentException("Negative frame time");
+        return Math.max(0L, elapsedMicroseconds - ageMicroseconds);
+    }
+
+    static boolean frameProgressTimedOut(long nowNs, long lastOutputNs) {
+        return nowNs >= lastOutputNs && nowNs - lastOutputNs >= FRAME_TIMEOUT_NANOS;
+    }
 
     private void encode() {
         boolean success = false;
@@ -135,6 +168,8 @@ public final class CrushXMediaRecorder {
             if (audioPresent) prepareAudio();
             if (discard) throw new IllegalStateException("Recording cancelled");
             startNs = System.nanoTime();
+            startedUnixMillis = System.currentTimeMillis();
+            lastEncodedNs = startNs;
             if (microphone != null) {
                 microphone.startRecording();
                 if (microphone.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
@@ -148,6 +183,8 @@ public final class CrushXMediaRecorder {
                 queueAudio(false);
                 drain(video, true);
                 if (audio != null) drain(audio, false);
+                if (frameProgressTimedOut(System.nanoTime(), lastEncodedNs))
+                    throw new IllegalStateException("Video encoder produced no frame for 3 seconds; capture discarded");
             }
             if (discard) throw new IllegalStateException("Recording cancelled");
             state = "finalizing";
@@ -205,6 +242,7 @@ public final class CrushXMediaRecorder {
         input.clear(); input.put(yuv);
         long pts = Math.max(lastVideoPts + 1, frame.timestamp);
         video.queueInputBuffer(index, 0, yuv.length, pts, 0);
+        if (firstVideoPts < 0) firstVideoPts = pts;
         lastVideoPts = pts;
     }
 
@@ -268,7 +306,8 @@ public final class CrushXMediaRecorder {
                         byte[] bytes = new byte[info.size]; output.get(bytes);
                         pending.add(new Packet(track, bytes, info.presentationTimeUs, info.flags));
                     }
-                    if (isVideo) videoSamples++; else audioSamples++;
+                    if (isVideo) { videoSamples++; encodedVideoFrames++; lastEncodedNs = System.nanoTime(); }
+                    else audioSamples++;
                 }
                 if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     if (isVideo) videoEos = true; else audioEos = true;
@@ -351,7 +390,10 @@ public final class CrushXMediaRecorder {
 
     /** RGBA from Unity ReadPixels is bottom-up. MP4 rows are top-down, BT.601 limited range. */
     static void rgbaToYuv(byte[] rgba, byte[] output, int width, int height, boolean nv12) {
+        validateDimensions(width, height, 1);
         int plane = width * height;
+        if (rgba == null || output == null || rgba.length != plane * 4 || output.length != plane * 3 / 2)
+            throw new IllegalArgumentException("RGBA/YUV buffer lengths do not match dimensions");
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int pixel = ((height - 1 - y) * width + x) * 4;

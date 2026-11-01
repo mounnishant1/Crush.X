@@ -196,4 +196,43 @@ preserved. Installed URP package alone does not establish URP support. See the
 visual-effects document for mask producer requirements and exact model boundaries.
 Next phase: real recording/export lifecycle and completed media handling.
 
-Phase commit: the commit containing this entry (`GPU compositor`).
+Phase commit: `12721e445f366ee9c3c8db049736a2e4fe33d344`.
+
+## Phase 5 — recording and export (continued 1 November 2026)
+
+**IMPLEMENTED** after Phase 4 on the same repository/feature branch. Reconciled
+real local video playback, pre-record microphone permission and retained Save
+failures from `928a57a`, preserving later camera/touch changes. Added actual-image
+and encoded-output watchdogs, session-generation interruption checks, capture/
+completion timestamps, frame readback-age PTS, configurable whole-image export
+flip, completed private draft persistence/recovery and explicit Android 29+
+MediaStore export. Photo/native fallback use the same rendered camera/effects
+path. Completed files survive navigation; explicit Retry discards the pending
+draft. The UI uses the tested shutter state machine, recording ring/duration,
+playback, microphone and mirror controls. No-rig native preview gets an audio
+listener when absent. Permission-request exceptions clear the waiting state.
+
+Inspected/changed `NativeMediaCapture`, result validation, native recorder,
+workflow metadata/native receiver, camera session, native UI, capture tests,
+package declarations and Java verifier. Created capture lifecycle/progress policy,
+`ShutterGesture`, `MediaPreviewPlayer`, async `CrushXGalleryExporter`, portable
+capture/shutter and native gallery tests, and `ADVANCED-AR-CAPTURE.md`.
+
+**TESTED (host):** 70 Python checks PASS (20 Unity source/asset/syntax checks),
+103/103 compiled C# NUnit cases PASS, zero build warnings/errors; Android API 34
+reference Java compilation PASS, 26 recorder + 26 gallery JVM cases PASS with
+three existing deprecated YUV-format warnings; patch whitespace PASS. The 33
+new C# cases test actual policy/container/shutter source. Java tests exercise
+conversion/path/size/copy/cancellation/timestamp/watchdog logic; they do not
+execute Android codecs or MediaStore. Unity integration fixtures remain unrun.
+
+**BLOCKED:** actual rendered PNG/MP4, hardware encoding, microphone synchronization,
+VideoPlayer decoding and gallery/provider acceptance on OnePlus. This remains a
+CPU byte-buffer recorder capped at 15 FPS, 1280 pixels and 30 seconds; no measured
+30/60 FPS recording or lip-sync claim. URP capture still rejects unsupported
+configuration explicitly. Full Story/Reel/Post editor handoff needs the missing
+native app host; metadata/events do not manufacture that integration. Exact
+commands and phone procedures are in the capture document. Next phase: local
+creator manifest save/import/validation/preview.
+
+Phase commit: the commit containing this entry (`harden rendered recording`).

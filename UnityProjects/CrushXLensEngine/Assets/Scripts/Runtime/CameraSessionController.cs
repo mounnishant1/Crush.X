@@ -17,6 +17,8 @@ namespace CrushX.LensEngine
         private static CameraSessionController owner;
         public bool MirrorSelfiePreview = true;
         public Camera RenderCamera => renderCamera;
+        public long CurrentImageFrameSequence => UsingNativeFallback ? nativeFrame : arFrame;
+        public int Generation { get; private set; }
         public CameraSessionState State => policy.State;
         public bool RequestedFrontFacing { get; private set; } = true;
         public bool UsingNativeFallback => State == CameraSessionState.StartingNative || State == CameraSessionState.NativePreview;
@@ -82,6 +84,7 @@ namespace CrushX.LensEngine
         {
             if (arCamera != cameraManager)
             {
+                Generation++;
                 bool keepNative = nativeCamera != null || UsingNativeFallback;
                 if (keepNative) StopNative();
                 if (arCamera != null) arCamera.frameReceived -= ArFrameReceived;
@@ -92,7 +95,7 @@ namespace CrushX.LensEngine
                     arBackground = arCamera.GetComponent<ARCameraBackground>();
                     renderCamera = arCamera.GetComponent<Camera>();
                     arCamera.requestedFacingDirection = RequestedFrontFacing ? CameraFacingDirection.User : CameraFacingDirection.World;
-                    if (ownedRenderer != null) { Destroy(ownedRenderer); ownedRenderer = null; }
+                    if (ownedRenderer != null) { ownedRenderer.SetActive(false); Destroy(ownedRenderer); ownedRenderer = null; }
                 }
                 if (keepNative) policy.Retry(true);
             }
@@ -126,6 +129,7 @@ namespace CrushX.LensEngine
 
         public void Retry()
         {
+            Generation++;
             StopResources();
             LastError = string.Empty;
             policy.Retry();
@@ -142,6 +146,7 @@ namespace CrushX.LensEngine
             if (!found) { LastError = "The other camera is unavailable on this device"; return false; }
             bool keepNative = UsingNativeFallback;
             StopResources();
+            Generation++;
             RequestedFrontFacing = requested;
             LastError = string.Empty;
             policy.Retry(keepNative);
@@ -254,8 +259,17 @@ namespace CrushX.LensEngine
                 ownedRenderer.transform.SetParent(transform, false);
                 ownedRenderer.tag = "MainCamera";
                 renderCamera = ownedRenderer.AddComponent<Camera>();
+                bool hasListener = false;
+                foreach (AudioListener listener in FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
+                    if (listener.isActiveAndEnabled) { hasListener = true; break; }
+                if (!hasListener) ownedRenderer.AddComponent<AudioListener>();
             }
             renderCamera.enabled = true;
+            if (ownedRenderer != null)
+            {
+                AudioListener listener = ownedRenderer.GetComponent<AudioListener>();
+                if (listener != null) listener.enabled = true;
+            }
             WebCamDevice[] devices = WebCamTexture.devices;
             if (devices.Length == 0) throw new InvalidOperationException("No native camera was reported");
             int chosen = 0;
@@ -308,12 +322,18 @@ namespace CrushX.LensEngine
             changedClearFlags = false;
             if (nativeCamera != null) { nativeCamera.Stop(); Destroy(nativeCamera); nativeCamera = null; }
             if (nativeMaterial != null) { Destroy(nativeMaterial); nativeMaterial = null; }
-            if (ownedRenderer != null && renderCamera != null) renderCamera.enabled = false;
+            if (ownedRenderer != null)
+            {
+                if (renderCamera != null) renderCamera.enabled = false;
+                AudioListener listener = ownedRenderer.GetComponent<AudioListener>();
+                if (listener != null) listener.enabled = false;
+            }
         }
 
         private void StopResources() { StopNative(); StopAr(); }
         private void SuspendResources()
         {
+            Generation++;
             bool keepNative = UsingNativeFallback;
             StopResources();
             policy.Retry(keepNative);

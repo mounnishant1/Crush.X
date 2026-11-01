@@ -19,10 +19,15 @@
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/FaceExpressions.cs" Link="Runtime/FaceExpressions.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/LensAttachmentPolicy.cs" Link="Runtime/LensAttachmentPolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Effects/VisualEffectPolicy.cs" Link="Runtime/VisualEffectPolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/CaptureLifecyclePolicy.cs" Link="Runtime/CaptureLifecyclePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaCaptureResult.cs" Link="Runtime/MediaCaptureResult.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/ShutterGesture.cs" Link="Runtime/ShutterGesture.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs" Link="Tests/ARDiagnosticClassifierTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/TrackingPolicyTests.cs" Link="Tests/TrackingPolicyTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/FaceExpressionTests.cs" Link="Tests/FaceExpressionTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensAttachmentPolicyTests.cs" Link="Tests/LensAttachmentPolicyTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/VisualEffectPolicyTests.cs" Link="Tests/VisualEffectPolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CapturePolicyTests.cs" Link="Tests/CapturePolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ShutterGestureTests.cs" Link="Tests/ShutterGestureTests.cs" />
   </ItemGroup>
 </Project>
