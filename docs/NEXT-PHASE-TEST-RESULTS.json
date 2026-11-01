@@ -1,0 +1,83 @@
+{
+  "validatedAtUtc": "2026-11-01T14:50:11.366675+00:00",
+  "branch": "feature/crushx-advanced-ar-lens-engine",
+  "testedCommit": "b18085a132514473649923282e44beb8872ee17a",
+  "sourceStableDuringRun": true,
+  "implementationSnapshotSha256": "64ee763cb0a368d59d80fc63ed36b158659e40e2854e91ebff3666f4b9753c5b",
+  "allAvailableChecks": {
+    "status": "PASS",
+    "groups": 32,
+    "failed": 0
+  },
+  "python": {
+    "tests": 100,
+    "passed": 100,
+    "skipped": 0
+  },
+  "portableCSharp": {
+    "tests": 171,
+    "passed": 171,
+    "failed": 0,
+    "skipped": 0,
+    "buildWarnings": 0,
+    "buildErrors": 0,
+    "note": "Actual System-only source/portable NUnit compiled on .NET8 without Unity stubs. Unity-dependent source not compiled."
+  },
+  "javaHost": {
+    "cases": 128,
+    "recorderCases": 102,
+    "galleryCases": 26,
+    "compileWarnings": 3,
+    "note": "API34 reference compile + pure JVM conversion/pool/clock/bridge contract tests; no Android codecs or MediaStore execution."
+  },
+  "node": {
+    "cases": 23,
+    "passed": 23,
+    "skipped": 0
+  },
+  "javascriptSyntax": {
+    "files": 17,
+    "status": "PASS"
+  },
+  "standaloneJavascript": {
+    "suites": 9,
+    "status": "PASS"
+  },
+  "mockedBrowsers": {
+    "suites": 2,
+    "status": "PASS",
+    "remoteWrites": 0
+  },
+  "whitespace": {
+    "wholeBranchPatch": "PASS"
+  },
+  "recording": {
+    "requestedTargetFps": 30,
+    "explicitCompatibilityCeilingFps": 15,
+    "actualOnePlusRecordingFps": null,
+    "actualOnePlusRecordingFpsStatus": "UNVERIFIED",
+    "note": "Synthetic clips test the cadence validator only. No physical device/camera MP4 exists."
+  },
+  "unityAndroidBuild": {
+    "status": "BLOCKED",
+    "testedCommit": "b18085a132514473649923282e44beb8872ee17a",
+    "sourceDirty": false,
+    "processStarted": false,
+    "errorType": "FileNotFoundError",
+    "error": "[Errno 2] No such file or directory: 'Unity'",
+    "apkPath": null,
+    "evidence": "work/qa/results/next-final-build/build-attempt.json"
+  },
+  "blocked": [
+    "Unity project/EditMode/PlayMode/shader/GPU readback execution",
+    "Android SDK/ADB/device MediaCodec/AudioRecord/MediaStore acceptance",
+    "Real camera media orientation, exported effects and perceptual audio synchronization",
+    "Measured stable 30 FPS recording, thermal and memory behavior on OnePlus 9 Pro",
+    "Real model inference and licensed production art validation",
+    "Complete v402 native Camera/Story/Reel/Editor source integration"
+  ],
+  "githubActionsExecuted": false,
+  "githubPushPerformed": false,
+  "deviceInstalled": false,
+  "productionChanged": false
+}
