@@ -18,6 +18,7 @@ namespace CrushX.LensEngine
         public string CreatorConfigurationSha256;
         public string CreatedUtc;
         public string CompletedUtc;
+        public string CaptureStoppedUtc;
         public string Orientation;
         public string Mirroring = "MatchesRenderedPreview; device verification required";
         public bool MirroredRelativeToPreview;
@@ -27,6 +28,7 @@ namespace CrushX.LensEngine
         public double DurationSeconds;
         public bool HasAudio;
         public long SizeBytes;
+        public VideoRecordingMetrics RecordingMetrics;
     }
 
     /// <summary>File checks, not a claim of codec playback or correct visual alignment.</summary>

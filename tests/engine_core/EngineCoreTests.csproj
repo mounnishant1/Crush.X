@@ -38,5 +38,7 @@
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/LocalModelSession.cs" Link="Runtime/LocalModelSession.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/ReviewedResourcePolicy.cs" Link="Runtime/ReviewedResourcePolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ReviewedArtifactTests.cs" Link="Tests/ReviewedArtifactTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/RecordingFramePolicy.cs" Link="Runtime/RecordingFramePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/RecordingFramePolicyTests.cs" Link="Tests/RecordingFramePolicyTests.cs" />
   </ItemGroup>
 </Project>

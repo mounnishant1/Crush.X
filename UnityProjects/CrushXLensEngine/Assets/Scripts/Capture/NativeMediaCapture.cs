@@ -20,7 +20,9 @@ namespace CrushX.LensEngine
     {
         private static readonly ProfilerMarker ReadbackMarker = new ProfilerMarker("CrushX.Capture.Readback");
         public const float MaxRecordingSeconds = 30f;
-        private const int VideoFps = 15;
+        [Range(1, RecordingFramePolicy.MaximumFramesPerSecond)] public int RequestedVideoFrameRate = 30;
+        public bool AllowSynchronousCompatibility = true;
+        public VideoRecordingMetrics RecordingMetrics { get; private set; }
         private const int VideoLongestSide = 1280;
         public MediaCaptureState CurrentState { get; private set; }
         public Texture2D PreviewTexture { get; private set; }
@@ -75,12 +77,18 @@ namespace CrushX.LensEngine
         private int captureCreatorRevision;
         private MediaPreviewPlayer playback;
         private readonly CaptureFrameProgressPolicy frameProgress = new CaptureFrameProgressPolicy();
+        private readonly RecordingFramePacer framePacer = new RecordingFramePacer();
+        private RecordingRateSelection recordingRate;
+        private AsyncVideoReadback asyncReadback;
+        private string asyncCaptureError;
+        private double recordingStartMonotonic, stoppedAtMonotonic, totalReadbackLatency;
         private long acceptedFrames;
         private double lastRenderedAt;
         private long lastRenderedImageSequence;
         private int captureCameraGeneration;
         private ScreenOrientation captureOrientation;
         private string captureStartedUtc;
+        private string captureStoppedUtc;
         private CaptureMirrorMode captureMirrorMode;
         private bool restoredDraft;
         private bool galleryCapabilityChecked, gallerySupported;
@@ -106,6 +114,7 @@ namespace CrushX.LensEngine
         public void RequestPhoto()
         {
             if (!CanBegin()) return;
+            RecordingMetrics = null;
             FreezeCaptureSettings();
             captureLensId = engine != null ? engine.ActiveId : string.Empty;
             SetState(MediaCaptureState.CapturingPhoto, "Capturing camera and lens");
@@ -207,20 +216,57 @@ namespace CrushX.LensEngine
         {
             bool audio = requestedMicrophone;
 #if UNITY_ANDROID && !UNITY_EDITOR
-            audio = audio && MicrophoneGranted; // Permissions are requested explicitly before a shutter gesture.
+            audio = audio && MicrophoneGranted;
             if (token != generation) yield break;
-            // Freeze pixel dimensions/orientation for this clip; rotation cancels it rather than
-            // stretching frames or pretending that a corrupt clip is a completed recording.
-            if (!PrepareFrame(VideoLongestSide)) yield break;
+            bool selected = false;
+            try
+            {
+                recordingRate = RecordingFramePolicy.Select(RequestedVideoFrameRate, SystemInfo.supportsAsyncGPUReadback, AllowSynchronousCompatibility);
+                RecordingMetrics = new VideoRecordingMetrics
+                {
+                    RequestedFramesPerSecond = recordingRate.RequestedFramesPerSecond,
+                    SelectedFramesPerSecond = recordingRate.SelectedFramesPerSecond,
+                    ReadbackPath = recordingRate.Path.ToString(), SelectionReason = recordingRate.Reason,
+                    DeviceModel = SystemInfo.deviceModel, GraphicsApi = SystemInfo.graphicsDeviceType.ToString(), UnityVersion = Application.unityVersion
+                };
+                asyncCaptureError = null; totalReadbackLatency = 0; stoppedAtMonotonic = 0;
+                selected = true;
+            }
+            catch (Exception ex) { Fail("Video profile unavailable: " + ex.Message); }
+            if (!selected || !PrepareFrame(VideoLongestSide, true)) yield break;
+            if (recordingRate.Path == VideoReadbackPath.AsyncGpuReadback)
+            {
+                bool calibrationStarted = false;
+                try
+                {
+                    asyncReadback = new AsyncVideoReadback(frame, checked(width * height * 4));
+                    asyncReadback.BeginCalibration();
+                    calibrationStarted = true;
+                }
+                catch (Exception ex) { Fail("Asynchronous capture initialization failed: " + ex.Message); }
+                if (!calibrationStarted) yield break;
+                double calibrationDeadline = Time.realtimeSinceStartupAsDouble + 3;
+                while (!asyncReadback.Calibrated && asyncReadback.CalibrationError == null && Time.realtimeSinceStartupAsDouble < calibrationDeadline)
+                {
+                    yield return null;
+                    if (token != generation) yield break;
+                    if (!CameraGenerationMatches()) { Fail("Camera changed during readback calibration"); yield break; }
+                }
+                if (!asyncReadback.Calibrated)
+                { Fail(asyncReadback.CalibrationError ?? "GPU readback calibration timed out"); yield break; }
+                RecordingMetrics.ReadbackRowLayout = asyncReadback.RowsBottomUp ? "CalibratedBottomUpRGBA" : "CalibratedTopDownRGBA";
+            }
+            else RecordingMetrics.ReadbackRowLayout = "UnityReadPixelsBottomUpRGBA";
             bool started = false;
             try
             {
                 draftPath = NewDraftPath(".mp4");
                 using (var native = new AndroidJavaClass("in.crushx.lens.capture.CrushXMediaRecorder"))
-                    if (!native.CallStatic<bool>("isSupportedSize", width, height, VideoFps))
-                        throw new NotSupportedException("No advertised AVC buffer encoder supports the requested capture dimensions");
+                    if (!native.CallStatic<bool>("isSupportedSize", width, height, recordingRate.SelectedFramesPerSecond))
+                        throw new NotSupportedException("No advertised AVC buffer encoder supports the selected dimensions and frame rate");
                 recorder = new AndroidJavaObject("in.crushx.lens.capture.CrushXMediaRecorder");
-                recorder.Call("start", draftPath, width, height, VideoFps, audio);
+                recorder.Call("setInputRowsBottomUp", asyncReadback == null || asyncReadback.RowsBottomUp);
+                recorder.Call("start", draftPath, width, height, recordingRate.SelectedFramesPerSecond, audio);
                 started = true;
             }
             catch (Exception ex) { Fail("Video preparation failed: " + ex.Message); }
@@ -239,21 +285,24 @@ namespace CrushX.LensEngine
             try
             {
                 recordingStarted = Time.realtimeSinceStartup;
+                recordingStartMonotonic = Time.realtimeSinceStartupAsDouble;
                 captureStartedUtc = DateTimeOffset.FromUnixTimeMilliseconds(recorder.Call<long>("getStartedUnixMillis")).UtcDateTime.ToString("O");
+                framePacer.Start(recordingStartMonotonic, recordingRate.SelectedFramesPerSecond);
                 timestampsReady = true;
             }
             catch (Exception ex) { Fail("Unable to read recording timestamps: " + ex.Message); }
             if (!timestampsReady) yield break;
             frameProgress.Start(Time.realtimeSinceStartupAsDouble);
             acceptedFrames = 0;
-            SetState(MediaCaptureState.Recording, audio ? "Recording with microphone" : "Recording without microphone audio");
-            float nextFrame = 0f;
+            SetState(MediaCaptureState.Recording, (recordingRate.Path == VideoReadbackPath.SynchronousCompatibility ? "Compatibility recording target " : "Recording target ")
+                + recordingRate.SelectedFramesPerSecond + " FPS" + (audio ? " with microphone" : " without microphone audio"));
             while (CurrentState == MediaCaptureState.Recording)
             {
                 yield return new WaitForEndOfFrame();
                 if (token != generation) yield break;
+                if (CurrentState != MediaCaptureState.Recording) break;
                 if (screenWidth != Screen.width || screenHeight != Screen.height || captureOrientation != Screen.orientation || !CameraGenerationMatches())
-                { Fail("Recording cancelled because screen orientation or dimensions changed"); yield break; }
+                { Fail("Recording cancelled because camera orientation or dimensions changed"); yield break; }
                 if (engine == null || engine.CameraSession == null || !engine.CameraSession.PreviewReady)
                 { Fail("Camera preview was interrupted during recording"); yield break; }
                 if (NativeState() == "error") { Fail(NativeError()); yield break; }
@@ -261,34 +310,56 @@ namespace CrushX.LensEngine
                 try
                 {
                     double now = Time.realtimeSinceStartupAsDouble;
+                    if (asyncReadback != null) ConsumeAsyncFrames();
+                    if (asyncCaptureError != null) throw new InvalidOperationException(asyncCaptureError);
                     frameProgress.Observe(now, acceptedFrames, recorder.Call<long>("getEncodedFrameCount"));
                     progressFailure = frameProgress.Failure(now);
+                    if (RecordingSeconds >= MaxRecordingSeconds || recorder.Call<double>("getCaptureElapsedSeconds") >= MaxRecordingSeconds)
+                        StopVideo();
+                    else if (framesCopied != lastReadFrame && framePacer.TrySchedule(now, lastRenderedImageSequence))
+                    {
+                        if (asyncReadback != null)
+                        {
+                            if (asyncReadback.TryRequest(lastRenderedAt)) RecordingMetrics.ReadbackRequests++;
+                            else RecordingMetrics.ReadbackBackpressureDrops++;
+                        }
+                        else if (recorder.Call<bool>("canAcceptFrame"))
+                        {
+                            ReadFrame();
+                            pixels.GetRawTextureData<byte>().CopyTo(rgbaBuffer);
+                            RecordingMetrics.ReadbackRequests++; RecordingMetrics.ReadbackCompleted++;
+                            double latency = Math.Max(0, Time.realtimeSinceStartupAsDouble - lastRenderedAt);
+                            totalReadbackLatency += latency;
+                            RecordingMetrics.MaxReadbackLatencyMilliseconds = Math.Max(RecordingMetrics.MaxReadbackLatencyMilliseconds, latency * 1000);
+                            SubmitVideoBytes(rgbaBuffer, lastRenderedAt);
+                        }
+                        else RecordingMetrics.NativeBackpressureDrops++;
+                        lastReadFrame = framesCopied;
+                    }
                 }
-                catch (Exception ex) { progressFailure = "Unable to validate recorder progress: " + ex.Message; }
+                catch (Exception ex) { progressFailure = "Video frame capture failed: " + ex.Message; }
                 if (progressFailure != null) { Fail(progressFailure); yield break; }
-                if (RecordingSeconds >= MaxRecordingSeconds) { StopVideo(); break; }
-                if (RecordingSeconds < nextFrame || framesCopied == lastReadFrame) continue;
-                nextFrame = RecordingSeconds + 1f / VideoFps;
-                bool read = false;
-                try
-                {
-                    // One native pending frame is allowed; a busy encoder drops a frame rather
-                    // than growing an unbounded queue or blocking the camera indefinitely.
-                    if (!recorder.Call<bool>("canAcceptFrame")) continue;
-                    ReadFrame();
-                    pixels.GetRawTextureData<byte>().CopyTo(rgbaBuffer);
-                    long ageMicroseconds = (long)Math.Max(0d, (Time.realtimeSinceStartupAsDouble - lastRenderedAt) * 1000000d);
-                    if (recorder.Call<bool>("offerFrame", rgbaBuffer, ageMicroseconds))
-                    { lastReadFrame = framesCopied; acceptedFrames++; }
-                    read = true;
-                }
-                catch (Exception ex) { Fail("Video frame capture failed: " + ex.Message); }
-                if (!read && CurrentState == MediaCaptureState.Error) yield break;
             }
+            if (token != generation || CurrentState != MediaCaptureState.Finalizing) yield break;
+            // Retain source order and drain only our own pending GPU reads before native EOS.
+            double drainDeadline = Time.realtimeSinceStartupAsDouble + 3;
+            while (asyncReadback != null && asyncReadback.Outstanding > 0)
+            {
+                if (token != generation) yield break;
+                if (NativeState() == "error") { Fail(NativeError()); yield break; }
+                bool drained = false;
+                try { ConsumeAsyncFrames(); drained = asyncCaptureError == null; }
+                catch (Exception ex) { asyncCaptureError = ex.Message; }
+                if (!drained) { Fail("Unable to drain captured frames: " + asyncCaptureError); yield break; }
+                if (Time.realtimeSinceStartupAsDouble >= drainDeadline) { Fail("GPU/encoder frame drain timed out"); yield break; }
+                yield return null;
+            }
+            try
+            {
+                recorder.Call("stop", false);
+            }
+            catch (Exception ex) { Fail("Unable to finish video input: " + ex.Message); }
             if (token != generation) yield break;
-            if (CurrentState != MediaCaptureState.Finalizing) yield break;
-            // Keep a genuine rendered poster for the preview. Playback validation remains a device test.
-            if (pixels != null && lastReadFrame > 0) SetPreviewFromPixels();
             ReleaseFrame();
             float finishDeadline = Time.realtimeSinceStartup + 8f;
             while (true)
@@ -303,8 +374,10 @@ namespace CrushX.LensEngine
             try
             {
                 if (!CaptureFileValidation.IsMp4(draftPath)) throw new IOException("MP4 container validation failed");
+                CompleteRecordingMetrics();
                 PendingMedia = NewResult("video", "video/mp4", recorder.Call<bool>("hasAudio"), recorder.Call<double>("getDurationSeconds"));
                 PendingMedia.FirstFrameOffsetSeconds = recorder.Call<double>("getFirstFrameOffsetSeconds");
+                PendingMedia.RecordingMetrics = RecordingMetrics;
                 PersistCompletedDraft();
                 ReleaseRecorder(false);
                 SetState(MediaCaptureState.Preview, "Preparing video playback");
@@ -318,6 +391,54 @@ namespace CrushX.LensEngine
 #endif
         }
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private void ConsumeAsyncFrames()
+        {
+            while (asyncReadback.Outstanding > 0 && recorder.Call<bool>("canAcceptFrame"))
+            {
+                if (!asyncReadback.TryTake(out byte[] bytes, out double capturedAt, out double latency, out bool error)) return;
+                if (error) { RecordingMetrics.ReadbackFailures++; asyncCaptureError = "GPU frame readback failed"; return; }
+                RecordingMetrics.ReadbackCompleted++;
+                totalReadbackLatency += latency;
+                RecordingMetrics.MaxReadbackLatencyMilliseconds = Math.Max(RecordingMetrics.MaxReadbackLatencyMilliseconds, latency * 1000);
+                SubmitVideoBytes(bytes, capturedAt);
+            }
+        }
+
+        private void SubmitVideoBytes(byte[] bytes, double capturedAt)
+        {
+            long ageMicroseconds = (long)Math.Max(0d, (Time.realtimeSinceStartupAsDouble - capturedAt) * 1000000d);
+            if (recorder.Call<bool>("offerFrame", bytes, ageMicroseconds))
+            { acceptedFrames++; RecordingMetrics.SubmittedFrames++; }
+            else RecordingMetrics.NativeBackpressureDrops++;
+        }
+
+        private void CompleteRecordingMetrics()
+        {
+            RecordingMetrics.EncodedFrames = recorder.Call<long>("getEncodedFrameCount");
+            RecordingMetrics.EncoderDroppedFrames = recorder.Call<long>("getEncoderDroppedFrameCount");
+            RecordingMetrics.CaptureElapsedSeconds = Math.Max(0, stoppedAtMonotonic - recordingStartMonotonic);
+            RecordingMetrics.FirstEncodedPresentationSeconds = recorder.Call<long>("getFirstEncodedPresentationMicroseconds") / 1000000d;
+            RecordingMetrics.LastEncodedPresentationSeconds = recorder.Call<long>("getLastEncodedPresentationMicroseconds") / 1000000d;
+            RecordingMetrics.AudioClockSource = recorder.Call<string>("getAudioClockSource");
+            RecordingMetrics.AudioStartOffsetSeconds = recorder.Call<double>("getAudioStartOffsetSeconds");
+            RecordingMetrics.NativeCaptureStopSeconds = recorder.Call<double>("getCaptureElapsedSeconds");
+            RecordingMetrics.NativeAcceptedFrames = recorder.Call<long>("getAcceptedFrameCount");
+            RecordingMetrics.NativeRejectedFrames = recorder.Call<long>("getRejectedFrameCount");
+            RecordingMetrics.CodecQueuedFrames = recorder.Call<long>("getQueuedFrameCount");
+            RecordingMetrics.EncoderName = recorder.Call<string>("getEncoderName");
+            RecordingMetrics.EncoderHardwareKnown = recorder.Call<bool>("isEncoderHardwareKnown");
+            RecordingMetrics.EncoderHardwareAccelerated = recorder.Call<bool>("isEncoderHardwareAccelerated");
+            RecordingMetrics.SkippedDeadlines = framePacer.SkippedDeadlines;
+            RecordingMetrics.MeanReadbackLatencyMilliseconds = RecordingMetrics.ReadbackCompleted > 0
+                ? totalReadbackLatency * 1000 / RecordingMetrics.ReadbackCompleted : 0;
+            RecordingMetrics.EncodedPresentationFramesPerSecond = VideoRecordingMetrics.PresentationRate(RecordingMetrics.EncodedFrames,
+                RecordingMetrics.FirstEncodedPresentationSeconds, RecordingMetrics.LastEncodedPresentationSeconds);
+            RecordingMetrics.NativeMeasurementsAvailable = RecordingMetrics.EncodedFrames > 1 && RecordingMetrics.EncodedPresentationFramesPerSecond > 0;
+            Debug.Log("[CrushX Capture Metrics] " + JsonUtility.ToJson(RecordingMetrics));
+        }
+#endif
+
         public void StopVideo()
         {
             if (CurrentState == MediaCaptureState.Preparing)
@@ -327,11 +448,13 @@ namespace CrushX.LensEngine
                 return;
             }
             if (CurrentState != MediaCaptureState.Recording) return;
-            SetState(MediaCaptureState.Finalizing, "Finishing and inspecting MP4");
+            stoppedAtMonotonic = Time.realtimeSinceStartupAsDouble;
+            captureStoppedUtc = DateTime.UtcNow.ToString("O");
 #if UNITY_ANDROID && !UNITY_EDITOR
-            try { recorder?.Call("stop", false); }
-            catch (Exception ex) { Fail("Unable to stop video encoder: " + ex.Message); }
+            try { recorder?.Call("markCaptureStopped"); }
+            catch (Exception ex) { Fail("Unable to stop capture clock and microphone: " + ex.Message); return; }
 #endif
+            SetState(MediaCaptureState.Finalizing, "Draining captured frames and finishing MP4");
         }
 
         public void SavePreview()
@@ -480,6 +603,7 @@ namespace CrushX.LensEngine
             if (!Enum.IsDefined(typeof(CaptureMirrorMode), ExportMirrorMode)) ExportMirrorMode = CaptureMirrorMode.MatchPreview;
             captureMirrorMode = ExportMirrorMode;
             captureStartedUtc = null;
+            captureStoppedUtc = null;
             var preset = engine != null && engine.ActiveLensTransform != null
                 ? engine.ActiveLensTransform.GetComponent<Creator.CreatorLensPreset>() : null;
             captureCreatorId = preset != null ? preset.PresetId : string.Empty;
@@ -579,7 +703,7 @@ namespace CrushX.LensEngine
             return true;
         }
 
-        private bool PrepareFrame(int longestSide)
+        private bool PrepareFrame(int longestSide, bool video = false)
         {
             try
             {
@@ -605,8 +729,11 @@ namespace CrushX.LensEngine
                 frame = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default)
                     { name = "CrushXCaptureFrame", antiAliasing = 1 };
                 if (!frame.Create()) throw new InvalidOperationException("Unable to allocate camera frame buffer");
-                pixels = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                rgbaBuffer = new byte[width * height * 4];
+                if (!video || recordingRate.Path == VideoReadbackPath.SynchronousCompatibility)
+                {
+                    pixels = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                    rgbaBuffer = new byte[width * height * 4];
+                }
                 copyFrame = new CommandBuffer { name = "CrushX camera/effects capture before overlay UI" };
                 copyFrame.BeginSample("CrushX.Capture.Copy");
                 bool flip = captureMirrorMode == CaptureMirrorMode.FlipHorizontally;
@@ -630,6 +757,7 @@ namespace CrushX.LensEngine
             lastRenderedImageSequence = imageSequence;
 #endif
             framesCopied++;
+            if (CurrentState == MediaCaptureState.Recording && RecordingMetrics != null) RecordingMetrics.RenderedFrames++;
             lastRenderedAt = Time.realtimeSinceStartupAsDouble;
             if (string.IsNullOrEmpty(captureStartedUtc)) captureStartedUtc = DateTime.UtcNow.ToString("O");
         }
@@ -681,6 +809,7 @@ namespace CrushX.LensEngine
             CreatorPresetId = captureCreatorId, CreatorPresetRevision = captureCreatorRevision,
             CreatorConfigurationSha256 = captureCreatorConfigurationSha256,
             CreatedUtc = captureStartedUtc, CompletedUtc = DateTime.UtcNow.ToString("O"), Width = width, Height = height,
+            CaptureStoppedUtc = captureStoppedUtc,
             Mirroring = captureMirrorMode.ToString() + " relative to rendered preview; absolute AR selfie mirroring requires device verification",
             MirroredRelativeToPreview = captureMirrorMode == CaptureMirrorMode.FlipHorizontally,
             Orientation = width >= height ? "landscape" : "portrait", HasAudio = audio,
@@ -695,6 +824,14 @@ namespace CrushX.LensEngine
                 LogVideoCapabilityOnce(false, reason);
                 return false;
             }
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (RequestedVideoFrameRate < 1 || RequestedVideoFrameRate > RecordingFramePolicy.MaximumFramesPerSecond)
+            { reason = "Requested recording rate must be between 1 and 30 FPS"; return false; }
+            if (!SystemInfo.supportsAsyncGPUReadback && !AllowSynchronousCompatibility)
+            { reason = "Asynchronous GPU readback is unavailable and compatibility recording is disabled"; return false; }
+            if (AsyncVideoReadback.HasPendingRetirement)
+            { reason = "Previous GPU readback is still releasing; retry after it completes"; return false; }
+#endif
             if (!capabilityChecked)
             {
                 capabilityChecked = true;
@@ -785,6 +922,11 @@ namespace CrushX.LensEngine
             Camera.onPostRender -= CameraRendered;
             if (sourceCamera != null && copyFrame != null) sourceCamera.RemoveCommandBuffer(CameraEvent.AfterEverything, copyFrame);
             copyFrame?.Release(); copyFrame = null; sourceCamera = null;
+            if (asyncReadback != null)
+            {
+                // The ring owns this texture until all its own GPU callbacks have completed.
+                frame = null; asyncReadback.Retire(); asyncReadback = null;
+            }
             if (frame != null) { frame.Release(); Destroy(frame); frame = null; }
             if (pixels != null) { Destroy(pixels); pixels = null; }
             rgbaBuffer = null;

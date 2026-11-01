@@ -43,6 +43,8 @@ def inspect_apk(apk, commit, package):
         raise ValueError('Unity BuildReport did not report a successful zero-error build')
     if identity.get('commitSha') != commit or identity.get('packageId') != package or identity.get('developmentBuild') is not True:
         raise ValueError('APK build identity does not match the requested development source/package')
+    if identity.get('unityVersion') != '6000.0.30f1':
+        raise ValueError('APK build identity does not match the pinned Unity 6000.0.30f1 Editor')
     with zipfile.ZipFile(apk) as archive:
         names = set(archive.namelist())
         if 'AndroidManifest.xml' not in names or 'classes.dex' not in names:

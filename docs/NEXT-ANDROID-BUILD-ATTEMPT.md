@@ -55,7 +55,7 @@ python tools/attempt_unity_android_build.py --unity /actual/licensed/6000.0.30f1
 
 On a supported host, it invokes the real existing Unity build method. A zero
 process exit alone is insufficient: successful BuildReport, matching development
-identity/commit/package, APK ZIP/CRC and expected ARM64 IL2CPP entries must exist.
+identity/commit/package, exact Unity 6000.0.30f1 version, APK ZIP/CRC and expected ARM64 IL2CPP entries must exist.
 A completed build is labelled `BUILT_UNVERIFIED`, because installation and physical
 acceptance are separate. The tool does not replace the existing EditMode/PlayMode
 and device evidence procedures in `ADVANCED-AR-DEVICE-HANDOFF.md`.
@@ -70,10 +70,10 @@ deprecation warnings), **23 Node** cases, **17 JS syntax checks**, **nine
 standalone JS suites**, and **two mocked browser suites**. There were no live
 browser writes. These are host/source/mock results, not Android acceptance.
 
-Seven additional build-tool tests passed. They test orchestration using explicitly
+Eight additional build-tool tests passed. They test orchestration using explicitly
 mocked process outcomes: missing executable, zero-exit/missing APK, timeout/error,
 package/directory/timeout guards, preflight-only mode and malformed/mismatched
-artifacts. Their temporary structural fixtures are not application APKs and no
+artifacts, including a mismatched Editor version. Their temporary structural fixtures are not application APKs and no
 Unity build result is inferred from them.
 
 Raw baseline logs are retained separately under

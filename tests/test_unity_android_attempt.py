@@ -91,16 +91,29 @@ class BuildAttemptToolTests(unittest.TestCase):
         apk.write_text('This is not an APK')
         Path(str(apk) + '.build-summary.json').write_text(json.dumps({'result': 'Succeeded', 'errors': 0}))
         identity = Path(str(apk) + '.build-info.json')
-        identity.write_text(json.dumps({'commitSha': 'b' * 40, 'packageId': 'in.crushx.lens.devtest.advanced', 'developmentBuild': True}))
+        identity.write_text(json.dumps({'commitSha': 'b' * 40, 'packageId': 'in.crushx.lens.devtest.advanced', 'developmentBuild': True, 'unityVersion': '6000.0.30f1'}))
         with self.assertRaisesRegex(ValueError, 'identity'):
             BUILD.inspect_apk(apk, 'a' * 40, 'in.crushx.lens.devtest.advanced')
-        identity.write_text(json.dumps({'commitSha': 'a' * 40, 'packageId': 'in.crushx.lens.devtest.advanced', 'developmentBuild': True}))
+        identity.write_text(json.dumps({'commitSha': 'a' * 40, 'packageId': 'in.crushx.lens.devtest.advanced', 'developmentBuild': True, 'unityVersion': '6000.0.30f1'}))
         with self.assertRaises(zipfile.BadZipFile):
             BUILD.inspect_apk(apk, 'a' * 40, 'in.crushx.lens.devtest.advanced')
         with zipfile.ZipFile(apk, 'w') as archive:
             archive.writestr('AndroidManifest.xml', b'synthetic structural test only')
             archive.writestr('classes.dex', b'synthetic structural test only')
         with self.assertRaisesRegex(ValueError, 'ARM64'):
+            BUILD.inspect_apk(apk, 'a' * 40, 'in.crushx.lens.devtest.advanced')
+
+    def test_wrong_editor_identity_is_rejected_even_with_matching_commit_and_package(self):
+        # Structural tool fixture only: it is not an Android-build or device artifact.
+        apk = Path(self.temp.name) / 'synthetic-editor-identity.apk'
+        with zipfile.ZipFile(apk, 'w') as archive:
+            for name in ('AndroidManifest.xml', 'classes.dex', 'lib/arm64-v8a/libil2cpp.so'):
+                archive.writestr(name, b'Synthetic structural test fixture, not a built application')
+        Path(str(apk) + '.build-summary.json').write_text(json.dumps({'result': 'Succeeded', 'errors': 0}))
+        Path(str(apk) + '.build-info.json').write_text(json.dumps({
+            'commitSha': 'a' * 40, 'packageId': 'in.crushx.lens.devtest.advanced',
+            'developmentBuild': True, 'unityVersion': '6000.0.31f1'}))
+        with self.assertRaisesRegex(ValueError, 'pinned Unity 6000.0.30f1'):
             BUILD.inspect_apk(apk, 'a' * 40, 'in.crushx.lens.devtest.advanced')
 
 
