@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import math
+import statistics
 from pathlib import Path
 import subprocess
 
@@ -63,9 +64,37 @@ def check_timeline(streams, packets, max_av_skew):
     return {'tracks': tracks, 'avTimestampSkew': skew}, failures
 
 
+def measure_video_cadence(packets, stream_index):
+    """Presentation timing from actual packets, independent of nominal FPS tags.
+
+    It measures encoded frame cadence, not camera delivery, distinct pixel content,
+    GPU cost, or inference latency. Sorting permits legitimate B-frame reordering.
+    """
+    frames = []
+    for packet in packets:
+        if packet.get('stream_index') != stream_index:
+            continue
+        pts, duration = number(packet.get('pts_time')), number(packet.get('duration_time'))
+        if pts is not None and duration is not None and duration > 0:
+            frames.append((pts, duration))
+    frames.sort()
+    intervals = [frames[i][0] - frames[i - 1][0] for i in range(1, len(frames))]
+    if len(frames) < 2 or any(value <= 0 for value in intervals):
+        return {'measured': False, 'frameCount': len(frames)}
+    span = frames[-1][0] + frames[-1][1] - frames[0][0]
+    ordered = sorted(intervals)
+    return {'measured': True, 'frameCount': len(frames), 'presentationSeconds': span,
+            'presentationFps': len(frames) / span,
+            'medianFrameIntervalMs': statistics.median(intervals) * 1000,
+            'p95FrameIntervalMs': ordered[max(0, math.ceil(len(ordered) * .95) - 1)] * 1000,
+            'maxFrameGapSeconds': max(intervals),
+            'scope': 'Encoded packet presentation cadence; not sensor/GPU/device certification'}
+
+
 def validate_video(path, *, expected_width=None, expected_height=None, orientation='any',
                    expected_duration=None, duration_tolerance=.25, require_audio=False,
-                   max_av_skew=.15, ffprobe='ffprobe', ffmpeg='ffmpeg', timeout=60):
+                   max_av_skew=.15, expected_fps=None, fps_tolerance=1,
+                   max_frame_gap=None, ffprobe='ffprobe', ffmpeg='ffmpeg', timeout=60):
     path = Path(path).resolve()
     report = {'input': str(path), 'status': 'FAIL', 'failures': [], 'decodePassed': False,
               'limitations': ['No visual orientation or selfie mirror proof',
@@ -73,6 +102,12 @@ def validate_video(path, *, expected_width=None, expected_height=None, orientati
     for name, value in [('durationTolerance', duration_tolerance), ('maxAvSkew', max_av_skew), ('timeout', timeout)]:
         if number(value) is None or value <= 0:
             report['failures'].append(f'Invalid {name}')
+    if number(fps_tolerance) is None or fps_tolerance < 0:
+        report['failures'].append('Invalid FPS tolerance')
+    if expected_fps is not None and (number(expected_fps) is None or expected_fps <= 0):
+        report['failures'].append('Invalid expected FPS')
+    if max_frame_gap is not None and (number(max_frame_gap) is None or max_frame_gap <= 0):
+        report['failures'].append('Invalid maximum frame gap')
     if orientation not in ('any', 'portrait', 'landscape'):
         report['failures'].append('Invalid expected orientation')
     if expected_duration is not None and (number(expected_duration) is None or expected_duration <= 0):
@@ -143,6 +178,16 @@ def validate_video(path, *, expected_width=None, expected_height=None, orientati
     timeline, failures = check_timeline(streams, packets, max_av_skew)
     report['timeline'] = timeline
     report['failures'].extend(failures)
+    cadence = measure_video_cadence(packets, video.get('index'))
+    report['videoCadence'] = cadence
+    if expected_fps is not None or max_frame_gap is not None:
+        if not cadence['measured']:
+            report['failures'].append('Cannot measure video cadence from fewer than two unique timed frames')
+        else:
+            if expected_fps is not None and abs(cadence['presentationFps'] - expected_fps) > fps_tolerance:
+                report['failures'].append('Measured presentation FPS is outside expected tolerance')
+            if max_frame_gap is not None and cadence['maxFrameGapSeconds'] > max_frame_gap:
+                report['failures'].append('Measured frame gap exceeds the permitted interval')
     for track in timeline['tracks']:
         if duration is not None and abs(track['endSeconds'] - duration) > max(duration_tolerance, max_av_skew):
             report['failures'].append(f"{track['kind']} packet timeline does not reach the declared duration")
@@ -169,6 +214,9 @@ def main(argv=None):
     parser.add_argument('--duration-tolerance', type=float, default=.25)
     parser.add_argument('--require-audio', action='store_true')
     parser.add_argument('--max-av-skew', type=float, default=.15)
+    parser.add_argument('--expected-fps', type=float, help='Check actual packet presentation cadence, not nominal FPS metadata')
+    parser.add_argument('--fps-tolerance', type=float, default=1)
+    parser.add_argument('--max-frame-gap', type=float, help='Maximum permitted gap between presented frames, in seconds')
     parser.add_argument('--timeout', type=float, default=60)
     parser.add_argument('--ffprobe', default='ffprobe')
     parser.add_argument('--ffmpeg', default='ffmpeg')
@@ -183,7 +231,9 @@ def main(argv=None):
     report = validate_video(args.input, expected_width=args.expected_width, expected_height=args.expected_height,
                             orientation=args.expected_orientation, expected_duration=args.expected_duration,
                             duration_tolerance=args.duration_tolerance, require_audio=args.require_audio,
-                            max_av_skew=args.max_av_skew, timeout=args.timeout, ffprobe=args.ffprobe, ffmpeg=args.ffmpeg)
+                            max_av_skew=args.max_av_skew, expected_fps=args.expected_fps,
+                            fps_tolerance=args.fps_tolerance, max_frame_gap=args.max_frame_gap,
+                            timeout=args.timeout, ffprobe=args.ffprobe, ffmpeg=args.ffmpeg)
     encoded = json.dumps(report, indent=2) + '\n'
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -17,6 +17,16 @@ SPEC.loader.exec_module(MEDIA)
 
 
 class TimelineTests(unittest.TestCase):
+    def test_cadence_uses_presented_packets_and_allows_b_frame_reordering(self):
+        packets = [{'stream_index': 2, 'pts_time': pts, 'duration_time': .1}
+                   for pts in (0, .2, .1)]
+        cadence = MEDIA.measure_video_cadence(packets, 2)
+        self.assertTrue(cadence['measured'])
+        self.assertAlmostEqual(10, cadence['presentationFps'])
+        self.assertAlmostEqual(100, cadence['p95FrameIntervalMs'])
+        self.assertFalse(MEDIA.measure_video_cadence(packets[:1], 2)['measured'])
+        self.assertFalse(MEDIA.measure_video_cadence(packets + packets[:1], 2)['measured'])
+
     def test_reordered_video_presentation_is_valid_but_decode_order_must_advance(self):
         streams = [{'index': 0, 'codec_type': 'video'}]
         packets = [{'stream_index': 0, 'pts_time': pts, 'dts_time': dts, 'duration_time': .1}
@@ -45,6 +55,7 @@ class SyntheticMediaTests(unittest.TestCase):
         cls.silent = cls.folder / 'synthetic-portrait-silent.mp4'
         cls.rotated = cls.folder / 'synthetic-display-rotation.mp4'
         cls.offset_audio = cls.folder / 'synthetic-offset-audio.mp4'
+        cls.thirty = cls.folder / 'synthetic-30fps.mp4'
         command = ['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=64x96:rate=10:duration=1.2',
                    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=1.2',
                    '-c:v', 'libx264', '-bf', '0', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', '-movflags', '+faststart', str(cls.clip)]
@@ -64,6 +75,9 @@ class SyntheticMediaTests(unittest.TestCase):
                            capture_output=True, check=True, timeout=30)
         subprocess.run(['ffmpeg', '-v', 'error', '-i', str(cls.clip), '-itsoffset', '0.3', '-i', str(cls.clip),
                         '-map', '0:v:0', '-map', '1:a:0', '-c', 'copy', str(cls.offset_audio)],
+                       capture_output=True, check=True, timeout=30)
+        subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=64x96:rate=30:duration=1.2',
+                        '-c:v', 'libx264', '-bf', '0', '-pix_fmt', 'yuv420p', str(cls.thirty)],
                        capture_output=True, check=True, timeout=30)
 
     @classmethod
@@ -109,6 +123,24 @@ class SyntheticMediaTests(unittest.TestCase):
         report = MEDIA.validate_video(self.offset_audio, require_audio=True, max_av_skew=.15)
         self.assertEqual('FAIL', report['status'])
         self.assertTrue(any('timestamp skew' in failure for failure in report['failures']), report)
+
+    def test_actual_synthetic_thirty_fps_packets_pass_cadence_gate(self):
+        report = MEDIA.validate_video(self.thirty, expected_fps=30, fps_tolerance=.1, max_frame_gap=.05)
+        self.assertEqual('PASS', report['status'], report)
+        self.assertAlmostEqual(30, report['videoCadence']['presentationFps'], places=2)
+        self.assertEqual(36, report['videoCadence']['frameCount'])
+
+    def test_real_ten_fps_clip_cannot_claim_thirty_and_long_gap_is_visible(self):
+        report = MEDIA.validate_video(self.clip, expected_fps=30, max_frame_gap=.05)
+        self.assertEqual('FAIL', report['status'])
+        self.assertTrue(report['decodePassed'])
+        self.assertIn('Measured presentation FPS is outside expected tolerance', report['failures'])
+        self.assertIn('Measured frame gap exceeds the permitted interval', report['failures'])
+
+    def test_invalid_cadence_limits_fail_before_probing(self):
+        for arguments in ({'expected_fps': float('nan')}, {'expected_fps': -1},
+                          {'fps_tolerance': -1}, {'max_frame_gap': 0}):
+            self.assertEqual('FAIL', MEDIA.validate_video(self.clip, **arguments)['status'])
 
     def test_cli_reports_actual_evidence_and_never_overwrites_media(self):
         evidence = self.folder / 'evidence.json'
