@@ -269,4 +269,46 @@ editor foundation, not a complete production creator platform. Full application
 draft/editor integration still needs the absent v402 host. Next phase: final
 regression automation, media validation tools and precise device handoff.
 
-Phase commit: the commit containing this entry (`local lens creator`).
+Phase commit: `a8bd018506f467e04039ce74e9c80a384abff832`.
+
+## Phase 7 — integration boundaries, regression automation and handoff
+
+**IMPLEMENTED:** actual portable core compilation in GitHub CI, local FFprobe/
+FFmpeg media validation (file hash, streams, effective display dimensions/rotation,
+duration, packet time consistency and full decode), input-preserving report paths,
+and nine synthetic media regression cases. Added CPU tracking/attachment/readback
+Profiler markers and GPU beauty/capture copy samples. Retained existing FPS/
+memory/GC/battery telemetry. Device commands, manual acceptance and precise missing
+model/host integration requirements are in `ADVANCED-AR-DEVICE-HANDOFF.md`.
+
+Inspected/changed `.github/workflows/frontend.yml`, media validation tool/tests,
+tracking manager, bootstrap, GPU compositor and capture readback/copy instrumentation.
+Created this handoff, `ADVANCED-AR-TEST-RESULTS.json` and
+`ADVANCED-AR-CHANGED-FILES.md`. The inventory gives exact changed paths per phase.
+Verified browser source and original imported Fox asset bytes are unchanged from
+the selected cumulative baseline. No main merge, push, APK installation,
+production deployment or live AWS mutation occurred.
+
+**TESTED:** all 32 available check groups PASS: 79/79 Python cases (including the
+nine synthetic media cases), 130/130 actual portable C# NUnit cases (zero build
+warnings/errors), 52/52 Java host cases (three existing YUV deprecation warnings),
+23/23 Node cases, nine standalone JS suites, 17 JS syntax checks and two mocked
+Chromium browser suites. Python/C#/Node have no skipped cases. Browser remote
+writes: zero. Complete patch whitespace check PASS. Python was rerun after the
+Profiler changes. Updated GitHub Actions was not executed remotely.
+
+**BLOCKED:** licensed Unity compilation/EditMode/PlayMode/shader execution, Android
+build/native codecs/MediaStore, actual OnePlus acceptance and real captured output.
+Synthetic video validates the validator, not this camera pipeline. No target FPS,
+latency, thermal/leak result, visual orientation/mirroring or perceptual audio sync
+is claimed. Full application end-to-end Story/Reel/Post edit/draft/publish remains
+blocked by missing v402 source/host contracts. Model inference, licensed artistic
+production assets, advanced GPU VFX and binary creator publishing remain incomplete
+as specified in the phase reports.
+
+Next executable step: open the committed project in licensed Unity 6000.0.30f1,
+run its actual tests/build and follow the OnePlus handoff. Then integrate the
+reviewed full application/model assets when supplied; no guessed host routes or
+fabricated models were substituted.
+
+Phase commit: the commit containing this entry (`media verification`).

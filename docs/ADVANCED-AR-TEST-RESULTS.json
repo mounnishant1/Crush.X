@@ -1,0 +1,95 @@
+{
+  "branch": "feature/crushx-advanced-ar-lens-engine",
+  "sourceBaseCommit": "a8bd018506f467e04039ce74e9c80a384abff832",
+  "validatedAtUtc": "2026-11-01T01:36:37.512840+00:00",
+  "sourceScope": "Actual feature working tree including uncommitted Phase7 changes; Python suite rerun after profiler edits.",
+  "allAvailableChecks": {
+    "status": "PASS",
+    "checks": 32,
+    "failed": 0
+  },
+  "python": {
+    "status": "PASS",
+    "tests": 79,
+    "passed": 79,
+    "skipped": 0,
+    "includesSyntheticMediaValidatorCases": 9,
+    "note": "Nine synthetic ffmpeg cases are a subset of these 79, not additional camera tests."
+  },
+  "portableCSharp": {
+    "status": "PASS",
+    "tests": 130,
+    "passed": 130,
+    "skipped": 0,
+    "buildWarnings": 0,
+    "buildErrors": 0,
+    "note": "Compiles actual System-only Unity runtime files and portable NUnit fixtures on .NET 8; no Unity stubs or Unity project compilation."
+  },
+  "androidJavaHost": {
+    "status": "PASS",
+    "cases": 52,
+    "recorderCases": 26,
+    "galleryHelperCases": 26,
+    "compileWarnings": 3,
+    "note": "ECJ Java 8 target against Android API 34 references. Existing YUV deprecation warnings. No Android codec or MediaStore execution."
+  },
+  "nodeUnits": {
+    "status": "PASS",
+    "cases": 23,
+    "skipped": 0
+  },
+  "standaloneJavaScript": {
+    "status": "PASS",
+    "suites": 9
+  },
+  "javaScriptSyntax": {
+    "status": "PASS",
+    "files": 17
+  },
+  "mockedBrowsers": {
+    "status": "PASS",
+    "suites": 2,
+    "remoteWrites": 0,
+    "note": "Existing Chromium/Playwright frontend and AURA privacy suites. Mocked service calls; no live backend certification."
+  },
+  "patchWhitespace": {
+    "status": "PASS"
+  },
+  "ci": {
+    "workflowUpdated": true,
+    "githubActionsExecuted": false
+  },
+  "blocked": [
+    {
+      "check": "Unity project compilation/EditMode/PlayMode/shader compilation",
+      "status": "BLOCKED",
+      "reason": "Licensed Unity 6000.0.30f1 Editor and Android Build Support unavailable."
+    },
+    {
+      "check": "OnePlus 9 Pro Android 14 camera/AR/MediaCodec/MediaStore acceptance",
+      "status": "BLOCKED",
+      "reason": "No Android SDK/ADB or connected physical device."
+    },
+    {
+      "check": "Real captured PNG/MP4 orientation, decoding and audio synchronization",
+      "status": "BLOCKED",
+      "reason": "No real camera output supplied or produced; synthetic fixtures validate the validation tool only."
+    },
+    {
+      "check": "Measured 30/60 FPS, latency, memory and thermals",
+      "status": "BLOCKED",
+      "reason": "No actual Unity player/device measurements."
+    },
+    {
+      "check": "Complete v402 React/Capacitor host integration",
+      "status": "BLOCKED",
+      "reason": "Full application source and real host composer adapter absent."
+    }
+  ],
+  "mediaEvidenceLimits": [
+    "No visual orientation or selfie-mirror proof",
+    "Packet timeline checks do not establish perceptual lip sync",
+    "No physical-device or production readiness claim"
+  ],
+  "productionChanged": false
+}

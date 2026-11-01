@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 
@@ -8,6 +9,7 @@ namespace CrushX.LensEngine
     // Minimal demonstrator. Real native release should substitute a Canvas UI and configured XR scene.
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
+        private static readonly ProfilerMarker AttachmentMarker = new ProfilerMarker("CrushX.Lens.AttachAndAnimate");
         // Keep imported resource prototypes available without replacing animated procedural lenses by default.
         public bool PreferResourcePrefabs;
         private FaceTrackingManager tracking;
@@ -310,6 +312,11 @@ namespace CrushX.LensEngine
         public void Say(string message) { notice = message; noticeUntil = Time.unscaledTime + 3; }
 
         private void LateUpdate()
+        {
+            using (AttachmentMarker.Auto()) UpdateLensAttachment();
+        }
+
+        private void UpdateLensAttachment()
         {
             if ((deviceProvider == null || deviceProvider.FaceManager == null || frontCamera == null) &&
                 Time.unscaledTime >= nextRigLookup)

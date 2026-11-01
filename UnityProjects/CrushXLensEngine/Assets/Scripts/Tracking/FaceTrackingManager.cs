@@ -1,10 +1,12 @@
 using System;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace CrushX.LensEngine
 {
     public sealed class FaceTrackingManager : MonoBehaviour
     {
+        private static readonly ProfilerMarker TrackingMarker = new ProfilerMarker("CrushX.Tracking.SampleAndSmooth");
         public MonoBehaviour ProviderComponent;
         [Range(.01f, .5f)] public float PositionHalfLife = .06f;
         [Range(.01f, .5f)] public float RotationHalfLife = .045f;
@@ -43,6 +45,11 @@ namespace CrushX.LensEngine
         private void OnApplicationFocus(bool focused) { if (!focused) ResetTracking(); }
 
         private void Update()
+        {
+            using (TrackingMarker.Auto()) UpdateTracking();
+        }
+
+        private void UpdateTracking()
         {
             if (ProviderComponent != boundComponent) SetProvider(ProviderComponent);
             FaceSample incoming = default;

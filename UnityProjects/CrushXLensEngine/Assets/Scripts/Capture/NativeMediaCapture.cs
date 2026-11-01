@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using Unity.Profiling;
 using UnityEngine.Rendering;
 using UnityEngine.XR.ARFoundation;
 #if UNITY_ANDROID
@@ -17,6 +18,7 @@ namespace CrushX.LensEngine
     /// </summary>
     public sealed class NativeMediaCapture : MonoBehaviour
     {
+        private static readonly ProfilerMarker ReadbackMarker = new ProfilerMarker("CrushX.Capture.Readback");
         public const float MaxRecordingSeconds = 30f;
         private const int VideoFps = 15;
         private const int VideoLongestSide = 1280;
@@ -606,8 +608,10 @@ namespace CrushX.LensEngine
                 pixels = new Texture2D(width, height, TextureFormat.RGBA32, false);
                 rgbaBuffer = new byte[width * height * 4];
                 copyFrame = new CommandBuffer { name = "CrushX camera/effects capture before overlay UI" };
+                copyFrame.BeginSample("CrushX.Capture.Copy");
                 bool flip = captureMirrorMode == CaptureMirrorMode.FlipHorizontally;
                 copyFrame.Blit(BuiltinRenderTextureType.CameraTarget, frame, flip ? new Vector2(-1, 1) : Vector2.one, flip ? new Vector2(1, 0) : Vector2.zero);
+                copyFrame.EndSample("CrushX.Capture.Copy");
                 sourceCamera.AddCommandBuffer(CameraEvent.AfterEverything, copyFrame);
                 Camera.onPostRender += CameraRendered;
                 framesCopied = 0; lastReadFrame = 0;
@@ -640,6 +644,11 @@ namespace CrushX.LensEngine
         }
 
         private void ReadFrame()
+        {
+            using (ReadbackMarker.Auto()) ReadFramePixels();
+        }
+
+        private void ReadFramePixels()
         {
             RenderTexture previous = RenderTexture.active;
             try

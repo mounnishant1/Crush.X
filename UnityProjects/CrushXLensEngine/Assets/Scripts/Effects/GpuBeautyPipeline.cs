@@ -195,10 +195,12 @@ namespace CrushX.LensEngine
             if (commands != null && width == commandWidth && height == commandHeight) return;
             ReleaseCommands();
             commands = new CommandBuffer { name = "CrushX masked beauty before media capture" };
+            commands.BeginSample("CrushX.Beauty.Composite");
             commands.GetTemporaryRT(TemporaryFrame, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
             commands.Blit(BuiltinRenderTextureType.CameraTarget, TemporaryFrame);
             commands.Blit(TemporaryFrame, BuiltinRenderTextureType.CameraTarget, material, 0);
             commands.ReleaseTemporaryRT(TemporaryFrame);
+            commands.EndSample("CrushX.Beauty.Composite");
             targetCamera.AddCommandBuffer(CameraEvent.AfterImageEffects, commands);
             commandWidth = width; commandHeight = height;
         }

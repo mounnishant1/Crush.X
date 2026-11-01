@@ -53,6 +53,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile and execute portable lens engine policies
+        timeout-minutes: 6
+        run: python tools/check_engine_core.py --dotnet dotnet --output "$GITHUB_WORKSPACE/work/engine-core"
+      - name: Verify FFmpeg tools for synthetic media regression tests
+        run: |
+          ffmpeg -version
+          ffprobe -version
       - name: Run Unity source and tool regressions (not Unity compilation)
         run: |
           python -m pip install -r tests/requirements-source.txt
