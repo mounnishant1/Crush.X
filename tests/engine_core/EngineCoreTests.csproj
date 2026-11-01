@@ -33,5 +33,10 @@
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CapturePolicyTests.cs" Link="Tests/CapturePolicyTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ShutterGestureTests.cs" Link="Tests/ShutterGestureTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CreatorManifestTests.cs" Link="Tests/CreatorManifestTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/ArtifactManifest.cs" Link="Runtime/ArtifactManifest.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/VerifiedArtifactLoader.cs" Link="Runtime/VerifiedArtifactLoader.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/LocalModelSession.cs" Link="Runtime/LocalModelSession.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/ReviewedResourcePolicy.cs" Link="Runtime/ReviewedResourcePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ReviewedArtifactTests.cs" Link="Tests/ReviewedArtifactTests.cs" />
   </ItemGroup>
 </Project>
