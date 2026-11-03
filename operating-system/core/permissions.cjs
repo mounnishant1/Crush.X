@@ -10,6 +10,10 @@ const POLICY=Object.freeze({
  'code:approve':'owner',
  'account:read':'self',
  'content:draft':'self',
+ 'editor:draft':'self',
+ 'message:draft':'self',
+ 'camera:preflight':'self',
+ 'call:preflight':'self',
  'aura:use':'self'
 });
 function createPermissionEngine({verifyCredential,getRoles,ownerSubject,now=Date.now,grantTtlMs=60000}={}){
