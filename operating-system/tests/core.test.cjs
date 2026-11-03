@@ -66,7 +66,7 @@ test('audit sink failure denies commit and does not advance chain',async()=>{
   entries.push(x);return true;
  }});
  await audit.record({event:'task.accepted'});
- assert.throws(()=>audit.record({event:'task.started'}),/AUDIT_SINK_FAILED/);
+ await assert.rejects(audit.record({event:'task.started'}),/AUDIT_SINK_FAILED/);
  assert.equal(audit.head().sequence,1);
  await audit.record({event:'task.completed'});
  assert.equal(verifyChain(entries),true);
