@@ -66,7 +66,7 @@ test('audit sink failure denies commit and does not advance chain',async()=>{
   entries.push(x);return true;
  }});
  await audit.record({event:'task.accepted'});
- await assert.rejects(audit.record({event:'task.started'}),/AUDIT_SINK_FAILED/);
+ assert.throws(()=>audit.record({event:'task.started'}),/AUDIT_SINK_FAILED/);
  assert.equal(audit.head().sequence,1);
  await audit.record({event:'task.completed'});
  assert.equal(verifyChain(entries),true);
@@ -74,8 +74,8 @@ test('audit sink failure denies commit and does not advance chain',async()=>{
 
 test('audit rejects accidental secrets or user payloads',async()=>{
  const audit=createAuditLedger({sink:async()=>true});
- await assert.rejects(audit.record({event:'task.accepted',prompt:'my secret'}),/UNSAFE_AUDIT_FIELD/);
- await assert.rejects(audit.record({event:'task.accepted',status:'my password'}),/UNSAFE_AUDIT_FIELD/);
+ assert.throws(()=>audit.record({event:'task.accepted',prompt:'my secret'}),/UNSAFE_AUDIT_FIELD/);
+ assert.throws(()=>audit.record({event:'task.accepted',status:'my password'}),/UNSAFE_AUDIT_FIELD/);
  assert.equal(audit.head().sequence,0);
 });
 
