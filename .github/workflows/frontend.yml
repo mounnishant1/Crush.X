@@ -20,6 +20,7 @@ on:
       - 'UnityProjects/CrushXLensEngine/**'
       - 'tools/**'
       - 'tests/**'
+      - 'aura-owner-coding.cjs'
       - 'docs/**'
       - '.github/workflows/frontend.yml'
   push:
@@ -30,6 +31,7 @@ on:
       - 'UnityProjects/CrushXLensEngine/**'
       - 'tools/**'
       - 'tests/**'
+      - 'aura-owner-coding.cjs'
       - 'docs/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
@@ -77,6 +79,8 @@ jobs:
           node --check aura-x-assistant.js
           node --test tests/aura-x-core.test.cjs
           node --test tests/aura-x-policy.test.cjs
+          node --check aura-owner-coding.cjs
+          node --test tests/aura-owner-coding.test.cjs
       - name: Start local application server
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/crushx-http.log" 2>&1 &
