@@ -37,7 +37,7 @@ test('Story client uses per-request token, never stores it, routes operations co
  assert.ok(calls.every(v=>v.options.credentials==='omit'&&v.options.cache==='no-store'));
  assert.deepEqual(JSON.parse(calls[3].options.body),{emoji:'🔥'});
  assert.deepEqual(JSON.parse(calls[4].options.body),{text:'Hello',requestId:'reply-001'});
- await assert.rejects(client.read('../bad'),/INVALID_STORY_ID/);
+ assert.throws(()=>client.read('../bad'),/INVALID_STORY_ID/);
 });
 test('Story client fails closed with no credentials, no backend, or explicit API rejection',async()=>{
  const noToken=createClient({baseUrl:'https://api.crushx.in',getAccessToken:()=>'',fetchImpl:async()=>{throw Error('should not call');}});
