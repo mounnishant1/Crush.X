@@ -6,7 +6,7 @@ const {MODULES}=require('../features/ai-workflows.cjs');
 const allowed=new Set(MODULES);
 const validKey=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(x);
 const validUuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
-function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date.now(),
+function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date.now,
  durableAdvice=null,rateLimiter=null,requireDistributedLimiter=false}={}){
  if(!system?.aura?.invoke||!system?.tasks?.inspect||!system?.tasks?.cancel||
   typeof verifyCredential!=='function'||typeof now!=='function'||
