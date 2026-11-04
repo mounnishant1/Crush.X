@@ -24,6 +24,18 @@
         if (area) area.textContent = value;
       };
       app.addEventListener('click', event => {
+        const open=event.target.closest('[data-content-open]');
+        if (open) {
+          const itemId=open.dataset.contentOpen;
+          const kind=open.dataset.contentKind;
+          if (!['reel_1','post_1','post_2'].includes(itemId) ||
+              !['reel','post'].includes(kind) || typeof root.navigate!=='function') return;
+          root.navigate(kind==='reel'?'reels':'home');
+          const target=[...root.document.querySelectorAll('[data-content-card]')]
+            .find(node=>node.dataset.contentCard===itemId);
+          target?.scrollIntoView({block:'start',behavior:'smooth'});
+          return;
+        }
         const why = event.target.closest('[data-content-why]');
         if (why) return show(bridge.why(why.dataset.contentWhy, why.dataset.contentKind));
         const hide = event.target.closest('[data-content-hide]');
