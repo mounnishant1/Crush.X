@@ -315,6 +315,23 @@ namespace CrushX.LensEngine
                     core.Game == MiniGameId.ColorCut ? (target.ColorIndex + 1).ToString() : "●", status);
             }
             GUI.color = old;
+            foreach (SliceImpact impact in slicing.Impacts)
+            {
+                float elapsed = (float)(now - impact.When);
+                if (elapsed < 0 || elapsed > .5f) continue;
+                float size = 32 * (1 - elapsed * .6f);
+                float cx = bounds.x + (float)impact.X * bounds.width;
+                float cy = bounds.y + (float)impact.Y * bounds.height;
+                Color previous = GUI.color;
+                Color tint = impact.Bad ? new Color(1, .22f, .22f) : SliceColor(impact.ColorIndex);
+                tint.a = Mathf.Clamp01(1 - elapsed * 2);
+                GUI.color = tint;
+                GUI.DrawTexture(new Rect(cx - size - elapsed * 35, cy - size * .5f + elapsed * 40,
+                    size, size), sliceDisc);
+                GUI.DrawTexture(new Rect(cx + elapsed * 35, cy - size * .5f + elapsed * 40,
+                    size, size), sliceDisc);
+                GUI.color = previous;
+            }
             if (now < trailUntil)
             {
                 float dx = lastTrailTo.x - lastTrailFrom.x;
