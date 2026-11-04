@@ -18,10 +18,16 @@ namespace CrushX.LensEngine
         private Texture2D dark, shutter;
         private bool searchVisible, microphone;
         private readonly ShutterGesture shutterGesture = new ShutterGesture();
+        private readonly LensMiniGamePanel gamePanel = new LensMiniGamePanel();
         private float captureAt = -1;
         private int timerSeconds;
 
         public bool SearchVisible { get { return searchVisible; } }
+        public bool GameIsOpen { get { return gamePanel.IsOpen; } }
+        public bool BeginGameCut(Vector2 position) { return gamePanel.BeginCut(position); }
+        public void MoveGameCut(Vector2 position) { gamePanel.MoveCut(position); }
+        public void EndGameCut(Vector2 position, bool canceled) { gamePanel.EndCut(position, canceled); }
+        public void CancelGameCut() { gamePanel.CancelCut(); }
         public Rect CameraGestureRect
         {
             get
@@ -39,7 +45,7 @@ namespace CrushX.LensEngine
         public bool HidesCarousel { get { return capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
         public bool BlocksCameraGestures
         {
-            get { return (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+            get { return gamePanel.IsOpen || (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
         private void Start() { ResolveDependencies(); }
@@ -61,6 +67,7 @@ namespace CrushX.LensEngine
         {
             if (engine == null || capture == null || carousel == null) ResolveDependencies();
             if (engine == null) return;
+            gamePanel.Update(Time.realtimeSinceStartupAsDouble, engine);
             bool back = false;
 #if ENABLE_INPUT_SYSTEM
             back = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
@@ -106,6 +113,7 @@ namespace CrushX.LensEngine
 
         private void Back()
         {
+            if (gamePanel.Back()) return;
             if (shutterGesture.IsHeld) { EndShutter(true); return; }
             if (captureAt >= 0) { captureAt = -1; return; }
             // Completed drafts have already been persisted; leaving preview must not silently discard them.
@@ -118,14 +126,15 @@ namespace CrushX.LensEngine
 
         private void OnApplicationPause(bool paused)
         {
+            gamePanel.FocusChanged(!paused, Time.realtimeSinceStartupAsDouble);
             if (!paused) return;
             if (capture != null && capture.WaitingForMicrophonePermission) return;
             captureAt = -1;
             EndShutter(true);
         }
 
-        private void OnDisable() { captureAt = -1; EndShutter(true); }
-        private void OnApplicationFocus(bool focused) { if (!focused) { captureAt = -1; EndShutter(true); } }
+        private void OnDisable() { captureAt = -1; EndShutter(true); gamePanel.ClosePanel(); }
+        private void OnApplicationFocus(bool focused) { gamePanel.FocusChanged(focused, Time.realtimeSinceStartupAsDouble); if (!focused) { captureAt = -1; EndShutter(true); } }
 
         private void EnsureStyles()
         {
@@ -163,6 +172,8 @@ namespace CrushX.LensEngine
             GUI.color = Color.white;
             if (engine == null || capture == null || carousel == null)
                 GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (gamePanel.IsOpen)
+                gamePanel.Draw(layout, header, status, button, small, engine != null && engine.TrackingActive);
             else if (cameraPermission != null && !cameraPermission.Granted)
             {
                 GUI.Label(new Rect(20, 60, layout.Width - 40, 70),
@@ -182,6 +193,8 @@ namespace CrushX.LensEngine
                         cameraPermission.OpenAndroidSettings();
                 }
                 if (GUI.Button(new Rect(24, 310, layout.Width - 48, 56), "Back", button)) Back();
+                if (GUI.Button(new Rect(24, 380, layout.Width - 48, 56), "Play games without camera", button))
+                    gamePanel.OpenPanel();
             }
             else if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
             else DrawCamera(layout);
@@ -192,9 +205,10 @@ namespace CrushX.LensEngine
 
         private void DrawCamera(NativeCameraLayout layout)
         {
-            GUI.Label(new Rect(98, 12, layout.Width - 196, 44), "Crush.X", header);
+            GUI.Label(new Rect(186, 12, layout.Width - 278, 44), "Crush.X", header);
             if (GUI.Button(new Rect(12, 12, 78, 44), "Back", button)) Back();
             GUI.enabled = !BlocksCameraGestures;
+            if (GUI.Button(new Rect(100, 12, 80, 44), "Games", button)) gamePanel.OpenPanel();
             if (GUI.Button(new Rect(layout.Width - 90, 12, 78, 44), searchVisible ? "Close" : "Search", button))
             {
                 searchVisible = !searchVisible;
@@ -359,6 +373,7 @@ namespace CrushX.LensEngine
         {
             if (dark != null) Destroy(dark);
             if (shutter != null) Destroy(shutter);
+            gamePanel.Dispose();
         }
     }
 }

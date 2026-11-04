@@ -10,6 +10,10 @@
   <ItemGroup>
     <PackageReference Include="NUnitLite" Version="3.13.3" />
     <Compile Include="*.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Games/SliceChallengeCore.cs" Link="Runtime/SliceChallengeCore.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Games/LensMiniGameCore.cs" Link="Runtime/LensMiniGameCore.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/SliceChallengeTests.cs" Link="Tests/SliceChallengeTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensMiniGameTests.cs" Link="Tests/LensMiniGameTests.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensSwipePolicy.cs" Link="Runtime/LensSwipePolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraRecoveryPolicy.cs" Link="Runtime/CameraRecoveryPolicy.cs" />
     <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraPreviewTransform.cs" Link="Runtime/CameraPreviewTransform.cs" />

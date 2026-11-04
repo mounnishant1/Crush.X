@@ -59,10 +59,14 @@ jobs:
       - name: Compile and execute portable lens engine policies
         timeout-minutes: 6
         run: python tools/check_engine_core.py --dotnet dotnet --output "$GITHUB_WORKSPACE/work/engine-core"
-      - name: Verify FFmpeg tools for synthetic media regression tests
+      - name: Install and verify FFmpeg tools for media tests
         run: |
-          ffmpeg -version
-          ffprobe -version
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -version | head -n 1
+          ffprobe -hide_banner -version | head -n 1
       - name: Run Unity source and tool regressions (not Unity compilation)
         run: |
           python -m pip install -r tests/requirements-source.txt
