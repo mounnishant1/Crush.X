@@ -24,13 +24,14 @@
     const recipientId = short(input.recipientId, 120);
     const senderId = short(input.senderId || input.actorId, 120);
     const id = short(input.id || input.messageId || input.notificationId, 150);
+    const conversationId = short(input.conversationId || input.chatId || input.threadId, 120);
     if (!state || !id || !recipientId || recipientId !== state.currentUserId || !senderId || senderId === recipientId) return null;
     if ((state.socialMutedIds || []).includes(senderId)) return null;
     const type = short(input.type || 'message', 24).toLowerCase();
     if (!TYPES.has(type)) return null;
     const knownUser = Array.isArray(state.users) ? state.users.find(u => u.id === senderId) : null;
     return {
-      id, recipientId, senderId, type,
+      id, recipientId, senderId, conversationId, type,
       senderName: short(input.senderName || knownUser?.username || 'Someone', 48),
       avatar: mediaUrl(input.avatar || knownUser?.avatar),
       thumbnail: mediaUrl(input.thumbnail),
@@ -38,6 +39,24 @@
       reelId: short(input.reelId, 120),
       createdAt: Date.now()
     };
+  }
+  function matchesOpenConversation(event) {
+    // A profile follow/like/mention is not the active chat, even from that sender.
+    if (!['message', 'reel', 'post', 'story', 'reaction'].includes(event.type)) return false;
+    const state = appState();
+    if (!state || state.activeTab !== 'messages') return false;
+    // Sample frontend routes by sender; the real DM router may route by thread ID.
+    return state.chatUserId === event.senderId ||
+      Boolean(event.conversationId && (
+        state.activeConversationId === event.conversationId ||
+        state.chatConversationId === event.conversationId
+      ));
+  }
+  function clearOpenConversationAlerts() {
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (matchesOpenConversation(queue[i])) queue.splice(i, 1);
+    }
+    if (active && matchesOpenConversation(active.event)) dismiss();
   }
   function ensureRegion() {
     if (region && region.isConnected) return region;
@@ -125,7 +144,7 @@
   }
   function pump() {
     if (active || exiting || document.hidden) return;
-    while (queue.length && Date.now() - queue[0].createdAt > 60000) queue.shift();
+    while (queue.length && (Date.now() - queue[0].createdAt > 60000 || matchesOpenConversation(queue[0]))) queue.shift();
     if (queue.length) draw(queue.shift());
   }
   function dismiss() {
@@ -146,7 +165,7 @@
   function openNotification(event) {
     // Other app modules may intercept this event to open the exact persisted DM/reel.
     const target = new CustomEvent('crushx:open-incoming-notification', {
-      detail: { id: event.id, type: event.type, senderId: event.senderId, reelId: event.reelId },
+      detail: { id: event.id, type: event.type, senderId: event.senderId, conversationId: event.conversationId, reelId: event.reelId },
       cancelable: true
     });
     if (!document.dispatchEvent(target)) return;
@@ -167,13 +186,15 @@
     if (!event || seen.has(event.id)) return false;
     seen.add(event.id);
     if (seen.size > 200) seen.delete(seen.values().next().value);
-    // Unread state is updated even when a burst is silenced; never discard a message.
-    if (['message', 'reel', 'post', 'story'].includes(event.type)) {
+    // A visible conversation already owns message presentation and read state.
+    // Its authenticated chat transport, not this banner, must update the chat.
+    const inOpenChat = matchesOpenConversation(event);
+    if (!inOpenChat && ['message', 'reel', 'post', 'story'].includes(event.type)) {
       document.dispatchEvent(new CustomEvent('crushx:heads-up-accepted', {
         detail: { id: event.id, type: event.type, senderId: event.senderId, recipientId: event.recipientId }
       }));
     }
-    if (!preferences.banners) return true;
+    if (inOpenChat || !preferences.banners) return true;
     const now = Date.now();
     if (!active && !queue.length && !exiting && now >= burstLockedUntil) {
       burstCount = 0;
@@ -215,6 +236,7 @@
   document.addEventListener('crushx:incoming-message', e => notify(e.detail));
   document.addEventListener('crushx:incoming-reel', e => notify({ ...(e.detail || {}), type: 'reel' }));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pump(); });
+  document.addEventListener('crushx:conversation-opened', clearOpenConversationAlerts);
   document.addEventListener('crushx:session-ended', () => {
     queue.length = 0; seen.clear(); clearTimeout(timer); clearTimeout(exitTimer);
     burstCount = 0; burstLockedUntil = 0; overflowCount = 0;
