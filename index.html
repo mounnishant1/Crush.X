@@ -994,12 +994,22 @@
       return data;
     }
 
+    // Apply local opt-in ranking only to known demo IDs. Unknown items keep
+    // their original order; no production feed is trusted here.
+    function previewRanked(kind, items) {
+      const bridge = window.CrushXContentBridge;
+      if (!bridge) return items;
+      const demoIds = new Set(['reel_1','post_1','post_2','story_1','story_2','story_3']);
+      const inCurrentFeed = new Set(items.map(item => item.id));
+      return [...bridge.rank(kind).filter(item => inCurrentFeed.has(item.id)), ...items.filter(item => !demoIds.has(item.id))];
+    }
+
     function renderHome(state, feedFilter = 'all') {
       return `
         <main class="home-feed space-y-5">
           <section class="home-stories glass p-3" aria-label="Stories">
             <div class="story-track">
-              ${state.stories
+              ${previewRanked('story', state.stories)
                 .filter(story => story.expiresAt > Date.now())
                 .map(story => {
                   const user = userById(state, story.userId);
@@ -1024,14 +1034,14 @@
             <button data-feed-filter="following" aria-pressed="${feedFilter === 'following'}">Following</button>
           </section>
 
-          ${state.posts.map(post => {
+          ${previewRanked('post', state.posts).map(post => {
             const author = userById(state, post.userId);
             if (!author) return '';
             const media = post.source || post.image;
             const isVideo = post.mediaType === 'video' || post.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(media || '');
 
             return `
-              <article class="feed-card glass rounded-[2rem] sm:mx-auto sm:max-w-xl">
+              <article class="feed-card glass rounded-[2rem] sm:mx-auto sm:max-w-xl" data-content-card="${escapeHTML(post.id)}">
                 <div class="feed-author">
                   <img src="${safeMediaUrl(author.avatar)}" alt="" class="feed-author-avatar ring-2 ring-pink-200" />
                   <div class="min-w-0 flex-1">
@@ -1060,6 +1070,10 @@
                 <div class="px-4 pb-4 pt-1 text-sm font-bold">
                   ${Number(post.likes).toLocaleString()} likes
                   <div class="mt-2 font-normal"><strong>${escapeHTML(author.username)}</strong> ${formatText(post.caption)}</div>
+                  ${['post_1','post_2'].includes(post.id) ? `<div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                    <button type="button" data-content-why="${escapeHTML(post.id)}" data-content-kind="post">Why this post?</button>
+                    <button type="button" data-content-hide="${escapeHTML(post.id)}" data-content-kind="post">Not interested</button>
+                  </div>` : ''}
                   <div class="mt-3 space-y-2">
                     ${post.comments.map(comment => `
                       <div class="text-sm font-normal">
@@ -1082,6 +1096,10 @@
 
     function renderDiscover(state) {
       const query = state.searchQuery.toLowerCase();
+      const discovered = [
+        ...previewRanked('reel',state.reels).map(item => ({...item,kind:'reel'})),
+        ...previewRanked('post',state.posts).map(item => ({...item,kind:'post'}))
+      ].filter(item => ['reel_1','post_1','post_2'].includes(item.id) && (!query || (String(item.caption || '')+' '+String(item.song || '')).toLowerCase().includes(query))).slice(0,12);
 
       const filteredUsers = state.users.filter(user => {
         const text =
@@ -1164,6 +1182,19 @@
               `}
             </div>
           </section>
+          <section class="glass mt-4 rounded-[2rem] p-4" aria-label="Recommended sample content">
+            <h2 class="text-lg font-bold">Explore sample Reels and Posts</h2>
+            <p class="mb-3 text-xs text-slate-500">Local preview only · ranking follows your optional AURA-X interests.</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${discovered.map(item => `<button type="button"
+                data-content-open="${escapeHTML(item.id)}" data-content-kind="${item.kind}"
+                class="rounded-xl border p-3 text-left text-sm dark:border-slate-700">
+                <strong class="block mb-1">${item.kind === 'reel' ? 'Reel' : 'Post'}</strong>
+                <span>${escapeHTML((item.caption || item.song || 'Sample content').slice(0,110))}</span>
+              </button>`).join('')}
+              ${discovered.length ? '' : '<p class="text-sm text-slate-500">No matching sample media.</p>'}
+            </div>
+          </section>
         </main>
       `;
     }
@@ -1216,18 +1247,23 @@
     }
 
     function renderReels(state) {
-      if (!state.reels.length) return '<main class="glass rounded-[2rem] p-5">No reels yet.</main>';
-      return `<main class="space-y-5">${state.reels.map(reel => {
+      const shown = previewRanked('reel', state.reels);
+      if (!shown.length) return '<main class="glass rounded-[2rem] p-5">No sample reels here. Reset your interests in AURA-X to restore hidden content.</main>';
+      return `<main class="space-y-5">${shown.map(reel => {
         const creator = userById(state, reel.userId) || currentUser(state);
         const source = safeMediaUrl(reel.source);
         const video = reel.mediaType === 'video' || reel.contentType?.startsWith('video/') || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(reel.source);
         const comments = Array.isArray(reel.comments) ? reel.comments : [];
-        return `<article class="glass mx-auto max-w-md overflow-hidden rounded-[2rem]">
-          ${video ? `<video src="${source}" controls playsinline preload="metadata" class="reel-media w-full bg-black object-contain" aria-label="Reel video"></video>` : `<img src="${source}" alt="Reel image" class="reel-media w-full object-cover" />`}
+        return `<article class="glass mx-auto max-w-md overflow-hidden rounded-[2rem]" data-content-card="${escapeHTML(reel.id)}">
+          ${video ? `<video src="${source}" controls playsinline preload="metadata" class="reel-media w-full bg-black object-contain" aria-label="Reel video" data-cx-content-video="${escapeHTML(reel.id)}" data-content-kind="reel"></video>` : `<img src="${source}" alt="Reel image" class="reel-media w-full object-cover" />`}
           <div class="p-4">
             <div class="flex items-center gap-3"><img src="${safeMediaUrl(creator.avatar)}" alt="" class="h-11 w-11 rounded-full" /><strong>@${escapeHTML(creator.username)}</strong>
               ${creator.id !== state.currentUserId ? `<button data-follow-user="${escapeHTML(creator.id)}" class="ml-auto rounded-full bg-pink-500 px-3 py-2 text-white">${creator.following ? 'Following' : 'Follow'}</button>` : ''}</div>
             <p class="mt-3">${formatText(reel.caption)}</p>
+            ${reel.id === 'reel_1' ? `<div class="mt-2 flex gap-3 text-xs text-slate-500">
+              <button type="button" data-content-why="${escapeHTML(reel.id)}" data-content-kind="reel">Why this Reel?</button>
+              <button type="button" data-content-hide="${escapeHTML(reel.id)}" data-content-kind="reel">Not interested</button>
+            </div>` : ''}
             <p class="text-xs text-slate-500">${escapeHTML(reel.song)} · ${escapeHTML(reel.artist)}</p>
             <div class="mt-3 flex flex-wrap gap-4">
               <button data-like="${escapeHTML(reel.id)}" aria-pressed="${!!reel.liked}">${reel.liked ? 'Unlike' : 'Like'} · ${Number(reel.likes).toLocaleString()}</button>
@@ -1614,7 +1650,13 @@
         if (!item) return;
         if (button.dataset.like) { item.liked = !item.liked; item.likes = Math.max(0, Number(item.likes || 0) + (item.liked ? 1 : -1)); }
         else item.saved = !item.saved;
-        saveState(state); renderApp(); status('Saved in this browser only.');
+        saveState(state);
+        if (window.CrushXContentBridge && (item.liked || item.saved)) {
+          const action = button.dataset.like ? 'like' : 'save';
+          const kind = state.reels.some(reel => reel.id === item.id) ? 'reel' : 'post';
+          window.CrushXContentBridge.record(action, item.id, kind);
+        }
+        renderApp(); status('Saved in this browser only.');
       }));
       document.querySelectorAll('[data-comment-focus]').forEach(button => button.addEventListener('click', () => {
         const input = [...document.querySelectorAll('[data-comment-input]')].find(e => e.dataset.commentInput === button.dataset.commentFocus);
@@ -1667,6 +1709,8 @@
   <script src="./aura-x-core.js"></script>
   <script src="./aura-x-policy.js"></script>
   <script src="./app-ai-workflows.js"></script>
+  <script src="./content-intelligence.js"></script>
+  <script src="./app-content-intelligence.js"></script>
   <script src="./aura-x-assistant.js"></script>
   <script src="./notes-model.js"></script>
   <script src="./notes-system.js"></script>

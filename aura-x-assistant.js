@@ -56,6 +56,22 @@
         <div class="cx-aura-memory-actions"><button type="button" data-ax-memory-save>Save note</button><button type="button" data-ax-memory-export>View/export note</button><button type="button" data-ax-memory-delete>Delete note</button></div>
         <p data-ax-memory-status role="status"></p><pre data-ax-memory-output></pre>
       </details>
+      <details class="cx-aura-content"><summary>Find in Feed · Local content intelligence</summary>
+        <p>Only the six built-in sample posts, reels and stories are searchable. No live video frames, private messages or server feeds are read. Consent expires after 15 minutes.</p>
+        <div class="cx-aura-permission-actions">
+          <button type="button" data-ax-content-allow>Allow temporary content analysis</button>
+          <button type="button" data-ax-content-stop>Turn off and erase interests</button>
+          <button type="button" data-ax-content-reset>Reset activity and hidden items</button>
+        </div>
+        <label class="block mt-3" for="axContentTopics">Topics (comma separated; e.g. cooking, gaming, travel)</label>
+        <input id="axContentTopics" maxlength="300" class="w-full rounded-xl border p-3 bg-transparent" placeholder="cooking, gaming" />
+        <button type="button" data-ax-content-set class="mt-2 rounded-xl border px-3 py-2">Apply my topics</button>
+        <label class="block mt-3" for="axContentQuestion">Ask about sample Feed, Reels and Stories</label>
+        <input id="axContentQuestion" maxlength="500" class="w-full rounded-xl border p-3 bg-transparent" placeholder="Find the Reel about a city" />
+        <button type="button" data-ax-content-ask class="mt-2 rounded-xl border px-3 py-2">Find source references</button>
+        <p data-ax-content-status role="status" class="text-sm mt-2"></p>
+        <pre data-ax-content-output class="whitespace-pre-wrap break-words text-sm"></pre>
+      </details>
       <p class="mt-4 text-xs text-slate-500">Autopilot, direct messages, purchases, calls, publishing and background memory are unavailable. Every local draft requires review.</p>`;
     let suggestion = '';
     // appDialog is the existing modal with escape-safe title and close management.
@@ -85,7 +101,47 @@
         if (action && suggestion) action.disabled = false;
       });
       dialog.querySelector('[data-ax-revoke]').addEventListener('click', () => {
-        permissions.revoke(); suggestion=''; if(action)action.disabled=true; output.textContent='Local permissions revoked.'; updatePolicy();
+        permissions.revoke(); root.CrushXContentBridge?.consent(false);
+        suggestion=''; if(action)action.disabled=true; output.textContent='Local permissions revoked.'; updatePolicy();
+      });
+      const contentBridge=root.CrushXContentBridge;
+      const contentStatus=dialog.querySelector('[data-ax-content-status]');
+      const contentOutput=dialog.querySelector('[data-ax-content-output]');
+      const contentAuthorized=()=>contentBridge && permissions.authorized(currentOwner(),'analyse:content') && contentBridge.status().consented;
+      const showContentStatus=()=>{
+        const snapshot=contentBridge?.status();
+        contentStatus.textContent=snapshot?.consented ?
+          'Local preview on · '+snapshot.signalCount+' activity signals · interests: '+(snapshot.interests.join(', ')||'none') :
+          'Off · Content analysis requires explicit opt-in. No data is sent.';
+      };
+      showContentStatus();
+      dialog.querySelector('[data-ax-content-allow]').addEventListener('click',()=>{
+        if(!contentBridge){contentStatus.textContent='Sample content module unavailable.';return;}
+        const grant=permissions.consent({ownerId:currentOwner(),scopes:['analyse:content'],approved:true});
+        if(grant.ok)contentBridge.consent(true);
+        else contentStatus.textContent=grant.reason;
+        showContentStatus();
+      });
+      dialog.querySelector('[data-ax-content-stop]').addEventListener('click',()=>{
+        permissions.revoke('analyse:content');contentBridge?.consent(false);
+        contentOutput.textContent='';showContentStatus();
+      });
+      dialog.querySelector('[data-ax-content-reset]').addEventListener('click',()=>{
+        if(!contentBridge)return;
+        contentBridge.reset();contentOutput.textContent='Activity and hidden items cleared.';showContentStatus();
+      });
+      dialog.querySelector('[data-ax-content-set]').addEventListener('click',()=>{
+        if(!contentAuthorized()){contentStatus.textContent='Enable temporary content analysis first.';return;}
+        contentBridge.setInterests(dialog.querySelector('#axContentTopics').value);
+        showContentStatus();
+      });
+      dialog.querySelector('[data-ax-content-ask]').addEventListener('click',()=>{
+        if(!contentAuthorized()){contentStatus.textContent='Enable temporary content analysis first.';return;}
+        const question=dialog.querySelector('#axContentQuestion').value;
+        const result=contentBridge.ask(question);
+        contentOutput.textContent=[result.answer,...result.sources.map(item=>
+          '['+item.kind+':'+item.id+'] '+item.excerpt)].join('\n');
+        showContentStatus();
       });
       const memoryStatus=dialog.querySelector('[data-ax-memory-status]');
       const memoryOutput=dialog.querySelector('[data-ax-memory-output]');

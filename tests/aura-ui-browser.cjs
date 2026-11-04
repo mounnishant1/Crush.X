@@ -40,7 +40,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await agent.locator('#axPrompt').fill('analyse');
     await agent.locator('[data-ax-form] button').click();
     assert.match(await agent.locator('[data-ax-output]').textContent(),/No video frames/);
-    await agent.locator('summary').click();
+    await agent.locator('.cx-aura-memory summary').click();
     await agent.locator('#axMemory').fill('I prefer short Hindi suggestions');
     await agent.locator('[data-ax-memory-save]').click();
     assert.match(await agent.locator('[data-ax-memory-status]').textContent(),/not granted/);

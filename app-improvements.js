@@ -343,7 +343,11 @@ renderDiscover = function(state) {
   const query=state.searchQuery.trim().toLowerCase();
   const categories=[['all','All'],['people','People'],['posts','Posts'],['reels','Reels'],['tags','Tags']];
   const users=state.users.filter(user=>`${user.username} ${user.fullName} ${user.info}`.toLowerCase().includes(query));
-  const allMedia=[...state.posts.map(item=>({...item,kind:'post'})),...state.reels.map(item=>({...item,kind:'reel'}))];
+  // Existing Explore keeps its creator/categories UI, but receives the same
+  // session-scoped Not Interested and interest order as Home/Reels.
+  const allMedia=[...previewRanked('post',state.posts).map(item=>({...item,kind:'post'})),...previewRanked('reel',state.reels).map(item=>({...item,kind:'reel'}))];
+  const recommended=allMedia.filter(item=>['reel_1','post_1','post_2'].includes(item.id) &&
+    (!query || String(item.caption||'').toLowerCase().includes(query))).slice(0,8);
   const media=allMedia.filter(item=>(appExploreFilter==='all'||appExploreFilter==='posts'&&item.kind==='post'||appExploreFilter==='reels'&&item.kind==='reel')&&`${item.caption} ${userById(state,item.userId)?.username||''}`.toLowerCase().includes(query));
   const tags=[...new Set(allMedia.flatMap(item=>item.caption.match(/#[\p{L}\p{N}_]{2,40}/gu)||[]).map(tag=>tag.slice(1)))].slice(0,30);
   const visibleTags=tags.filter(tag=>!query||tag.toLowerCase().includes(query.replace(/^#/,'')));
@@ -358,6 +362,11 @@ renderDiscover = function(state) {
       const src=safeMediaUrl(item.source||item.image),video=item.mediaType==='video'||item.contentType?.startsWith('video/')||/\.(mp4|webm)(?:[?#]|$)/i.test(item.source||'');
       return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample ${item.kind}">${video?`<video src="${src}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>`:`<img src="${src}" alt="Sample ${item.kind} thumbnail">`}<span>${item.kind==='reel'?'Reel':'Post'}</span></button>`;
     }).join('')}</div>${media.length?'':'<p>No matching sample media.</p>'}</section>`:''}
+    <section class="explore-content-preview" aria-label="Recommended sample content">
+      <h2>For you · sample content</h2>
+      <p>Optional AURA-X interests control local preview ordering only.</p>
+      <div class="explore-grid">${recommended.map(item=>`<button type="button" data-content-open="${escapeHTML(item.id)}" data-content-kind="${item.kind}" aria-label="Open recommended sample ${item.kind}">${escapeHTML(String(item.caption||'Sample media').slice(0,110))}</button>`).join('')||'<p>No matching sample recommendations.</p>'}</div>
+    </section>
     <p class="explore-disclaimer">Local examples only · Live trends, search ranking and hashtags are not connected.</p>
   </main>`;
 };
@@ -420,15 +429,16 @@ renderProfile = function(state) {
   return html.replace('</section>', `<div class="mt-5 flex flex-wrap gap-3"><button data-edit-sample class="border rounded-lg px-4 py-2">Edit sample profile</button><button data-profile-filter="posts" aria-pressed="${appProfileFilter === 'posts'}" class="border rounded-lg px-4 py-2">Posts · ${own.length}</button><button data-profile-filter="saved" aria-pressed="${appProfileFilter === 'saved'}" class="border rounded-lg px-4 py-2">Saved · ${saved.length}</button></div><div class="app-media-grid">${items.map(item => `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open ${appProfileFilter === 'saved' ? 'saved' : 'sample'} post">${item.contentType?.startsWith('video/') || item.mediaType === 'video' ? `<video src="${safeMediaUrl(item.source)}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>` : `<img src="${safeMediaUrl(item.image || item.source)}" alt="Sample post thumbnail">`}</button>`).join('')}</div>${items.length ? '' : '<p class="mt-5 text-sm text-slate-500">Nothing saved yet. Use the bookmark on a post or reel.</p>'}</section>`);
 };
 renderReels = function(state) {
-  if(!state.reels.length)return '<main class="glass rounded-[2rem] p-5">No reels yet.</main>';
+  const reels=previewRanked('reel',state.reels);
+  if(!reels.length)return '<main class="glass rounded-[2rem] p-5">No reels here. Reset hidden sample content in AURA-X.</main>';
   const glyph=(name,fallback)=>`<i data-lucide="${name}" aria-hidden="true">${fallback}</i>`;
-  return `<main class="reels-deck" aria-label="Reels, swipe vertically to change" tabindex="0">${state.reels.map((reel,i)=>{
+  return `<main class="reels-deck" aria-label="Reels, swipe vertically to change" tabindex="0">${reels.map((reel,i)=>{
     const creator=userById(state,reel.userId)||currentUser(state);
     const src=safeMediaUrl(reel.source),id=escapeHTML(reel.id);
     const video=reel.mediaType==='video'||reel.contentType?.startsWith('video/')||/\.(mp4|webm|mov)(?:[?#]|$)/i.test(reel.source);
     const comments=Array.isArray(reel.comments)?reel.comments:[];
-    return `<section class="reel-slide" data-reel-slide="${id}" aria-label="Reel ${i+1} of ${state.reels.length}">
-      <div class="reel-visual" data-reel-visual="${id}">${video?`<video src="${src}" data-reel-video="${id}" ${reelAudioEnabled?'':'muted'} loop playsinline controls preload="metadata" aria-label="Reel video"></video>`:`<img src="${src}" alt="Sample image reel by ${escapeHTML(creator.username)}"><span class="reel-image-note">Sample photo reel</span>`}</div>
+    return `<section class="reel-slide" data-reel-slide="${id}" data-content-card="${id}" aria-label="Reel ${i+1} of ${reels.length}">
+      <div class="reel-visual" data-reel-visual="${id}">${video?`<video src="${src}" data-reel-video="${id}" data-cx-content-video="${id}" data-content-kind="reel" ${reelAudioEnabled?'':'muted'} loop playsinline controls preload="metadata" aria-label="Reel video"></video>`:`<img src="${src}" alt="Sample image reel by ${escapeHTML(creator.username)}"><span class="reel-image-note">Sample photo reel</span>`}</div>
       <div class="reel-rail" aria-label="Reel actions">
         <button data-like="${id}" aria-pressed="${!!reel.liked}" aria-label="${reel.liked?'Unlike':'Like'} reel">${glyph('heart','♡')}<span>${Number(reel.likes).toLocaleString()}</span></button>
         <button data-comment-focus="${id}" aria-label="Open comments">${glyph('message-circle','▢')}<span>${comments.length}</span></button>
@@ -440,6 +450,7 @@ renderReels = function(state) {
       ${video?`<input class="reel-progress" data-reel-progress="${id}" aria-label="Reel playback position" type="range" min="0" max="1000" value="0" step="1">`:''}
       <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><button data-profile-user="${escapeHTML(creator.id)}" aria-label="Open ${escapeHTML(creator.username)} sample profile">@${escapeHTML(creator.username)}</button>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
       <p class="reel-caption">${formatText(reel.caption)}</p>
+      ${reel.id==='reel_1'?`<div class="reel-content-controls"><button type="button" data-content-why="${id}" data-content-kind="reel">Why this Reel?</button><button type="button" data-content-hide="${id}" data-content-kind="reel">Not interested</button></div>`:''}
       <button data-reel-audio="${id}" class="reel-audio" aria-label="Audio details">${glyph('music-2','♫')} ${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</button>
       <div class="reel-extra"><button data-reel-template="${id}">${glyph('layout-template','▦')} Template</button><button data-reel-caption="${id}" aria-pressed="false">${glyph('captions','CC')} Caption</button></div>
       <div class="reel-comment-box"><input data-comment-input="${id}" maxlength="2000" placeholder="Local comment…" aria-label="Local reel comment"><button data-comment-send="${id}">Post</button></div>

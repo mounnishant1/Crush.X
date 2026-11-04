@@ -7,6 +7,8 @@ on:
       - 'app-improvements.js'
       - 'app-ai-workflows.js'
       - 'aura-x-assistant.js'
+      - 'content-intelligence.js'
+      - 'app-content-intelligence.js'
       - 'aura-x-policy.js'
       - 'app-os-integration.js'
       - 'app-os-integration.css'
@@ -86,6 +88,9 @@ jobs:
           node --check aura-x-core.js
           node --check aura-x-policy.js
           node --check aura-x-assistant.js
+          node --check content-intelligence.js
+          node --check app-content-intelligence.js
+          node --test tests/content-intelligence-integration.test.cjs
           node --test tests/aura-x-core.test.cjs
           node --test tests/aura-x-policy.test.cjs
           node --check aura-owner-coding.cjs
@@ -103,6 +108,7 @@ jobs:
         run: |
           node tests/frontend.cjs
           node tests/aura-ui-browser.cjs
+          node tests/content-ui-browser.cjs
           node tests/os-feature-browser.cjs
       # cloud-onboarding/crushx/smoke.cjs is intentionally separate: it needs
       # the managed cloud's SDK/proxy/CA setup and /usr/bin/chromium.
