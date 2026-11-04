@@ -20,15 +20,26 @@ namespace CrushX.LensEngine
         internal double Vx, Vy;
     }
 
+    public sealed class SliceImpact
+    {
+        public double X { get; internal set; }
+        public double Y { get; internal set; }
+        public double When { get; internal set; }
+        public int ColorIndex { get; internal set; }
+        public bool Bad { get; internal set; }
+    }
+
     // Deterministic normalized-coordinate cutting simulation. The UI owns touch routing and
     // paints objects; the core never accesses camera images, face identity or network services.
     public sealed class SliceChallengeCore
     {
         private readonly Random rng;
         private readonly List<SliceObject> objects = new List<SliceObject>();
+        private readonly List<SliceImpact> impacts = new List<SliceImpact>();
+        private readonly IReadOnlyList<SliceImpact> exposedImpacts;
         private readonly IReadOnlyList<SliceObject> exposedObjects;
-        private double lastTime, nextSpawn;
-        private int serial, strokeHits;
+        private double lastTime, nextSpawn, viewportAspect = 1;
+        private int serial, strokeHits, lastTier;
         private bool strokeActive;
 
         public SliceMode Mode { get; private set; }
@@ -46,24 +57,27 @@ namespace CrushX.LensEngine
         public bool Failed { get; private set; }
         public bool InStroke { get { return strokeActive; } }
         public IReadOnlyList<SliceObject> Objects { get { return exposedObjects; } }
+        public IReadOnlyList<SliceImpact> Impacts { get { return exposedImpacts; } }
         public int Goal { get { return Mode == SliceMode.SpeedSlice ? 32 : 22; } }
 
         public SliceChallengeCore(int? seed = null)
         {
             rng = seed.HasValue ? new Random(seed.Value) : new Random();
             exposedObjects = objects.AsReadOnly();
+            exposedImpacts = impacts.AsReadOnly();
         }
 
         public void Start(SliceMode mode, double now)
         {
             if (!Finite(now)) throw new ArgumentException("Time must be finite", nameof(now));
             Mode = mode;
-            Score = Sliced = BombsHit = Misses = Strokes = LastCombo = BestCombo = 0;
+            Score = Sliced = BombsHit = Misses = Strokes = LastCombo = BestCombo = lastTier = 0;
             Lives = 3;
             Won = Failed = false;
             strokeActive = false;
             strokeHits = 0;
             objects.Clear();
+            impacts.Clear();
             serial = 0;
             lastTime = now;
             nextSpawn = now + .75;
@@ -77,6 +91,7 @@ namespace CrushX.LensEngine
         {
             strokeActive = false;
             objects.Clear();
+            impacts.Clear();
             Won = Failed = false;
         }
 
@@ -87,11 +102,19 @@ namespace CrushX.LensEngine
             nextSpawn += seconds;
         }
 
+        public void SetViewportAspect(double widthOverHeight)
+        {
+            if (Finite(widthOverHeight) && widthOverHeight >= .2 && widthOverHeight <= 5)
+                viewportAspect = widthOverHeight;
+        }
+
         public void Tick(double now)
         {
             if (Won || Failed || !Finite(now) || now <= lastTime) return;
             double dt = Math.Min(.12, now - lastTime);
             lastTime = now;
+            for (int i = impacts.Count - 1; i >= 0; i--)
+                if (now - impacts[i].When >= .5) impacts.RemoveAt(i);
             for (int i = objects.Count - 1; i >= 0; i--)
             {
                 SliceObject target = objects[i];
@@ -134,17 +157,22 @@ namespace CrushX.LensEngine
             for (int i = objects.Count - 1; i >= 0; i--)
             {
                 SliceObject o = objects[i];
-                double dist2 = SegmentDistanceSquared(x0, y0, x1, y1, o.X, o.Y);
+                double dist2 = SegmentDistanceSquared(x0, y0 / viewportAspect, x1, y1 / viewportAspect, o.X, o.Y / viewportAspect);
                 if (dist2 > o.Radius * o.Radius) continue;
                 objects.RemoveAt(i); // target cannot score twice in a swipe
+                bool bad = o.Bomb || !IsCorrect(o) ||
+                    (Mode == SliceMode.PrecisionCut && dist2 > o.Radius * o.Radius * .16);
+                impacts.Add(new SliceImpact
+                {
+                    X = o.X, Y = o.Y, When = lastTime, ColorIndex = o.ColorIndex, Bad = bad
+                });
                 if (o.Bomb)
                 {
                     BombsHit++;
                     Lives--;
                     Score = Math.Max(0, Score - 25);
                 }
-                else if (!IsCorrect(o) ||
-                    (Mode == SliceMode.PrecisionCut && dist2 > o.Radius * o.Radius * .16))
+                else if (bad)
                 {
                     Lives--;
                     Score = Math.Max(0, Score - 10);
@@ -156,8 +184,7 @@ namespace CrushX.LensEngine
                     Sliced++;
                     hits++;
                     strokeHits++;
-                    if (Mode == SliceMode.ColorCut && Sliced % 5 == 0) RequiredColor = (RequiredColor + 1) % 4;
-                    if (Mode == SliceMode.ShapeCut && Sliced % 5 == 0) RequiredShape = (RequiredShape + 1) % 3;
+                    // Change requested target only after this full stroke finishes.
                 }
                 if (Lives <= 0) { Failed = true; break; }
                 if (Sliced >= Goal) { Won = true; break; }
@@ -169,6 +196,14 @@ namespace CrushX.LensEngine
         {
             if (!strokeActive) return;
             strokeActive = false;
+            int tier = Sliced / 5;
+            if (tier > lastTier)
+            {
+                int steps = tier - lastTier;
+                if (Mode == SliceMode.ColorCut) RequiredColor = (RequiredColor + steps) % 4;
+                if (Mode == SliceMode.ShapeCut) RequiredShape = (RequiredShape + steps) % 3;
+                lastTier = tier;
+            }
             LastCombo = strokeHits;
             BestCombo = Math.Max(BestCombo, LastCombo);
             if (strokeHits >= 2)
