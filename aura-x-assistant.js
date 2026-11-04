@@ -140,7 +140,7 @@
         const question=dialog.querySelector('#axContentQuestion').value;
         const result=contentBridge.ask(question);
         contentOutput.textContent=[result.answer,...result.sources.map(item=>
-          '['+item.kind+':'+item.id+'] '+item.excerpt)].join('\\n');
+          '['+item.kind+':'+item.id+'] '+item.excerpt)].join('\n');
         showContentStatus();
       });
       const memoryStatus=dialog.querySelector('[data-ax-memory-status]');
