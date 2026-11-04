@@ -19,10 +19,12 @@ const assertStoryId=id=>{if(typeof id!=='string'||!VALID_ID.test(id))throw Error
 const storyId=(subject,key)=>createHash('sha256').update('crushx-story-v1\0'+subject+'\0'+key).digest('hex').slice(0,40);
 const replyId=(story,subject,key)=>createHash('sha256').update('crushx-reply-v1\0'+story+'\0'+subject+'\0'+key).digest('hex').slice(0,40);
 
-function createStoryService({store,verifyMedia,relationship,now=Date.now}={}){
+function createStoryService({store,verifyMedia,relationship,verifyRelated,verifyMentions,reviewText,now=Date.now}={}){
  if(!store||!['get','create','recordView','recordReaction','recordReply','softDelete','countByType']
    .every(k=>typeof store[k]==='function')||typeof verifyMedia!=='function'||
-   typeof relationship!=='function'||typeof now!=='function')
+   typeof relationship!=='function'||typeof verifyRelated!=='function'||
+   typeof verifyMentions!=='function'||typeof reviewText!=='function'||
+   typeof now!=='function')
   throw TypeError('STORY_TRUSTED_ADAPTERS_REQUIRED');
 
  async function visible(story,subject){
@@ -61,6 +63,18 @@ function createStoryService({store,verifyMedia,relationship,now=Date.now}={}){
       !['reel','post'].includes(input.related.type)||typeof input.related.id!=='string'||
       input.related.id.length>120||!MEDIA_ID.test(input.related.id))))
    throw Error('INVALID_STORY_REQUEST');
+  // Sensitive cross-content links, mention permissions and caption moderation are
+  // verified by protected server adapters. Never trust client-provided matches.
+  if(input.related){
+   const linked=await verifyRelated({ownerId:subject,type:input.related.type,id:input.related.id});
+   if(linked?.allowed!==true)throw Error('STORY_NOT_APPROVED');
+  }
+  if(input.mentions?.length){
+   const mentions=await verifyMentions({ownerId:subject,subjectIds:input.mentions});
+   if(mentions?.allowed!==true)throw Error('STORY_NOT_APPROVED');
+  }
+  const reviewed=await reviewText({ownerId:subject,caption:input.caption||''});
+  if(reviewed?.approved!==true)throw Error('STORY_NOT_APPROVED');
   const media=await verifyMedia({ownerId:subject,mediaId:input.mediaId});
   if(!media||media.ready!==true||media.ownerId!==subject||
      media.mediaId!==input.mediaId||!['image','video'].includes(media.kind)||
