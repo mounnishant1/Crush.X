@@ -27,6 +27,7 @@ test('generates validated-shape lens preset and existing game template only',()=
   assert.equal(r.drafts[0].creatorLensDocument.BaseLensId,'neon-mask');
   assert.equal(r.drafts[0].gameDraft.templateId,'FruitRush');
   assert.equal(r.drafts[0].creatorLensDocument.AssetLicense,'Unreviewed');
+  assert.deepEqual(r.drafts[0].creatorLensDocument.RequiredAssets,['procedural:neon-mask']);
   assert.equal(r.drafts[0].publishAllowed,false);
 });
 test('rejects malformed, stale, unsupported and unsafe inputs',()=>{

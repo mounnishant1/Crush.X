@@ -92,6 +92,10 @@ jobs:
           node --check tools/youtube-trend-collector.cjs
           node --test tests/aura-x-trend-studio.test.cjs
           node --test tests/youtube-trend-collector.test.cjs
+          node --check tools/aura-vision-analyzer.cjs
+          node --check tools/aura-original-asset-factory.cjs
+          node --check tools/aura-video-to-lens.cjs
+          node --test tests/aura-video-asset-pipeline.test.cjs
       - name: Start local application server
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/crushx-http.log" 2>&1 &
