@@ -16,6 +16,11 @@ This branch is an **isolated GitHub source integration**, not a production deplo
 - PR #74: **merged** unified lightweight animated player into this isolated master; native Android audio focus/touch remains unverified.
 - PR #76: **merged** monochrome Explore/Search/Profile grid play icons with browser test and CI green.
 - Step252: semantically integrated only the receipt-driven Home publishing progress/banner from legacy `work/reel-follow-scrub-story-publish-20261018`; existing Reel scrub and Follow controllers were retained to prevent duplicate UI. See `docs/STEP252-PUBLISHING-FEEDBACK.md`.
+- Step252 Story gesture repair: ported pointer-ID ownership, primary-pointer checks, drag-axis filtering, cancel/reset and vertical synthetic-click suppression without replacing the newest Story viewer code. See `docs/STEP252-STORY-POINTER-MERGE.md`.
+- Step252 Reels Repost: ported local-only repost action with rotation animation, duplicate-tap lock and own Profile Reposts tab; preserves one-swipe/seek/mute players and does not claim backend repost. See `docs/STEP252-REPOST-MERGE.md`.
+
+## Latest source gate
+The three GitHub Actions source-level pipelines (frontend, OS Core, Content Intelligence) passed at the Step252 Repost empty-state fix commit. No Unity import/IL2CPP/Android device end-to-end or cloud staging test was performed here.
 
 ## Local Windows source still requires separate reconciliation
 The prior Step250 archive was described as `CrushX-Step250-ALL-CHATS-MASTER-INTEGRATION-STAGING.zip` (~63 MB), with Step248 integrated Story/Live/Reels, Step249 merge/preflight, and a 14-file Unity overlay. The Step250 archive is discoverable in the user's Library, but its raw-byte materialization was explicitly rejected in this runtime. The `F:\CrushX-Step202\CrushX-v220` checkout is also not mounted; a separate local Step252 guarded runner can perform the supported Step249 copy/rebase on that machine. The Windows app, Editor, Avatar, Story animation, Live, and on-device flows must be reconciled in a **separate clean worktree** with exact hashes, backups, import-level review and regression testing.
@@ -31,4 +36,4 @@ The prior Step250 archive was described as `CrushX-Step250-ALL-CHATS-MASTER-INTE
 8. Production deployment, billing/live payment, real messaging and signing only after explicit owner approval.
 
 ## No unsupported assertions
-Browser tests are not a physical phone run. GitHub merge is not a Windows app merge. A CI pass is not a Unity/IL2CPP pass. A source asset factory is not a live autonomous internet-scraping or lens deployment service. Keep one unified AURA-X assistant; maintain consent, owner/user authorization and audit. Never bypass asset licensing/review or payment approval.
+Legacy divergent branches may contain superseded alternate implementations; only reviewed runtime deltas were ported where they added missing behavior. The latest React/Capacitor Windows source remains a separate reconciliation. Browser tests are not a physical phone run. GitHub merge is not a Windows app merge. A CI pass is not a Unity/IL2CPP pass. A source asset factory is not a live autonomous internet-scraping or lens deployment service. Keep one unified AURA-X assistant; maintain consent, owner/user authorization and audit. Never bypass asset licensing/review or payment approval.
