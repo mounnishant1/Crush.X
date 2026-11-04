@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="./app-experience.css" />
+  <link rel="stylesheet" href="./story-reference-enhancement.css" />
   <link rel="stylesheet" href="./story-editor.css" />
   <link rel="stylesheet" href="./social-interactions.css" />
   <link rel="stylesheet" href="./social-advanced.css" />
@@ -520,7 +521,12 @@
         note: localText(draft.note, 200)
       }))).filter(draft => draft.itemId).slice(0,30);
       state.stories = unique(records(raw.stories, defaultState.stories).filter(story => userExists(story.userId)).map(story => ({
-        id: story.id, userId: story.userId, image: localText(story.image), expiresAt: Number.isFinite(Number(story.expiresAt)) ? Math.max(0, Number(story.expiresAt)) : 0
+        id: story.id, userId: story.userId, image: localText(story.image), expiresAt: Number.isFinite(Number(story.expiresAt)) ? Math.max(0, Number(story.expiresAt)) : 0,
+         video: localText(story.video || '', 2048),
+         reelId: state.reels.some(item => item.id === story.reelId) ? story.reelId : '',
+         postId: state.posts.some(item => item.id === story.postId) ? story.postId : '',
+         mentions: Array.isArray(story.mentions) ? story.mentions.slice(0, 5).filter(mention => mention && userExists(mention.userId)).map(mention => ({ userId: mention.userId })) : [],
+         durationMs: Number.isFinite(Number(story.durationMs)) && Number(story.durationMs) >= 2000 && Number(story.durationMs) <= 60000 ? Number(story.durationMs) : 0
       })));
       state.darkMode = raw.darkMode === true;
       state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile'].includes(raw.activeTab) ? raw.activeTab : 'home';
@@ -1700,6 +1706,7 @@
     });
   </script>
   <script src="./app-improvements.js"></script>
+  <script src="./story-reference-enhancement.js"></script>
   <script src="./social-interactions.js"></script>
   <script src="./social-advanced.js"></script>
   <script src="./social-notifications.js"></script>
