@@ -1,0 +1,59 @@
+name: Content Intelligence — API and PostgreSQL contracts
+on:
+  pull_request:
+    paths:
+      - 'content-intelligence.js'
+      - 'app-content-intelligence.js'
+      - 'operating-system/**'
+      - '.github/workflows/content-intelligence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  content-api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate content modules
+        run: |
+          node --check operating-system/http/content-handler.cjs
+          node --check operating-system/storage/postgres-content-store.cjs
+          node --check operating-system/integration/content-postgres.integration.cjs
+          node --check operating-system/tests/content-http.test.cjs
+          node --test operating-system/tests/content-http.test.cjs
+          node --test operating-system/tests/content-intelligence.test.cjs
+          node --test tests/content-intelligence-integration.test.cjs
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: content_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d content_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated PostgreSQL test driver
+        run: |
+          npm install --prefix "$RUNNER_TEMP/content-pg" --no-save --package-lock=false pg@8.13.3
+      - name: Exercise actual PostgreSQL migration and privacy isolation
+        env:
+          PG_MODULE: ${{ runner.temp }}/content-pg/node_modules/pg
+          POSTGRES_TEST_URL: postgres://postgres:postgres@127.0.0.1:5432/content_test
+        run: node --test operating-system/integration/content-postgres.integration.cjs
