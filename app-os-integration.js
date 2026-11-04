@@ -15,6 +15,8 @@
   Object.freeze({id:'calls',name:'Voice / Video Calls',route:'messages',mode:'unavailable',note:'Signalling, call permissions and native calling are not connected.'})
  ]);
  const find=id=>FEATURES.find(f=>f.id===id)||null;
+ const aiTopics=()=>root.CrushXAIWorkflows
+  ?root.CrushXAIWorkflows.list().filter(t=>t.id!=='owner'):[];
  let panel=null, trigger=null, lastFocus=null, previousOverflow='';
  let observing=false;
  const isAuthenticated=()=>{
@@ -66,6 +68,13 @@
          '<strong>'+f.name+'</strong><span>'+f.note+'</span>'+
          '<em>'+(f.mode==='unavailable'?'Navigation only · Live service unavailable':'Open local screen')+'</em>'+
        '</button>').join('')+'</div>'+
+     '<section class="cx-os-ai-section" aria-label="AURA-X whole app guidance">'+
+       '<h2>AURA-X across the whole app</h2>'+
+       '<p>Choose a module for local, consent-based checklists. These do not run a model or change the app.</p>'+
+       '<div class="cx-os-ai-grid">'+aiTopics().map(t=>
+         '<button type="button" class="cx-os-ai-tile" data-os-ai="'+t.id+'">'+
+         '✦ '+t.title+'</button>').join('')+'</div>'+
+     '</section>'+
      '<div class="cx-os-aura-zone"><p>AURA-X stays the single AI assistant. It currently gives only local, rule-based help.</p>'+
        '<button type="button" data-os-aura>Open AURA-X</button></div>'+
    '</main>';
@@ -74,6 +83,13 @@
    if(back){close();return;}
    const tile=event.target.closest('[data-os-feature]');
    if(tile){navigateFeature(tile.dataset.osFeature);return;}
+   const aiTile=event.target.closest('[data-os-ai]');
+   if(aiTile){
+    close();
+    if(root.CrushXAura&&typeof root.CrushXAura.openFeature==='function')
+     root.CrushXAura.openFeature(aiTile.dataset.osAi);
+    return;
+   }
    if(event.target.closest('[data-os-aura]')){
     close();
     if(root.CrushXAura&&typeof root.CrushXAura.open==='function')root.CrushXAura.open();
