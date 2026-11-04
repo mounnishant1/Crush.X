@@ -96,6 +96,7 @@ jobs:
           node --check social-notifications.js
           node tests/home-ui.cjs
           node tests/experience-flows.cjs
+          node --test tests/story-pointer-ownership-step252.test.cjs
           node --check story-reference-enhancement.js
           node tests/story-reference-enhancement.cjs
           node --check operating-system/stories/story-service.cjs
