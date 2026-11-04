@@ -10,8 +10,75 @@ namespace CrushX.LensEngine
         private MiniGameFamily family = MiniGameFamily.Lens;
         private Vector2 catalogScroll;
         private double now;
+        private Texture2D sliceDisc;
+        private Vector2 previousSlicePoint, lastTrailFrom, lastTrailTo;
+        private double trailUntil;
+        private bool slicingGesture;
+        private bool highScoreSaved;
         public bool IsOpen { get; private set; }
         public LensMiniGameCore Game { get { return core; } }
+        public bool IsCuttingGame { get { return IsOpen && core.IsPlaying && core.IsSlicingGame; } }
+
+        public bool BeginCut(Vector2 screen)
+        {
+            if (!IsCuttingGame || core.Paused) return false;
+            NativeCameraLayout layout = NativeCameraLayout.Current;
+            Rect area = CuttingArea(layout.Width, layout.Height);
+            Vector2 point = layout.ToGui(screen, Screen.height);
+            if (!area.Contains(point)) return false;
+            if (!core.Cutting.BeginStroke((point.x - area.x) / area.width, (point.y - area.y) / area.height))
+                return false;
+            previousSlicePoint = point;
+            slicingGesture = true;
+            return true;
+        }
+
+        public void MoveCut(Vector2 screen)
+        {
+            if (!slicingGesture || !IsCuttingGame || core.Paused) return;
+            NativeCameraLayout layout = NativeCameraLayout.Current;
+            Rect area = CuttingArea(layout.Width, layout.Height);
+            Vector2 point = layout.ToGui(screen, Screen.height);
+            point.x = Mathf.Clamp(point.x, area.xMin, area.xMax);
+            point.y = Mathf.Clamp(point.y, area.yMin, area.yMax);
+            if ((point - previousSlicePoint).sqrMagnitude < 9) return;
+            core.Cutting.MoveStroke((previousSlicePoint.x - area.x) / area.width,
+                (previousSlicePoint.y - area.y) / area.height,
+                (point.x - area.x) / area.width, (point.y - area.y) / area.height);
+            core.SyncCutting();
+            lastTrailFrom = previousSlicePoint;
+            lastTrailTo = point;
+            trailUntil = Time.realtimeSinceStartupAsDouble + .14;
+            previousSlicePoint = point;
+        }
+
+        public void EndCut(Vector2 screen, bool canceled)
+        {
+            if (!slicingGesture) return;
+            if (!canceled) MoveCut(screen);
+            if (canceled) core.Cutting.CancelStroke();
+            else core.Cutting.EndStroke();
+            slicingGesture = false;
+            core.SyncCutting();
+        }
+
+        public void CancelCut()
+        {
+            if (!slicingGesture) return;
+            core.Cutting.CancelStroke();
+            slicingGesture = false;
+        }
+
+        private static Rect CuttingArea(float width, float height)
+        {
+            return new Rect(16, 234, Mathf.Max(1, width - 32), Mathf.Max(100, height - 372));
+        }
+
+        public void Dispose()
+        {
+            CancelCut();
+            if (sliceDisc != null) { UnityEngine.Object.Destroy(sliceDisc); sliceDisc = null; }
+        }
 
         public void OpenPanel()
         {
@@ -19,20 +86,23 @@ namespace CrushX.LensEngine
             IsOpen = true;
             family = MiniGameFamily.Lens;
             core.ReturnToCatalog();
+            CancelCut();
             catalogScroll = Vector2.zero;
+            highScoreSaved = false;
         }
 
         public void ClosePanel()
         {
             IsOpen = false;
+            CancelCut();
             core.ReturnToCatalog();
         }
 
         public bool Back()
         {
             if (!IsOpen) return false;
-            if (core.Phase != MiniGamePhase.Catalog) core.ReturnToCatalog();
-            else IsOpen = false;
+            if (core.Phase != MiniGamePhase.Catalog) { CancelCut(); core.ReturnToCatalog(); }
+            else { CancelCut(); IsOpen = false; }
             return true;
         }
 
@@ -40,7 +110,7 @@ namespace CrushX.LensEngine
         {
             if (!IsOpen) return;
             if (focused) core.Resume(time);
-            else core.Pause(time);
+            else { CancelCut(); core.Pause(time); }
         }
 
         public void Update(double time, LensEngineBootstrap engine)
@@ -48,7 +118,14 @@ namespace CrushX.LensEngine
             if (!IsOpen) return;
             now = time;
             core.Tick(now);
-            if (engine != null && engine.TrackingActive && core.IsPlaying && core.IsLensGame)
+            if (core.Phase != MiniGamePhase.Playing && core.Phase != MiniGamePhase.Catalog && !highScoreSaved)
+            {
+                string key = "crushx.game.localhigh.v1." + core.Game;
+                int old = PlayerPrefs.GetInt(key, 0);
+                if (core.Score > old) { PlayerPrefs.SetInt(key, core.Score); PlayerPrefs.Save(); }
+                highScoreSaved = true;
+            }
+            if (engine != null && engine.TrackingActive && core.IsPlaying && core.IsLensGame && !core.IsSlicingGame)
                 core.ObserveFace(engine.CurrentFace.Expressions, true, now);
         }
 
@@ -58,7 +135,8 @@ namespace CrushX.LensEngine
             float w = layout.Width, h = layout.Height;
             Color old = GUI.color;
             GUI.color = new Color(.035f, .04f, .075f,
-                core.IsPlaying && core.IsLensGame ? .62f : .94f);
+                core.IsPlaying && core.IsSlicingGame ? .26f :
+                    core.IsPlaying && core.IsLensGame ? .62f : .94f);
             GUI.DrawTexture(layout.Bounds, Texture2D.whiteTexture);
             GUI.color = old;
 
@@ -76,10 +154,10 @@ namespace CrushX.LensEngine
             float tabW = (w - 36) * .5f;
             Color old = GUI.backgroundColor;
             GUI.backgroundColor = family == MiniGameFamily.Lens ? new Color(.92f, .27f, .62f) : Color.white;
-            if (GUI.Button(new Rect(12, 72, tabW, 46), "AR Lens Games (7)", button))
+            if (GUI.Button(new Rect(12, 72, tabW, 46), "Lens Games (" + CountFamily(MiniGameFamily.Lens) + ")", button))
             { family = MiniGameFamily.Lens; catalogScroll = Vector2.zero; }
             GUI.backgroundColor = family == MiniGameFamily.Puzzle ? new Color(.92f, .27f, .62f) : Color.white;
-            if (GUI.Button(new Rect(24 + tabW, 72, tabW, 46), "Puzzles (7)", button))
+            if (GUI.Button(new Rect(24 + tabW, 72, tabW, 46), "Puzzles (" + CountFamily(MiniGameFamily.Puzzle) + ")", button))
             { family = MiniGameFamily.Puzzle; catalogScroll = Vector2.zero; }
             GUI.backgroundColor = old;
             GUI.Label(new Rect(15, 124, w - 30, 29),
@@ -105,11 +183,21 @@ namespace CrushX.LensEngine
                 if (GUI.Button(card, label, button))
                 {
                     core.Start(def.Id, now);
+                    CancelCut();
+                    highScoreSaved = false;
                     GUI.FocusControl(null);
                 }
                 index++;
             }
             GUI.EndScrollView();
+        }
+
+        private static int CountFamily(MiniGameFamily selected)
+        {
+            int count = 0;
+            foreach (MiniGameDefinition entry in LensMiniGameCore.Catalog)
+                if (entry.Family == selected) count++;
+            return count;
         }
 
         private void DrawGame(float w, float h, GUIStyle title,
@@ -121,29 +209,115 @@ namespace CrushX.LensEngine
             GUI.Label(new Rect(16, 166, w - 32, 44),
                 "Score " + core.Score + "    Moves " + core.Moves +
                 "    Time " + core.SecondsLeft(now) + "s", status);
+            int best = PlayerPrefs.GetInt("crushx.game.localhigh.v1." + core.Game, 0);
+            GUI.Label(new Rect(16, 203, w - 32, 26), "Personal best: " + best, small);
 
             if (core.Phase != MiniGamePhase.Playing)
             {
                 GUI.Label(new Rect(20, h * .34f, w - 40, 88),
-                    core.Phase == MiniGamePhase.Won ? "Challenge complete!" : "Time is up!", title);
+                    core.Phase == MiniGamePhase.Won ? "Challenge complete!" :
+                        core.Phase == MiniGamePhase.Failed ? "Game over!" : "Time is up!", title);
                 GUI.Label(new Rect(20, h * .48f, w - 40, 55),
                     "Final score: " + core.Score + "    Misses: " + core.Mistakes, status);
                 if (GUI.Button(new Rect(22, h * .65f, w - 44, 56), "Play again", button))
-                    core.Start(def.Id, now);
+                { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; }
                 if (GUI.Button(new Rect(22, h * .65f + 70, w - 44, 56), "All games", button))
-                    core.ReturnToCatalog();
+                { CancelCut(); core.ReturnToCatalog(); }
                 return;
             }
 
-            if (def.Family == MiniGameFamily.Lens && def.Id != MiniGameId.TargetTap)
+            if (core.IsSlicingGame)
+                DrawCuttingGame(w, h, title, status, small);
+            else if (def.Family == MiniGameFamily.Lens && def.Id != MiniGameId.TargetTap)
                 DrawExpressionGame(w, h, title, status, button, small, faceTracking);
             else
                 DrawBoardGame(w, h, title, status, button, small);
 
             if (GUI.Button(new Rect(20, h - 98, (w - 52) * .5f, 50), "Restart", button))
-                core.Start(def.Id, now);
+            { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; }
             if (GUI.Button(new Rect(32 + (w - 52) * .5f, h - 98, (w - 52) * .5f, 50), "All games", button))
-                core.ReturnToCatalog();
+            { CancelCut(); core.ReturnToCatalog(); }
+        }
+
+        private void EnsureSliceDisc()
+        {
+            if (sliceDisc != null) return;
+            const int n = 64;
+            sliceDisc = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            sliceDisc.name = "CrushX_SliceDisc";
+            var pixels = new Color[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x + .5f - n * .5f) / (n * .5f);
+                    float dy = (y + .5f - n * .5f) / (n * .5f);
+                    float radius = Mathf.Sqrt(dx * dx + dy * dy);
+                    pixels[y * n + x] = new Color(1, 1, 1, Mathf.Clamp01((1 - radius) * 9));
+                }
+            sliceDisc.SetPixels(pixels);
+            sliceDisc.Apply(false, true);
+        }
+
+        private void DrawCuttingGame(float w, float h, GUIStyle title, GUIStyle status, GUIStyle small)
+        {
+            EnsureSliceDisc();
+            SliceChallengeCore slicing = core.Cutting;
+            Rect bounds = CuttingArea(w, h);
+            GUI.Box(bounds, GUIContent.none);
+            string rule = core.Game == MiniGameId.ColorCut
+                ? "CUT ONLY COLOR " + (slicing.RequiredColor + 1)
+                : core.Game == MiniGameId.ShapeCut
+                    ? "CUT ONLY SHAPE " + (slicing.RequiredShape + 1)
+                    : core.Game == MiniGameId.PrecisionCut ? "CUT THROUGH THE CENTER"
+                    : "SLASH FRUITS. DO NOT HIT BOMBS.";
+            GUI.Label(new Rect(18, 213, w - 36, 30), rule, small);
+            Color old = GUI.color;
+            foreach (SliceObject target in slicing.Objects)
+            {
+                float diameter = (float)(target.Radius * 2 * bounds.width);
+                float cx = bounds.x + (float)target.X * bounds.width;
+                float cy = bounds.y + (float)target.Y * bounds.height;
+                Rect disk = new Rect(cx - diameter * .5f, cy - diameter * .5f, diameter, diameter);
+                GUI.color = target.Bomb ? new Color(.18f, .2f, .25f) : SliceColor(target.ColorIndex);
+                GUI.DrawTexture(disk, sliceDisc, ScaleMode.StretchToFill, true);
+                GUI.color = Color.white;
+                GUI.Label(disk, target.Bomb ? "!" : core.Game == MiniGameId.ShapeCut ?
+                    (target.ShapeIndex + 1).ToString() : "●", status);
+            }
+            GUI.color = old;
+            if (now < trailUntil)
+            {
+                float dx = lastTrailTo.x - lastTrailFrom.x;
+                float dy = lastTrailTo.y - lastTrailFrom.y;
+                float length = Mathf.Sqrt(dx * dx + dy * dy);
+                if (length > 1)
+                {
+                    Matrix4x4 matrix = GUI.matrix;
+                    Color c = GUI.color;
+                    GUI.color = new Color(.95f, .99f, 1, .96f);
+                    GUIUtility.RotateAroundPivot(Mathf.Atan2(dy, dx) * Mathf.Rad2Deg, lastTrailFrom);
+                    GUI.DrawTexture(new Rect(lastTrailFrom.x, lastTrailFrom.y - 2, length, 4), Texture2D.whiteTexture);
+                    GUI.matrix = matrix;
+                    GUI.color = c;
+                }
+            }
+            GUI.Label(new Rect(16, h - 138, w - 32, 34),
+                "Lives " + slicing.Lives + "   Cut " + slicing.Sliced + "/" + slicing.Goal +
+                "   Best combo " + slicing.BestCombo, small);
+            if (slicing.LastCombo >= 2)
+                GUI.Label(new Rect(20, bounds.y + 20, w - 40, 40),
+                    slicing.LastCombo + "x SLICE COMBO!", title);
+        }
+
+        private static Color SliceColor(int index)
+        {
+            switch (index)
+            {
+                case 0: return new Color(.95f, .3f, .37f);
+                case 1: return new Color(.33f, .78f, .55f);
+                case 2: return new Color(.98f, .7f, .24f);
+                default: return new Color(.37f, .65f, 1f);
+            }
         }
 
         private void DrawExpressionGame(float w, float h, GUIStyle title,
