@@ -15,7 +15,7 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.equal(await store.checkConsent({subject,scope:'content:read'}),false);
   const add=async(id,visibility,creator)=>pool.query('INSERT INTO cx_content_catalog '+
    '(content_id,creator_subject,kind,status,moderation,visibility,caption,topics,published_at) '+
-   "VALUES($1,$2,'reel','published','approved',$3,'Cooking pasta',['cooking'],NOW())",
+   "VALUES($1,$2,'reel','published','approved',$3,'Cooking pasta',ARRAY['cooking'],NOW())",
    [id,creator,visibility]);
   await add(ids[0],'public','creator_1');
   await add(ids[1],'private','creator_1');
