@@ -1,0 +1,126 @@
+/* Compact DP dock + swipe-safe Reel Friends activity.
+   The white composer is a native modal bottom sheet; keyboard height is handled by dvh. */
+.reel-slide .social-friend-bubble,
+.reel-slide .social-comments-shortcut { display:none !important; }
+.cx-reel-friend-tabs {
+  position:absolute; z-index:8; top:10px; left:13px; right:13px;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  font-size:14px; line-height:1.2; color:#fff; pointer-events:auto;
+  text-shadow:0 1px 5px #000;
+}
+.cx-reel-friend-tabs button {
+  border:0; background:transparent; padding:11px 7px; min-height:44px;
+  color:#ffffffba; font-weight:700; text-shadow:inherit;
+  touch-action:manipulation; border-bottom:2px solid transparent;
+}
+.cx-reel-friend-tabs button[aria-current="page"] { color:#fff; border-color:#fff; }
+.cx-reel-friend-tabs button:focus-visible,
+.cx-friend-avatar:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.cx-reel-friend-tabs span[aria-hidden] { color:#ffffffb0; }
+.cx-friends-dock {
+  display:flex; align-items:center; gap:12px; margin:0 0 32px 0;
+  width:max-content; max-width:calc(100% - 12px); position:relative;
+  z-index:6; pointer-events:auto;
+}
+.cx-friend-avatar {
+  display:grid; place-items:center; position:relative;
+  width:44px; height:44px; min-width:44px; min-height:44px;
+  border-radius:50%; border:0; background:transparent; padding:3px;
+  touch-action:manipulation; transition:transform 160ms ease;
+}
+.cx-friend-avatar:active { transform:scale(.92); }
+.cx-friend-avatar img {
+  width:40px; height:40px; object-fit:cover; border-radius:50%;
+  border:2px solid #fff; background:#17171e;
+  box-shadow:0 3px 10px #0008;
+}
+.cx-friend-badge {
+  position:absolute; right:-5px; bottom:-5px; display:grid; place-items:center;
+  width:23px; height:23px; border-radius:50%; font-size:13px;
+  font-weight:800; color:#fff; background:linear-gradient(130deg,#fd297b,#b93cff);
+  border:2px solid #17171e; line-height:1;
+}
+.cx-friends-empty {
+  min-height:50dvh; display:flex; flex-direction:column; gap:18px;
+  align-items:center; justify-content:center; text-align:center;
+  padding:80px 20px 32px; position:relative;
+}
+.cx-friends-empty .cx-reel-friend-tabs { top:10px; color:inherit; text-shadow:none; }
+.cx-friends-empty .cx-reel-friend-tabs button { color:#666; text-shadow:none; }
+.cx-friends-empty .cx-reel-friend-tabs button[aria-current="page"] { color:#e23879; border-color:#e23879; }
+.cx-friends-empty > button { min-height:44px; border:1px solid #df3f86; border-radius:25px; padding:8px 18px; }
+
+dialog.cx-friend-sheet {
+  position:fixed; inset:auto 0 0; width:min(100%,520px); max-width:100vw;
+  margin:0 auto; padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+  border:0; border-radius:24px 24px 0 0; background:#fff; color:#19191f;
+  max-height:min(78dvh,640px); overflow-y:auto; box-shadow:0 -10px 36px #0005;
+  overscroll-behavior:contain; z-index:3000; animation:cx-friend-rise .2s ease-out;
+}
+dialog.cx-friend-sheet::backdrop { background:rgba(0,0,0,.52); }
+.cx-friend-sheet-handle {
+  height:4px; width:42px; border-radius:4px; background:#c8c8cc;
+  margin:0 auto 13px;
+}
+.cx-friend-sheet-close {
+  position:absolute; top:13px; right:16px; width:36px; height:36px;
+  font-size:26px; line-height:1; border-radius:50%; color:#555;
+}
+.cx-friend-sheet-person {
+  display:flex; width:calc(100% - 38px); min-height:62px; align-items:center;
+  gap:12px; text-align:left; padding:6px 1px; touch-action:manipulation;
+}
+.cx-friend-sheet-person img {
+  width:46px; height:46px; object-fit:cover; border-radius:50%;
+  border:2px solid #ed4c88;
+}
+.cx-friend-sheet-person span:nth-child(2) {
+  flex:1; min-width:0; display:grid; gap:3px; overflow-wrap:anywhere;
+}
+.cx-friend-sheet-person strong { font-size:14px; font-weight:800; }
+.cx-friend-sheet-person small { color:#777; font-size:12px; }
+.cx-friend-sheet-person > span:last-child { font-size:24px; color:#777; }
+.cx-friend-reply-form { display:grid; gap:10px; margin-top:14px; }
+.cx-friend-reply-form label { font-size:13px; font-weight:700; }
+.cx-friend-input-row { display:flex; align-items:stretch; gap:7px; }
+.cx-friend-input-row input {
+  flex:1; min-width:0; padding:11px 14px; min-height:46px;
+  border:1px solid #d5d5dc; border-radius:24px; font-size:14px; color:#222;
+  background:#f6f6f8; outline-offset:1px;
+}
+.cx-friend-input-row button {
+  flex:none; border-radius:24px; min-width:88px; padding:8px 12px;
+  background:#202027; color:#fff; font-weight:750; font-size:13px;
+}
+.cx-friend-reactions { display:flex; justify-content:space-between; gap:3px; }
+.cx-friend-reactions button {
+  width:43px; min-width:39px; min-height:44px; font-size:23px;
+  border-radius:50%; touch-action:manipulation;
+}
+.cx-friend-reactions button:active { transform:scale(.9); }
+.cx-friend-reply-status { font-size:11px; color:#777; min-height:18px; line-height:1.5; }
+.cx-friend-chat-link {
+  display:block; width:100%; margin-top:6px; min-height:42px;
+  border-top:1px solid #eee; font-size:13px; font-weight:700;
+  text-align:center; color:#c72a6b;
+}
+.cx-friend-emoji-float {
+  position:absolute; right:74px; bottom:27%; z-index:20; pointer-events:none;
+  font-size:32px; filter:drop-shadow(0 2px 7px #0005);
+  animation:cx-friend-float 1.35s ease-out forwards;
+}
+@keyframes cx-friend-rise { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes cx-friend-float {
+  from { opacity:0; transform:translateY(24px) scale(.6) rotate(-10deg); }
+  18% { opacity:1; }
+  to { opacity:0; transform:translateY(-210px) scale(1.35) rotate(12deg); }
+}
+@media(max-width:420px) {
+  .cx-friends-dock { margin-bottom:25px; gap:8px; }
+  .cx-friend-avatar { width:43px; height:43px; min-width:43px; }
+  dialog.cx-friend-sheet { padding-inline:12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  dialog.cx-friend-sheet,.cx-friend-emoji-float,.cx-friend-avatar { animation:none; transition:none; }
+  .cx-friend-emoji-float { display:none; }
+}
