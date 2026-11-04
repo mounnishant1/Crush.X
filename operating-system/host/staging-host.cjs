@@ -34,7 +34,8 @@ function createStagingHost({system,verifyCredential,allowedOrigins=[],host='127.
   started=true;interval=setInterval(()=>{void worker();},pollMs);
   interval.unref?.();
   return Object.freeze({url:'http://127.0.0.1:'+http.address().port,
-   stagingOnly:true,durableQueueConfigured:durableAdvice!==null});
+   stagingOnly:true,durableQueue:durableAdvice!==null,
+   durableQueueConfigured:durableAdvice!==null});
  }
  async function stop(){
   if(!started)return;
