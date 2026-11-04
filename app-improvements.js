@@ -364,7 +364,7 @@ renderHome = function(state) {
 function cxGridTileAttributes(item, kind) {
   const inferredKind = kind || (getState().reels.some(reel => reel.id === item.id) ? 'reel' : 'post');
   const rawCover = item.thumbnail || item.poster || item.cover || (item.mediaType === 'video' ? item.image : '') || '';
-  const cover = safeMediaUrl(rawCover);
+  const cover = /\.(mp4|webm|mov)(?:[?#]|$)/i.test(rawCover) ? '' : safeMediaUrl(rawCover);
   const views = item.views !== null && item.views !== undefined && Number.isFinite(Number(item.views)) && Number(item.views) >= 0
     ? Math.floor(Number(item.views)) : null;
   return ' data-cx-item-kind="' + escapeHTML(inferredKind) + '"' +
@@ -373,8 +373,8 @@ function cxGridTileAttributes(item, kind) {
 }
 function cxGridVideoMarkup(item, source) {
   const rawCover = item.thumbnail || item.poster || item.cover || item.image || '';
-  const cover = safeMediaUrl(rawCover);
-  return '<video src="' + source + '"' + (cover ? ' poster="' + escapeHTML(cover) + '"' : '') +
+  const cover = /\.(mp4|webm|mov)(?:[?#]|$)/i.test(rawCover) ? '' : safeMediaUrl(rawCover);
+  return '<video src="' + source + '"' + (cover && cover !== source ? ' poster="' + escapeHTML(cover) + '"' : '') +
     ' muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>';
 }
 renderDiscover = function(state) {
