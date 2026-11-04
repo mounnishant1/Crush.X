@@ -58,3 +58,10 @@ test('ranked cross-platform trend has explicit provenance and bounded score',()=
   assert.ok(r.trends[0].score>0 && r.trends[0].score<=100);
   assert.equal(r.trends[0].metricsProvenance,'authorized_records_only');
 });
+
+test('multilingual trend labels produce Unity-validator-compatible ASCII IDs',()=>{
+  const r=studio.buildTrends([s('youtube','id001',['#फलकट']),s('crushx','id002',['#फलकट'])],{now:NOW});
+  assert.equal(r.drafts.length,1);
+  assert.match(r.drafts[0].creatorLensDocument.Id,/^[a-z0-9][a-z0-9-]{1,63}$/);
+  assert.match(r.drafts[0].creatorLensDocument.DisplayName,/फलकट/u);
+});
