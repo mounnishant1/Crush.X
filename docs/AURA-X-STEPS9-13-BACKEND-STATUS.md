@@ -17,6 +17,10 @@ not a live production deployment. No secrets are stored in GitHub.
   is derived from the verified access token rather than a browser-supplied ID.
   Exact allowed CORS origins, bounded bodies, local rate limiting, generic
   errors, no arbitrary tool names, and no self-claimed owner privileges.
+  Additional read endpoints: `GET /v1/feed/{home|reels|explore|stories|posts}`
+  and `DELETE /v1/feed/history`, plus opt-in owned-media
+  `POST /v1/media/analyze`. There is intentionally no client-supplied watch
+  event endpoint; a trusted engagement collector is required.
   No server is started automatically. A trusted worker must execute jobs.
 
 ## Step 10 — Owned media understanding contract
