@@ -7,12 +7,12 @@ namespace CrushX.LensEngine.Tests
     public sealed class LensMiniGameTests
     {
         [Test]
-        public void Catalog_HasSevenLensGamesAndSevenPuzzlesWithUniqueIds()
+        public void Catalog_HasFourteenLensGamesAndSevenPuzzlesWithUniqueIds()
         {
-            Assert.AreEqual(14, LensMiniGameCore.Catalog.Count);
-            Assert.AreEqual(7, LensMiniGameCore.Catalog.Count(x => x.Family == MiniGameFamily.Lens));
+            Assert.AreEqual(21, LensMiniGameCore.Catalog.Count);
+            Assert.AreEqual(14, LensMiniGameCore.Catalog.Count(x => x.Family == MiniGameFamily.Lens));
             Assert.AreEqual(7, LensMiniGameCore.Catalog.Count(x => x.Family == MiniGameFamily.Puzzle));
-            Assert.AreEqual(14, LensMiniGameCore.Catalog.Select(x => x.Id).Distinct().Count());
+            Assert.AreEqual(21, LensMiniGameCore.Catalog.Select(x => x.Id).Distinct().Count());
             foreach (MiniGameDefinition entry in LensMiniGameCore.Catalog)
                 Assert.Greater(entry.Seconds, 0);
         }
