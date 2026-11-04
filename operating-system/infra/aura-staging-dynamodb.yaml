@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Review-only staging storage for Crush.X AURA-X durable suggestions,
+  explicit consent, and API rate limits. No deploy is initiated by this file.
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging]
+  NamePrefix:
+    Type: String
+    Default: CrushXAura
+    AllowedPattern: '[A-Za-z][A-Za-z0-9-]{2,32}'
+Resources:
+  AuraConsentTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${NamePrefix}-${Environment}-consent'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification: { SSEEnabled: true }
+      Tags:
+        - { Key: app, Value: Crush.X }
+        - { Key: component, Value: aura-consent }
+  AuraJobsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${NamePrefix}-${Environment}-jobs'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: GSI1PK, AttributeType: S }
+        - { AttributeName: GSI1SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - { AttributeName: GSI1PK, KeyType: HASH }
+            - { AttributeName: GSI1SK, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification: { SSEEnabled: true }
+      Tags:
+        - { Key: app, Value: Crush.X }
+        - { Key: component, Value: aura-durable-jobs }
+  AuraRateLimitTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${NamePrefix}-${Environment}-rate'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification: { SSEEnabled: true }
+      Tags:
+        - { Key: app, Value: Crush.X }
+        - { Key: component, Value: aura-rate-limit }
+Outputs:
+  ConsentTableName:
+    Value: !Ref AuraConsentTable
+  ConsentTableArn:
+    Value: !GetAtt AuraConsentTable.Arn
+  JobsTableName:
+    Value: !Ref AuraJobsTable
+  JobsTableArn:
+    Value: !GetAtt AuraJobsTable.Arn
+  JobsGsiArn:
+    Value: !Sub '${AuraJobsTable.Arn}/index/GSI1'
+  RateTableName:
+    Value: !Ref AuraRateLimitTable
+  RateTableArn:
+    Value: !GetAtt AuraRateLimitTable.Arn
