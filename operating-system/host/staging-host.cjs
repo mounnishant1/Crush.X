@@ -5,19 +5,24 @@
 const {createServer}=require('node:http');
 const {createAIHttpHandler}=require('../http/ai-handler.cjs');
 function createStagingHost({system,verifyCredential,allowedOrigins=[],host='127.0.0.1',
- port=0,pollMs=50}={}){
+ port=0,pollMs=50,durableAdvice=null,rateLimiter=null}={}){
  if(!system?.start||!system?.stop||!system?.tasks?.runNext||
   typeof verifyCredential!=='function'||host!=='127.0.0.1'||
   !Number.isInteger(port)||port<0||port>65535||
   !Number.isInteger(pollMs)||pollMs<20||pollMs>1000)
   throw TypeError('STAGING_HOST_CONFIG_REQUIRED');
- const handler=createAIHttpHandler({system,verifyCredential,allowedOrigins});
+ if(durableAdvice!==null&&typeof durableAdvice.runOne!=='function')
+  throw TypeError('STAGING_DURABLE_WORKER_REQUIRED');
+ const handler=createAIHttpHandler({system,verifyCredential,allowedOrigins,durableAdvice,rateLimiter});
  const http=createServer(handler);
  let started=false,busy=false,interval=null,active=Promise.resolve();
  async function worker(){
   if(!started||busy)return;
   busy=true;
-  active=(async()=>{try{await system.tasks.runNext();}catch{ /* generic failure; never log private task data */ }})();
+  active=(async()=>{
+   try{if(durableAdvice)await durableAdvice.runOne();await system.tasks.runNext();}
+   catch{ /* generic failure; never log private task data */ }
+  })();
   try{await active;}finally{busy=false;}
  }
  async function start(){
@@ -29,7 +34,7 @@ function createStagingHost({system,verifyCredential,allowedOrigins=[],host='127.
   started=true;interval=setInterval(()=>{void worker();},pollMs);
   interval.unref?.();
   return Object.freeze({url:'http://127.0.0.1:'+http.address().port,
-   stagingOnly:true,durableQueue:false});
+   stagingOnly:true,durableQueueConfigured:durableAdvice!==null});
  }
  async function stop(){
   if(!started)return;
