@@ -57,3 +57,15 @@ Presence requires `online === true`, `visible === true` and a timestamp fresh wi
 A surge of more than four alerts does not create an endless popup sequence. An overflow hint such as `+2 more · inbox` appears while a banner is open, but all accepted messages still increase unread dots. The alert burst can resume after the displayed queue ends and a short cooldown. Full server-backed cross-device unread sync, background Android push, and live presence transport remain integration tasks.
 
 Regression checks: `node tests/heads-up-notifications.cjs` and `node tests/message-presence-indicators.cjs`.
+
+## Foreground message popup refinement (2026-11-04)
+
+- On an authenticated inbound message, dispatch `crushx:incoming-message` once with a stable `id`, `recipientId`, `senderId`, and optional `conversationId` (or `chatId` / `threadId`). Continue to include verified sender display information.
+- When `state.activeTab === 'messages'` and `state.chatUserId === senderId`, no redundant message popup appears. The visible conversation is responsible for rendering the message and server read receipts.
+- The production router may identify an open chat with `state.activeConversationId` or `state.chatConversationId`. On chat opening it can dispatch `crushx:conversation-opened` to dismiss alerts that are already displayed or queued for this chat.
+- Tap forwards the validated `conversationId` through `crushx:open-incoming-notification`. A real messaging router must attach an event listener, validate the requested conversation against the active user's session and permissions, load the persisted message, route to the exact chat, and `preventDefault()` to avoid falling back to the sample-chat UI.
+- Non-DM social alerts (likes, follows, comments, mentions) must remain eligible for banners while the sender's chat happens to be open.
+
+**Not production-complete:** this branch is a single-file web frontend, not the latest installed Android/Capacitor source. For system-level background heads-up notifications implement FCM on Android: register notification channels with high importance (user may override), request Android 13+ `POST_NOTIFICATIONS` permission at an appropriate moment, store device tokens per authenticated account with revocation on logout, send data-only or notification payloads from a trusted backend with collapse/group keys, and build native PendingIntents to open the exact conversation. Android ultimately controls heads-up presentation. Do not synthesize lock-screen private text if preview is hidden, and do not send confidential message bodies via generic push payloads if end-to-end encryption is enabled. Cover foreground/background/killed, action routing, duplicate data, muted threads, multiple logged-in accounts, and lock-screen exposure on physical devices.
+
+Test source contract with `node tests/heads-up-notifications.cjs`. Real AWS/FCM delivery, Android UI, and OnePlus 9 Pro device tests remain pending.
