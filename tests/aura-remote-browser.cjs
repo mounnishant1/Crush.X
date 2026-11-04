@@ -42,7 +42,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   test.equal(await page.locator('[data-ax-global]').count(),1,'single assistant only');
   await modal.locator('#axPrompt').fill('Fix preview touch overlap');
   await optional.locator('[data-remote-allow]').click();
-  await test.equal(await optional.locator('[data-remote-ask]').isEnabled(),true);
+  await page.waitForFunction(()=>!document.querySelector('[data-remote-ask]').disabled);
   await optional.locator('[data-remote-ask]').click();
   await optional.locator('[data-remote-answer]').getByText('Review timing and remove the overlap.').waitFor();
   test.equal(writes.filter(x=>x.path==='/v1/aura/guide').length,1);
@@ -51,7 +51,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   test.equal(request.data.context,'');
   test.equal(request.data.workflow,'editor');
   await optional.locator('[data-remote-revoke]').click();
-  await optional.locator('[data-remote-status]').getByText('Model consent revoked.').waitFor();
+  await page.waitForFunction(()=>document.querySelector('[data-remote-status]')?.textContent==='Model consent revoked.');
   test.deepEqual(errors,[]);
   console.log('AURA-X remote opt-in browser flow PASS');
  }finally{await browser.close();}
