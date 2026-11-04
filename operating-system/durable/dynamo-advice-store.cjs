@@ -15,7 +15,6 @@ function createDynamoAdviceStore({client,tableName,commands,gsi='GSI1'}={}){
  const dueKey=(at,id)=>pad(at)+'#'+id;
  const conditional=e=>e?.name==='ConditionalCheckFailedException'||e?.name==='TransactionCanceledException'&&
    Array.isArray(e.CancellationReasons)&&e.CancellationReasons.some(r=>r?.Code==='ConditionalCheckFailed');
- const send=cmd=>client.send(new cmd.constructor(cmd.input)); // never used; commands are instantiated below
  async function get(id){
   if(typeof id!=='string'||!/^[-a-f0-9]{36}$/.test(id))return null;
   const result=await client.send(new commands.GetCommand({TableName:tableName,Key:key(id),ConsistentRead:true}));
@@ -58,17 +57,17 @@ function createDynamoAdviceStore({client,tableName,commands,gsi='GSI1'}={}){
   }
   return null;
  }
- async function settle({id,leaseToken,status,code,suggestion,now}){
+ async function settle({id,leaseToken,status,code,sealedResult,now}){
   if(!['completed','failed','blocked'].includes(status)||typeof leaseToken!=='string'||
     typeof id!=='string')throw Error('DYNAMO_SETTLE_INVALID');
   try{
    await client.send(new commands.UpdateCommand({
     TableName:tableName,Key:key(id),
-    UpdateExpression:'SET #s = :status, #code = :code, suggestion = :suggestion, finishedAt = :now REMOVE leaseToken, leaseUntil, GSI1PK, GSI1SK, dueAt, sealed',
+    UpdateExpression:'SET #s = :status, #code = :code, sealedResult = :sealedResult, finishedAt = :now REMOVE leaseToken, leaseUntil, GSI1PK, GSI1SK, dueAt, sealed',
     ConditionExpression:'#s = :running AND leaseToken = :lease',
     ExpressionAttributeNames:{'#s':'status','#code':'code'},
     ExpressionAttributeValues:{':status':status,':code':code||null,
-     ':suggestion':suggestion||null,':now':now,':running':'running',':lease':leaseToken}
+     ':sealedResult':sealedResult||null,':now':now,':running':'running',':lease':leaseToken}
    }));return true;
   }catch(e){if(conditional(e))return false;throw e;}
  }
