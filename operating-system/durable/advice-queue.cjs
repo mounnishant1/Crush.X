@@ -60,6 +60,12 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
  }
  const receipt=j=>Object.freeze({jobId:j.id,status:j.status,
   attempts:j.attempts,createdAt:j.createdAt});
+ function decryptResult(job){
+  if(!job.sealedResult)throw Error('ENCRYPTED_RESULT_UNAVAILABLE');
+  const value=decrypt({...job,sealed:job.sealedResult});
+  if(typeof value.suggestion!=='string'||value.suggestion.length>2500)throw Error('ENCRYPTED_RESULT_INVALID');
+  return value.suggestion;
+ }
  async function submit({credential,subject,workflow,prompt,context='',requestId}={}){
   if(!ALLOWED.has(workflow)||!REQUEST_ID.test(requestId||'')||
    typeof prompt!=='string'||!prompt.trim()||prompt.length>1000||
@@ -95,7 +101,7 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
   const job=await store.get(jobId);
   if(!job||job.subject!==subject)throw Error('JOB_NOT_FOUND');
   return Object.freeze({...receipt(job),
-   result:job.status==='completed'?{suggestion:job.suggestion,workflow:job.workflow,
+   result:job.status==='completed'?{suggestion:decryptResult(job),workflow:job.workflow,
     executed:false,published:false,sent:false,charged:false}:null,
    code:job.status==='failed'||job.status==='blocked'?job.code:null});
  }
@@ -147,7 +153,7 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
    catch{status='blocked';code='AUDIT_FAILURE';}
   }
   const ok=await store.settle({id:job.id,leaseToken:job.leaseToken,
-   status,code,suggestion,now:now()});
+   status,code,sealedResult:suggestion?encrypt(job.id,job.subject,job.workflow,{prompt:'',context:'',suggestion}):null,now:now()});
   if(ok!==true)throw Error('LOST_LEASE_NO_RESULT_PUBLISHED');
   return Object.freeze({jobId:job.id,status});
  }
