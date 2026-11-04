@@ -58,8 +58,9 @@ namespace CrushX.LensEngine
         public void EndCut(Vector2 screen, bool canceled)
         {
             if (!slicingGesture) return;
-            if (!canceled) MoveCut(screen);
-            if (canceled) core.Cutting.CancelStroke();
+            if (!canceled && core.IsPlaying) MoveCut(screen);
+            if (canceled || core.Phase == MiniGamePhase.TimeUp || core.Phase == MiniGamePhase.Failed)
+                core.Cutting.CancelStroke();
             else core.Cutting.EndStroke();
             slicingGesture = false;
             core.SyncCutting();
@@ -125,6 +126,8 @@ namespace CrushX.LensEngine
             if (!IsOpen) return;
             now = time;
             core.Tick(now);
+            if (slicingGesture && (core.Phase == MiniGamePhase.TimeUp || core.Phase == MiniGamePhase.Failed))
+                CancelCut();
             if (core.Phase != MiniGamePhase.Playing && core.Phase != MiniGamePhase.Catalog && !highScoreSaved)
             {
                 string key = "crushx.game.localhigh.v1." + core.Game;
