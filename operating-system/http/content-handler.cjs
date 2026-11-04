@@ -2,7 +2,8 @@
 // Authenticated AURA-X content HTTP contract; NO listener or cloud deployment.
 // Produces queued jobs; a trusted worker must runNext(). Never accepts raw
 // client engagement/watch events or account IDs in request bodies.
-const {randomUUID}=require('node:crypto');
+const {TOPICS}=require('../../content-intelligence.js');
+const SAFE_TOPICS=new Set(TOPICS);
 const requestId=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(x);
 const isRecord=x=>!!x&&typeof x==='object'&&!Array.isArray(x)&&
  [Object.prototype,null].includes(Object.getPrototypeOf(x));
@@ -72,7 +73,10 @@ function createContentHttpHandler({system,verifyCredential,checkActiveAccount,
     if(!exact(body,['read','analyze','personalize','topics'])||
       !['read','analyze','personalize'].every(k=>typeof body[k]==='boolean')||
       (body.topics!==undefined&&!Array.isArray(body.topics))||
-      (body.topics?.length||0)>30)
+      (body.topics?.length||0)>30||
+      (!body.read&&(body.analyze||body.personalize))||
+      (!body.personalize&&(body.topics?.length||0)>0)||
+      (body.topics||[]).some(topic=>typeof topic!=='string'||!SAFE_TOPICS.has(topic)))
      return send(res,400,{error:'INVALID_REQUEST'});
     await system.audit.record({event:'content.preferences.requested',subject,capability:'aura:use'});
     const result=await contentStore.setPreferences({subject,read:body.read,analyze:body.analyze,
