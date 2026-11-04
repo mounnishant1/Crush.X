@@ -2,13 +2,12 @@
 // Encrypted, durable AURA-X advisory queue. A store must provide conditional
 // atomic writes/leases; a KMS-managed random AES key stays server-side only.
 // Results are suggestions, never operations. Leases are at-least-once.
-const {createCipheriv,createDecipheriv,randomBytes,createHmac,createHash}=require('node:crypto');
+const {createCipheriv,createDecipheriv,randomBytes,createHmac}=require('node:crypto');
 const {MODULES,descriptions}=require('../features/ai-workflows.cjs');
 const ALLOWED=new Set(MODULES);
 const VALID_ID=/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const REQUEST_ID=/^[A-Za-z0-9_-]{8,128}$/;
 const HEX=/^[a-f0-9]{64}$/;
-const terminal=new Set(['completed','failed','cancelled','blocked']);
 function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvider,
  getRoles,isAccountActive,now=Date.now,hmacKey,encryptionKey,leaseMs=120000,
  retentionMs=86400000}={}){
@@ -21,7 +20,7 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
  !Number.isSafeInteger(leaseMs)||leaseMs<30000||leaseMs>300000||
  !Number.isSafeInteger(retentionMs)||retentionMs<3600000||retentionMs>7*86400000)
   throw TypeError('DURABLE_ADVISORY_TRUSTED_CONFIG_REQUIRED');
- const digest=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+ const digest=v=>createHmac('sha256',hmacKey).update(JSON.stringify(v)).digest('hex');
  const isId=v=>typeof v==='string'&&VALID_ID.test(v);
  const label=({subject,workflow,requestId})=>{
   const h=createHmac('sha256',hmacKey).update(JSON.stringify([subject,workflow,requestId])).digest('hex');
