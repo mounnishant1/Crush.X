@@ -96,6 +96,7 @@ function createStoryHttpHandler({service,verifyCredential,allowedOrigins=[],now=
    if(['ACCESS_DENIED','SELF_INTERACTION'].includes(code))
     return respond(res,403,{error:'ACCESS_DENIED'});
    if(code==='MEDIA_NOT_APPROVED')return respond(res,409,{error:'MEDIA_NOT_APPROVED'});
+   if(code==='STORY_NOT_APPROVED')return respond(res,409,{error:'STORY_NOT_APPROVED'});
    if(['STORY_UNAVAILABLE','NOT_FOUND'].includes(code))
     return respond(res,404,{error:'NOT_FOUND'});
    return respond(res,503,{error:'SERVICE_UNAVAILABLE'});
