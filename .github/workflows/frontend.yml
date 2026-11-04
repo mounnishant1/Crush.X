@@ -84,6 +84,8 @@ jobs:
           node --check social-notifications.js
           node tests/home-ui.cjs
           node tests/experience-flows.cjs
+          node --check story-reference-enhancement.js
+          node tests/story-reference-enhancement.cjs
           node tests/social-interactions.cjs
           node tests/social-advanced.cjs
           node tests/social-notifications.cjs
