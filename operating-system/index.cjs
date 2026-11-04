@@ -10,8 +10,9 @@ const {registerUserFeatures}=require('./features/user-features.cjs');
 const {registerAIWorkflows}=require('./features/ai-workflows.cjs');
 const {registerContentWorkflows}=require('./features/content-intelligence.cjs');
 const {createMediaAnalysisService}=require('./media/media-analysis.cjs');
+const {createConsentService}=require('./consent/consent-service.cjs');
 function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink,now=Date.now,
- readOwnProfile,modelProvider,userFeatures,aiConsent,contentIntelligence,mediaOptions}={}){
+ readOwnProfile,modelProvider,userFeatures,aiConsent,contentIntelligence,mediaOptions,consentOptions}={}){
  const kernel=createKernel(),events=createEventBus();
  const audit=createAuditLedger({sink:auditSink,now});
  const permissions=createPermissionEngine({verifyCredential,getRoles,ownerSubject,now});
@@ -56,11 +57,22 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
    validateArgs:a=>a&&typeof a==='object'&&!Array.isArray(a)&&Object.keys(a).length===1&&
     typeof a.prompt==='string'&&a.prompt.trim().length>=1&&a.prompt.length<=1000});
  }
+ const consents=consentOptions===undefined?null:createConsentService({
+  permissions,audit,now,...consentOptions
+ });
+ const trustedConsent=consents
+  ?({subject,workflow})=>consents.check({subject,scope:'ai:'+workflow}):aiConsent;
+ const contentAdapter=contentIntelligence===undefined?undefined:consents
+  ?{...contentIntelligence,checkConsent:({subject,scope})=>consents.check({subject,scope})}
+  :contentIntelligence;
+ const mediaAdapter=mediaOptions===undefined?undefined:consents
+  ?{...mediaOptions,checkConsent:({subject})=>consents.check({subject,scope:'media:analyze'})}
+  :mediaOptions;
  const userFeatureRegistration=userFeatures===undefined?Object.freeze({configured:Object.freeze([])}):
   registerUserFeatures({tasks,aura,adapters:userFeatures});
- const aiWorkflowRegistration=registerAIWorkflows({tasks,aura,modelProvider,checkConsent:aiConsent});
- const contentWorkflowRegistration=registerContentWorkflows({tasks,aura,adapters:contentIntelligence,now});
- const media=mediaOptions===undefined?null:createMediaAnalysisService({permissions,audit,...mediaOptions});
+ const aiWorkflowRegistration=registerAIWorkflows({tasks,aura,modelProvider,checkConsent:trustedConsent});
+ const contentWorkflowRegistration=registerContentWorkflows({tasks,aura,adapters:contentAdapter,now});
+ const media=mediaAdapter===undefined?null:createMediaAnalysisService({permissions,audit,...mediaAdapter});
  let started=false;
  async function start(){
   if(started)throw Error('OS_ALREADY_STARTED');
@@ -68,6 +80,6 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  }
  async function stop(){if(!started)return;await kernel.stop();started=false;}
  // Return the backend service object. Never serialize it or expose it to clients.
- return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration,contentWorkflowRegistration,media});
+ return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration,contentWorkflowRegistration,media,consents});
 }
 module.exports=Object.freeze({createOperatingSystem});
