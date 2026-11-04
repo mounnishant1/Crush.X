@@ -41,6 +41,8 @@
     };
   }
   function matchesOpenConversation(event) {
+    // A profile follow/like/mention is not the active chat, even from that sender.
+    if (!['message', 'reel', 'post', 'story', 'reaction'].includes(event.type)) return false;
     const state = appState();
     if (!state || state.activeTab !== 'messages') return false;
     // Sample frontend routes by sender; the real DM router may route by thread ID.
