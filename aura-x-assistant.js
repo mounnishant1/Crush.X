@@ -18,15 +18,17 @@
     return el;
   };
   function openAgent(context) {
-    const mode = context && context.mode === 'reel' ? 'reel' : 'message';
+    const mode = context && context.mode === 'feature' ? 'feature' : context && context.mode === 'reel' ? 'reel' : 'message';
     const id = context && typeof context.id === 'string' ? context.id : '';
+    const feature = mode === 'feature' && root.CrushXAIWorkflows ? root.CrushXAIWorkflows.lookup(id) : null;
     if (activeDialog && activeDialog.open) activeDialog.close();
     const state = getState();
     const reel = mode === 'reel' ? state.reels.find(r => r.id === id) : null;
     const user = mode === 'message' ? userById(state, id || state.chatUserId) : null;
     const validMessage = mode === 'message' && !!user && user.id !== state.currentUserId;
-    const hasContext = mode === 'reel' ? !!reel : validMessage;
+    const hasContext = mode === 'reel' ? !!reel : mode === 'feature' ? !!feature : validMessage;
     const status = mode === 'reel' ? (reel ? 'Selected sample reel' : 'No reel selected')
+      : mode === 'feature' ? (feature ? 'Local guidance: ' + feature.title : 'Select an app feature')
       : (validMessage ? 'Local draft for @' + user.username : 'Select a message draft');
     const body = `
       <p class="text-xs text-slate-500 mb-3">One AURA-X assistant · local rule-based guidance. No live model, external inbox, model training, publishing or autonomous tasks.</p>
@@ -38,7 +40,7 @@
       ${mode === 'message' ? '<label class="block text-sm font-semibold" for="axIncoming">Incoming text (optional; paste it yourself)</label><textarea id="axIncoming" rows="3" maxlength="4000" class="w-full rounded-xl border p-3 mb-3 bg-transparent" placeholder="No live messages are read automatically"></textarea>' : ''}
       <form data-ax-form>
         <label for="axPrompt" class="block text-sm font-semibold">Ask AURA-X</label>
-        <input id="axPrompt" maxlength="300" class="w-full rounded-xl border p-3 bg-transparent mt-1" placeholder="${mode === 'reel' ? 'Analyse hook, caption, and improvements' : 'Suggest a safe reply, polish, or check risk'}" />
+        <input id="axPrompt" maxlength="300" class="w-full rounded-xl border p-3 bg-transparent mt-1" placeholder="${mode === 'reel' ? 'Analyse hook, caption, and improvements' : mode === 'feature' ? 'Describe a screen, flow or issue' : 'Suggest a safe reply, polish, or check risk'}" />
         <button class="mt-3 rounded-xl gradient-main px-4 py-3 font-bold text-white" type="submit" disabled>Analyse</button>
       </form>
       <section aria-live="polite" class="mt-4">
@@ -66,7 +68,7 @@
       const action = dialog.querySelector('[data-ax-apply]');
       const form = dialog.querySelector('[data-ax-form]');
       const currentOwner = () => getState().currentUserId;
-      const relevantScope = mode === 'reel' ? 'analyse:reel' : 'draft:message';
+      const relevantScope = mode === 'reel' ? 'analyse:reel' : mode === 'feature' ? 'analyse:feature' : 'draft:message';
       const policyText = dialog.querySelector('[data-ax-policy-status]');
       const updatePolicy = () => {
         const owner = currentOwner();
@@ -76,7 +78,7 @@
       };
       updatePolicy();
       dialog.querySelector('[data-ax-consent]').addEventListener('click', () => {
-        permissions.consent({ownerId:currentOwner(),scopes:['analyse:reel','draft:message'],approved:true}); updatePolicy();
+        permissions.consent({ownerId:currentOwner(),scopes:['analyse:reel','analyse:feature','draft:message'],approved:true}); updatePolicy();
       });
       dialog.querySelector('[data-ax-apply-consent]').addEventListener('click', () => {
         permissions.consent({ownerId:currentOwner(),scopes:['apply:local-draft'],approved:true}); updatePolicy();
@@ -119,6 +121,11 @@
             '', 'Content observations:', ...report.observations,
             '', 'Suggestions:', ...report.actions, '', report.limitations
           ].join('\n');
+        } else if (mode === 'feature') {
+          const report = root.CrushXAIWorkflows.review(id,prompt);
+          if (!report) { output.textContent='App guidance is unavailable.';return; }
+          outputTitle.textContent = report.title;
+          output.textContent = [...report.steps,'',report.limitations].join('\n');
         } else {
           const incoming = dialog.querySelector('#axIncoming').value;
           // Read current draft only after the user taps Analyse; never scrape inbox content.
@@ -169,7 +176,7 @@
       }
       return {mode:'reel',id:visible?.getAttribute('data-reel-slide')||''};
     }
-    return {mode:'message',id:''};
+    return {mode:'feature',id:root.CrushXAIWorkflows?.forTab(state.activeTab)||'home'};
   }
   function attachButtons() {
     // One persistent AURA-X button across the app; the active tab supplies context.
@@ -194,5 +201,6 @@
   document.addEventListener('crushx:session-ended', () => { permissions.clear(); if(activeDialog?.open)activeDialog.close(); });
   root.CrushXAura = Object.freeze({open:() => openAgent(inferContext()),
     openReel: id => openAgent({mode:'reel', id}),openMessage: id => openAgent({mode:'message', id}),
+    openFeature: id => openAgent({mode:'feature',id}),
     status: () => permissions.status(getState().currentUserId)});
 })(window);
