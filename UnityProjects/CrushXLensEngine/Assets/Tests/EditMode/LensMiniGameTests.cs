@@ -180,7 +180,8 @@ namespace CrushX.LensEngine.Tests
             for (int round = 0; round < 5; round++)
             {
                 double time = 6 + 5 * round;
-                for (int step = 0; step < game.SequenceLength; step++)
+                int requiredLength = game.SequenceLength;
+                for (int step = 0; step < requiredLength; step++)
                     Assert.IsTrue(game.TapCell(game.Sequence[step], time));
             }
             Assert.AreEqual(MiniGamePhase.Won, game.Phase);
