@@ -8,8 +8,9 @@ const {createTaskEngine}=require('./core/task-engine.cjs');
 const {createAuraGateway}=require('./core/aura-gateway.cjs');
 const {registerUserFeatures}=require('./features/user-features.cjs');
 const {registerAIWorkflows}=require('./features/ai-workflows.cjs');
+const {createFeedService}=require('./recommendations/feed-service.cjs');
 function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink,now=Date.now,
- readOwnProfile,modelProvider,userFeatures,aiConsent}={}){
+ readOwnProfile,modelProvider,userFeatures,aiConsent,feedOptions}={}){
  const kernel=createKernel(),events=createEventBus();
  const audit=createAuditLedger({sink:auditSink,now});
  const permissions=createPermissionEngine({verifyCredential,getRoles,ownerSubject,now});
@@ -56,6 +57,7 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  const userFeatureRegistration=userFeatures===undefined?Object.freeze({configured:Object.freeze([])}):
   registerUserFeatures({tasks,aura,adapters:userFeatures});
  const aiWorkflowRegistration=registerAIWorkflows({tasks,aura,modelProvider,checkConsent:aiConsent});
+ const feed=feedOptions===undefined?null:createFeedService({permissions,audit,now,...feedOptions});
  let started=false;
  async function start(){
   if(started)throw Error('OS_ALREADY_STARTED');
@@ -63,6 +65,6 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  }
  async function stop(){if(!started)return;await kernel.stop();started=false;}
  // Return the backend service object. Never serialize it or expose it to clients.
- return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration});
+ return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration,feed});
 }
 module.exports=Object.freeze({createOperatingSystem});
