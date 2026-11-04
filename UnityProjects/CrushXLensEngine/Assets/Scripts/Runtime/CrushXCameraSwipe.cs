@@ -9,7 +9,7 @@ namespace CrushX.LensEngine
     [DisallowMultipleComponent]
     public sealed class CrushXCameraSwipe : MonoBehaviour
     {
-        private enum GestureOwner { None, Camera, Carousel, Shutter }
+        private enum GestureOwner { None, Camera, Carousel, Shutter, Game }
         private LensEngineBootstrap engine;
         private NativeLensUI ui;
         private CrushXSmartCarousel carousel;
@@ -45,6 +45,7 @@ namespace CrushX.LensEngine
         private void Cancel()
         {
             if (owner == GestureOwner.Shutter && ui != null) ui.EndShutter(true);
+            if (owner == GestureOwner.Game && ui != null) ui.CancelGameCut();
             if (carousel != null) carousel.CancelDrag();
             owner = GestureOwner.None;
             activeTouchId = -1;
@@ -55,7 +56,11 @@ namespace CrushX.LensEngine
             Cancel();
             if (waitForAllReleased) return;
             Resolve();
-            if (ui != null && ui.BeginShutter(position)) owner = GestureOwner.Shutter;
+            if (ui != null && ui.GameIsOpen)
+            {
+                if (ui.BeginGameCut(position)) owner = GestureOwner.Game;
+            }
+            else if (ui != null && ui.BeginShutter(position)) owner = GestureOwner.Shutter;
             else if (ui == null || !ui.BlocksCameraGestures)
             {
                 NativeCameraLayout layout = NativeCameraLayout.Current;
@@ -77,6 +82,7 @@ namespace CrushX.LensEngine
             if (owner != GestureOwner.None && activeTouchId != touchId)
             { Cancel(); waitForAllReleased = true; return; }
             if (LayoutChanged()) { Cancel(); waitForAllReleased = true; return; }
+            if (owner == GestureOwner.Game && ui != null) ui.MoveGameCut(position);
             if (owner == GestureOwner.Carousel && carousel != null)
                 carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
             if (owner == GestureOwner.Shutter &&
@@ -92,6 +98,7 @@ namespace CrushX.LensEngine
             owner = GestureOwner.None;
             activeTouchId = -1;
             if (completed == GestureOwner.Shutter) { if (ui != null) ui.EndShutter(canceled); return; }
+            if (completed == GestureOwner.Game) { if (ui != null) ui.EndGameCut(position, canceled); return; }
             if (carousel != null) carousel.EndDrag();
             if (canceled) { if (carousel != null) carousel.CancelDrag(); return; }
             if (ui != null && ui.BlocksCameraGestures) return;
