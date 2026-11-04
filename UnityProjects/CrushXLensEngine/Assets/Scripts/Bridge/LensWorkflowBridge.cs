@@ -11,6 +11,12 @@ namespace CrushX.LensEngine
     public sealed class LensContentDraft
     {
         public string DraftId, CaptureId, LensId, MediaPath, MimeType, Destination, CreatedUtc;
+        public string CaptureStartedUtc, CaptureStoppedUtc, CaptureCompletedUtc, Orientation, Mirroring;
+        public string CreatorPresetId, CreatorConfigurationSha256;
+        public int CreatorPresetRevision;
+        public bool MirroredRelativeToPreview;
+        public double FirstFrameOffsetSeconds;
+        public VideoRecordingMetrics RecordingMetrics;
         public int Width, Height;
         public double DurationSeconds;
         public bool HasAudio;
@@ -159,7 +165,15 @@ namespace CrushX.LensEngine
                 LensId = LastSavedMedia.LensId, MediaPath = LastSavedMedia.Path, MimeType = LastSavedMedia.MimeType,
                 Destination = destination.ToString(), CreatedUtc = DateTime.UtcNow.ToString("O"),
                 Width = LastSavedMedia.Width, Height = LastSavedMedia.Height,
-                DurationSeconds = LastSavedMedia.DurationSeconds, HasAudio = LastSavedMedia.HasAudio
+                DurationSeconds = LastSavedMedia.DurationSeconds, HasAudio = LastSavedMedia.HasAudio,
+                CaptureStartedUtc = LastSavedMedia.CreatedUtc, CaptureStoppedUtc = LastSavedMedia.CaptureStoppedUtc,
+                CaptureCompletedUtc = LastSavedMedia.CompletedUtc,
+                Orientation = LastSavedMedia.Orientation, Mirroring = LastSavedMedia.Mirroring,
+                MirroredRelativeToPreview = LastSavedMedia.MirroredRelativeToPreview,
+                FirstFrameOffsetSeconds = LastSavedMedia.FirstFrameOffsetSeconds,
+                CreatorPresetId = LastSavedMedia.CreatorPresetId, CreatorPresetRevision = LastSavedMedia.CreatorPresetRevision,
+                CreatorConfigurationSha256 = LastSavedMedia.CreatorConfigurationSha256,
+                RecordingMetrics = LastSavedMedia.RecordingMetrics
             };
             try
             {

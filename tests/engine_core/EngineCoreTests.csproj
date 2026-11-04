@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NUnitLite" Version="3.13.3" />
+    <Compile Include="*.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensSwipePolicy.cs" Link="Runtime/LensSwipePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraRecoveryPolicy.cs" Link="Runtime/CameraRecoveryPolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraPreviewTransform.cs" Link="Runtime/CameraPreviewTransform.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CameraFrameFreshness.cs" Link="Runtime/CameraFrameFreshness.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/ARDiagnosticClassifier.cs" Link="Runtime/ARDiagnosticClassifier.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/TrackingSampleGate.cs" Link="Runtime/TrackingSampleGate.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/FaceExpressions.cs" Link="Runtime/FaceExpressions.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/LensAttachmentPolicy.cs" Link="Runtime/LensAttachmentPolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Effects/VisualEffectPolicy.cs" Link="Runtime/VisualEffectPolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/CaptureLifecyclePolicy.cs" Link="Runtime/CaptureLifecyclePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaCaptureResult.cs" Link="Runtime/MediaCaptureResult.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/ShutterGesture.cs" Link="Runtime/ShutterGesture.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Creator/CreatorLensDocument.cs" Link="Runtime/CreatorLensDocument.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Creator/CreatorLensValidation.cs" Link="Runtime/CreatorLensValidation.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Creator/CreatorDocumentStore.cs" Link="Runtime/CreatorDocumentStore.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs" Link="Tests/ARDiagnosticClassifierTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/TrackingPolicyTests.cs" Link="Tests/TrackingPolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/FaceExpressionTests.cs" Link="Tests/FaceExpressionTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensAttachmentPolicyTests.cs" Link="Tests/LensAttachmentPolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/VisualEffectPolicyTests.cs" Link="Tests/VisualEffectPolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CapturePolicyTests.cs" Link="Tests/CapturePolicyTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ShutterGestureTests.cs" Link="Tests/ShutterGestureTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CreatorManifestTests.cs" Link="Tests/CreatorManifestTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/ArtifactManifest.cs" Link="Runtime/ArtifactManifest.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/VerifiedArtifactLoader.cs" Link="Runtime/VerifiedArtifactLoader.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/LocalModelSession.cs" Link="Runtime/LocalModelSession.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/AssetLoading/ReviewedResourcePolicy.cs" Link="Runtime/ReviewedResourcePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ReviewedArtifactTests.cs" Link="Tests/ReviewedArtifactTests.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/RecordingFramePolicy.cs" Link="Runtime/RecordingFramePolicy.cs" />
+    <Compile Include="../../UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/RecordingFramePolicyTests.cs" Link="Tests/RecordingFramePolicyTests.cs" />
+  </ItemGroup>
+</Project>
