@@ -10,7 +10,7 @@
 })(typeof window!=='undefined' ? window : null,function(){
   'use strict';
   const SCOPES=Object.freeze([
-    'analyse:reel','draft:message','apply:local-draft','memory:read','memory:write'
+    'analyse:reel','analyse:feature','draft:message','apply:local-draft','memory:read','memory:write'
   ]);
   const MAX_TTL=60*60*1000,MIN_TTL=60*1000,MAX_NOTE=500;
   const forbidden=/\b(otp|password|passphrase|recovery.?code|private.?key|api.?key|access.?token|credit.?card|cvv|bank.?account)\b|ओटीपी|पासवर्ड|बैंक खाता/iu;
