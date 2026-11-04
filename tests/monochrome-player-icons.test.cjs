@@ -2,30 +2,45 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {isThumbnail, TILE_VIDEO, GLYPH} = require('../monochrome-player-icons.js');
-function media({tagName='VIDEO', inGrid=true, blocked=false, inButton=true}={}) {
+const {formatViews, isThumbnail, EYE, REEL} = require('../monochrome-player-icons.js');
+function video({tagName='VIDEO', grid=true, blocked=false} = {}) {
   return {
     tagName,
-    matches: selector => inGrid && selector === TILE_VIDEO,
-    closest: selector => selector.includes('.reels-deck') ? (blocked ? {} : null) : (inButton ? {} : null)
+    closest: selector => selector.includes('.explore-grid button') ? (grid ? {} : null) : (blocked ? {} : null)
   };
 }
-test('only grid thumbnail video nodes qualify', () => {
-  assert.equal(isThumbnail(media()), true);
-  assert.equal(isThumbnail(media({tagName:'IMG'})), false);
-  assert.equal(isThumbnail(media({inGrid:false})), false);
-  assert.equal(isThumbnail(media({blocked:true})), false);
-  assert.equal(isThumbnail(media({inButton:false})), false);
+test('views are formatted but unknown data is not fabricated', () => {
+  assert.equal(formatViews(null), null);
+  assert.equal(formatViews(undefined), null);
+  assert.equal(formatViews(''), null);
+  assert.equal(formatViews('invalid'), null);
+  assert.equal(formatViews(-1), null);
+  assert.equal(formatViews(0), '0');
+  assert.equal(formatViews(999), '999');
+  assert.equal(formatViews(1234), '1.2K');
+  assert.equal(formatViews(20150), '20K');
+  assert.equal(formatViews(1234567), '1.2M');
 });
-test('play symbol uses a compact vector glyph with currentColor (black/white skin)', () => {
-  assert.match(GLYPH, /<svg/);
-  assert.match(GLYPH, /fill="currentColor"/);
-  assert.doesNotMatch(GLYPH, /#[0-9a-f]{3,8}/i);
+test('only Explore/Profile video previews are enhanced', () => {
+  assert.equal(isThumbnail(video()), true);
+  assert.equal(isThumbnail(video({tagName:'IMG'})), false);
+  assert.equal(isThumbnail(video({grid:false})), false);
+  assert.equal(isThumbnail(video({blocked:true})), false);
 });
-test('both monochrome player assets are loaded after shared player', () => {
-  const html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /href="\.\/monochrome-player-icons\.css"/);
-  assert.match(html, /src="\.\/monochrome-player-icons\.js"/);
-  assert.ok(html.indexOf('monochrome-player-icons.css') > html.indexOf('unified-player.css'));
-  assert.ok(html.indexOf('monochrome-player-icons.js') > html.indexOf('unified-player.js'));
+test('eye and Reel marks do not contain a center play symbol', () => {
+  assert.match(EYE, /<svg/);
+  assert.match(REEL, /<svg/);
+  assert.doesNotMatch(EYE + REEL, /m9 5 11 7|cx-mono-play-mark/);
+});
+test('HTML and app tile metadata persist optional poster and real views', () => {
+  const base = path.join(__dirname, '..');
+  const index = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(base, 'app-improvements.js'), 'utf8');
+  assert.match(index, /optionalCount\(reel\.views\)/);
+  assert.match(index, /optionalCount\(post\.views\)/);
+  assert.match(index, /thumbnail: localText\(reel\.thumbnail/);
+  assert.match(app, /data-cx-item-kind/);
+  assert.match(app, /data-cx-views/);
+  assert.match(app, /poster="/);
+  assert.ok(index.indexOf('monochrome-player-icons.js') > index.indexOf('unified-player.js'));
 });

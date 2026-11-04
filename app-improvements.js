@@ -360,6 +360,23 @@ renderHome = function(state) {
   const posts = state.posts.filter(post => appFeedFilter !== 'following' || post.userId === state.currentUserId || userById(state, post.userId)?.following);
   return originalHome({...state, posts}, appFeedFilter);
 };
+// Shared Explore/Profile tile metadata. A cover can be a generated server image.
+function cxGridTileAttributes(item, kind) {
+  const inferredKind = kind || (getState().reels.some(reel => reel.id === item.id) ? 'reel' : 'post');
+  const rawCover = item.thumbnail || item.poster || item.cover || (item.mediaType === 'video' ? item.image : '') || '';
+  const cover = /\.(mp4|webm|mov)(?:[?#]|$)/i.test(rawCover) ? '' : safeMediaUrl(rawCover);
+  const views = item.views !== null && item.views !== undefined && Number.isFinite(Number(item.views)) && Number(item.views) >= 0
+    ? Math.floor(Number(item.views)) : null;
+  return ' data-cx-item-kind="' + escapeHTML(inferredKind) + '"' +
+    (cover ? ' data-cx-thumbnail="' + escapeHTML(cover) + '"' : '') +
+    (views === null ? '' : ' data-cx-views="' + String(views) + '"');
+}
+function cxGridVideoMarkup(item, source) {
+  const rawCover = item.thumbnail || item.poster || item.cover || item.image || '';
+  const cover = /\.(mp4|webm|mov)(?:[?#]|$)/i.test(rawCover) ? '' : safeMediaUrl(rawCover);
+  return '<video src="' + source + '"' + (cover && cover !== source ? ' poster="' + escapeHTML(cover) + '"' : '') +
+    ' muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>';
+}
 renderDiscover = function(state) {
   const query=state.searchQuery.trim().toLowerCase();
   const categories=[['all','All'],['people','People'],['posts','Posts'],['reels','Reels'],['tags','Tags']];
@@ -381,7 +398,7 @@ renderDiscover = function(state) {
     ${showPeople?`<section class="explore-people" aria-label="People"><h2>People</h2>${users.length?users.slice(0,appExploreFilter==='all'?5:30).map(user=>`<article><img src="${safeMediaUrl(user.avatar)}" alt=""><div><button class="cx-creator-link" data-profile-user="${escapeHTML(user.id)}" aria-label="Open ${escapeHTML(user.username)} sample profile">@${escapeHTML(user.username)}</button><small>${escapeHTML(user.fullName)}</small></div>${user.id===state.currentUserId?'<span>Sample persona</span>':`<button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${user.following}">${user.following?'Following':'Follow'}</button>`}</article>`).join(''):'<p>No matching sample people.</p>'}</section>`:''}
     ${showMedia?`<section class="explore-media" aria-label="Explore media"><h2>${appExploreFilter==='reels'?'Reels':appExploreFilter==='posts'?'Posts':'Media'}</h2><div class="explore-grid">${media.map(item=>{
       const src=safeMediaUrl(item.source||item.image),video=item.mediaType==='video'||item.contentType?.startsWith('video/')||/\.(mp4|webm)(?:[?#]|$)/i.test(item.source||'');
-      return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample ${item.kind}">${video?`<video src="${src}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>`:`<img src="${src}" alt="Sample ${item.kind} thumbnail">`}<span>${item.kind==='reel'?'Reel':'Post'}</span></button>`;
+      return `<button data-open-local-item="${escapeHTML(item.id)}"${cxGridTileAttributes(item, item.kind)} aria-label="Open sample ${item.kind}">${video?cxGridVideoMarkup(item, src):`<img src="${src}" alt="Sample ${item.kind} thumbnail">`}<span>${item.kind==='reel'?'Reel':'Post'}</span></button>`;
     }).join('')}</div>${media.length?'':'<p>No matching sample media.</p>'}</section>`:''}
     <section class="explore-content-preview" aria-label="Recommended sample content">
       <h2>For you · sample content</h2>
@@ -423,7 +440,7 @@ renderProfile = function(state) {
     const grid = [...posts, ...reels].map(item => {
       const url = safeMediaUrl(item.source || item.image);
       const video = item.mediaType === 'video' || item.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(item.source || '');
-      return `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open sample media">${video ? `<video src="${url}" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>` : `<img src="${url}" alt="Sample post thumbnail" loading="lazy">`}</button>`;
+      return `<button data-open-local-item="${escapeHTML(item.id)}"${cxGridTileAttributes(item, reels.some(reel=>reel.id===item.id)?'reel':'post')} aria-label="Open sample media">${video ? cxGridVideoMarkup(item, url) : `<img src="${url}" alt="Sample post thumbnail" loading="lazy">`}</button>`;
     }).join('');
     return `<main class="cx-public-profile" aria-label="Profile of ${escapeHTML(user.username)}">
       <header class="cx-profile-toolbar"><button type="button" data-profile-back aria-label="Back to previous screen">← Back</button><h1>@${escapeHTML(user.username)}</h1></header>
@@ -448,7 +465,7 @@ renderProfile = function(state) {
   let html = originalProfile(state).replace('<div class="font-black">416</div>', `<div class="font-black">${state.users.filter(user => user.following).length}</div>`).replace(`<div class="font-black">${state.posts.length}</div>`, `<div class="font-black">${own.length}</div>`);
   html = html.replace('Soft sunsets, coffee, and city lights ✨', escapeHTML(me.info));
   const items = appProfileFilter === 'saved' ? saved : appProfileFilter === 'reposts' ? reposts : own;
-  return html.replace('</section>', `<div class="mt-5 flex flex-wrap gap-3"><button data-edit-sample class="border rounded-lg px-4 py-2">Edit sample profile</button><button data-profile-filter="posts" aria-pressed="${appProfileFilter === 'posts'}" class="border rounded-lg px-4 py-2">Posts · ${own.length}</button><button data-profile-filter="saved" aria-pressed="${appProfileFilter === 'saved'}" class="border rounded-lg px-4 py-2">Saved · ${saved.length}</button><button data-profile-filter="reposts" aria-pressed="${appProfileFilter === 'reposts'}" class="border rounded-lg px-4 py-2">Reposts · ${reposts.length}</button></div><div class="app-media-grid">${items.map(item => `<button data-open-local-item="${escapeHTML(item.id)}" aria-label="Open ${appProfileFilter === 'reposts' ? 'reposted reel' : appProfileFilter === 'saved' ? 'saved item' : 'sample post'}">${item.contentType?.startsWith('video/') || item.mediaType === 'video' ? `<video src="${safeMediaUrl(item.source)}" muted playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>` : `<img src="${safeMediaUrl(item.image || item.source)}" alt="Sample post thumbnail">`}</button>`).join('')}</div>${items.length ? '' : `<p class="mt-5 text-sm text-slate-500">${appProfileFilter === 'reposts' ? 'No reposts yet. Use Repost on a sample Reel.' : 'Nothing saved yet. Use the bookmark on a post or reel.'}</p>`}</section>`);
+  return html.replace('</section>', `<div class="mt-5 flex flex-wrap gap-3"><button data-edit-sample class="border rounded-lg px-4 py-2">Edit sample profile</button><button data-profile-filter="posts" aria-pressed="${appProfileFilter === 'posts'}" class="border rounded-lg px-4 py-2">Posts · ${own.length}</button><button data-profile-filter="saved" aria-pressed="${appProfileFilter === 'saved'}" class="border rounded-lg px-4 py-2">Saved · ${saved.length}</button><button data-profile-filter="reposts" aria-pressed="${appProfileFilter === 'reposts'}" class="border rounded-lg px-4 py-2">Reposts · ${reposts.length}</button></div><div class="app-media-grid">${items.map(item => `<button data-open-local-item="${escapeHTML(item.id)}"${cxGridTileAttributes(item, state.reels.some(reel=>reel.id===item.id)?'reel':'post')} aria-label="Open ${appProfileFilter === 'reposts' ? 'reposted reel' : appProfileFilter === 'saved' ? 'saved item' : 'sample post'}">${item.contentType?.startsWith('video/') || item.mediaType === 'video' ? cxGridVideoMarkup(item, safeMediaUrl(item.source)) : `<img src="${safeMediaUrl(item.image || item.source)}" alt="Sample post thumbnail">`}</button>`).join('')}</div>${items.length ? '' : `<p class="mt-5 text-sm text-slate-500">${appProfileFilter === 'reposts' ? 'No reposts yet. Use Repost on a sample Reel.' : 'Nothing saved yet. Use the bookmark on a post or reel.'}</p>`}</section>`);
 };
 renderReels = function(state) {
   const reels=previewRanked('reel',state.reels);
