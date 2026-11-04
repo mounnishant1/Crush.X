@@ -2,6 +2,7 @@
 
 ## Implemented
 
+- Server-only YouTube `videos.list(chart=mostPopular)` metadata collector with an explicit operator approval flag, safe tag extraction and unit tests. No other platform connectors are enabled.
 - Pure, deterministic trend scorer: authorized, current, per-post deduplicated signals from Crush.X, YouTube, Instagram, TikTok and Snapchat, without scraping private feeds or downloading video.
 - Validates the source, access mode, consent/authorization flag, source-specific access, timestamp freshness, views and safe theme tokens. Rejects records with incomplete permission provenance.
 - Ranks evidenced themes by sample size, engagement, freshness, permitted multi-source corroboration and optional previous-snapshot velocity. Does not invent numbers.
@@ -13,7 +14,7 @@
 
 Node 24 (no npm dependencies):
 
-\`\`\`js
+```js
 const studio = require('./aura-x-trend-studio.js');
 const now = Date.now();
 const signals = [
@@ -28,16 +29,24 @@ const signals = [
 ];
 const result = studio.buildTrends(signals, {now});
 console.log(JSON.stringify(result.drafts,null,2));
-\`\`\`
+```
 
-Tests: \`node --test tests/aura-x-trend-studio.test.cjs\`
+Run on a **server**, with your approved YouTube API key:
+
+```bash
+TREND_COLLECTION_APPROVED=true YOUTUBE_API_KEY=YOUR_SERVER_SIDE_KEY node tools/youtube-trend-collector.cjs
+```
+
+The collector retrieves public metadata, emits local analysis/draft JSON, and does not watch video frames, persist data or publish to the app. Do not put API keys in frontend scripts or share the key in chat.
+
+Tests: `node --test tests/aura-x-trend-studio.test.cjs tests/youtube-trend-collector.test.cjs`
 
 ## Next integration work (not implemented here)
 
-1. Add server-side, approved provider connectors. Never put provider keys in client JS. YouTube Data API \`videos.list(chart=mostPopular)\` is one candidate; Instagram business/hashtag, TikTok business Discovery and Snapchat owner analytics require their permitted scopes and platform approvals. Not all platforms expose unrestricted public feeds or arbitrary Reels.
+1. Expand the existing server-side YouTube collector with secure token management and add other approved provider connectors. Never put provider keys in client JS. Instagram business/hashtag, TikTok business Discovery and Snapchat owner analytics require their permitted scopes and platform approvals. Not all platforms expose unrestricted public feeds or arbitrary Reels.
 2. Add scheduled collection, source rate-limits, secured encrypted token storage, provenance receipts, opt-out/deletion, rechecks and analytics warehouse. Accept only platform-permitted metadata or consented media.
-3. Server AURA-X tool route: \`trend.analyze\` (read) and \`trend.createDraft\` (draft only), with independently enforced owner permissions, expiry, audit and idempotency.
-4. Keep unpublished concept assets off mobile public catalogs. Export an immutable CreatorLensDocument and game theme pack, review exact package SHA-256 using the existing \`ICreatorPublishReview\` gate, then test Android/Unity on a real device.
+3. Server AURA-X tool route: `trend.analyze` (read) and `trend.createDraft` (draft only), with independently enforced owner permissions, expiry, audit and idempotency.
+4. Keep unpublished concept assets off mobile public catalogs. Export an immutable CreatorLensDocument and game theme pack, review exact package SHA-256 using the existing `ICreatorPublishReview` gate, then test Android/Unity on a real device.
 5. Integrate reviewed manifests into LensMiniGamePanel, camera lens carousel, search and recommendations with an authenticated backend and user-controlled features. Stage rollouts, measure real game starts/completions/share rate and rollback failures.
 
 ## Security boundaries
