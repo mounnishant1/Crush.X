@@ -5,6 +5,9 @@ on:
     paths:
       - 'index.html'
       - 'app-improvements.js'
+      - 'app-ai-workflows.js'
+      - 'aura-x-assistant.js'
+      - 'aura-x-policy.js'
       - 'app-os-integration.js'
       - 'app-os-integration.css'
       - 'operating-system/**'
@@ -86,6 +89,8 @@ jobs:
           node --test tests/aura-x-core.test.cjs
           node --test tests/aura-x-policy.test.cjs
           node --check aura-owner-coding.cjs
+          node --check app-ai-workflows.js
+          node --test tests/ai-workflows.test.cjs
           node --check app-os-integration.js
           node --test tests/aura-owner-coding.test.cjs
       - name: Start local application server
