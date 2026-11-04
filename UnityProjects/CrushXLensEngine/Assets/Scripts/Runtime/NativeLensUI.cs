@@ -167,6 +167,8 @@ namespace CrushX.LensEngine
             GUI.color = Color.white;
             if (engine == null || capture == null || carousel == null)
                 GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (gamePanel.IsOpen)
+                gamePanel.Draw(layout, header, status, button, small, engine != null && engine.TrackingActive);
             else if (cameraPermission != null && !cameraPermission.Granted)
             {
                 GUI.Label(new Rect(20, 60, layout.Width - 40, 70),
@@ -186,9 +188,10 @@ namespace CrushX.LensEngine
                         cameraPermission.OpenAndroidSettings();
                 }
                 if (GUI.Button(new Rect(24, 310, layout.Width - 48, 56), "Back", button)) Back();
+                if (GUI.Button(new Rect(24, 380, layout.Width - 48, 56), "Play games without camera", button))
+                    gamePanel.OpenPanel();
             }
             else if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
-            else if (gamePanel.IsOpen) gamePanel.Draw(layout, header, status, button, small, engine != null && engine.TrackingActive);
             else DrawCamera(layout);
             GUI.enabled = oldEnabled;
             GUI.color = oldColor;
