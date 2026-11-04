@@ -1000,7 +1000,8 @@
       const bridge = window.CrushXContentBridge;
       if (!bridge) return items;
       const demoIds = new Set(['reel_1','post_1','post_2','story_1','story_2','story_3']);
-      return [...bridge.rank(kind), ...items.filter(item => !demoIds.has(item.id))];
+      const inCurrentFeed = new Set(items.map(item => item.id));
+      return [...bridge.rank(kind).filter(item => inCurrentFeed.has(item.id)), ...items.filter(item => !demoIds.has(item.id))];
     }
 
     function renderHome(state, feedFilter = 'all') {
