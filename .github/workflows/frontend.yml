@@ -90,6 +90,9 @@ jobs:
           node --check operating-system/stories/dynamo-story-store.cjs
           node --check operating-system/http/story-handler.cjs
           node --test operating-system/tests/story-service.test.cjs
+          node --check story-api-client.js
+          node --test operating-system/tests/story-api-client.test.cjs
+          node --test operating-system/tests/dynamo-story-store.test.cjs
           node tests/social-interactions.cjs
           node tests/social-advanced.cjs
           node tests/social-notifications.cjs
