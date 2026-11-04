@@ -25,6 +25,22 @@
   }
   if (typeof document === 'undefined') return;
 
+  // Decode frames only for near-viewport cards; never prefetch an entire video grid.
+  const frameObserver = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          frameObserver.unobserve(entry.target);
+          const video = entry.target;
+          if (!video.isConnected) continue;
+          video.setAttribute('preload', 'auto');
+          if (video.readyState < 2) {
+            try { video.load(); } catch { /* Unsupported or unavailable media remains neutral. */ }
+          }
+        }
+      }, {rootMargin:'220px'})
+    : null;
+
   const loadFrame = video => {
     const tile = video.closest('button');
     if (!tile || video.dataset.cxGridFrameInit === '1') return;
@@ -55,11 +71,12 @@
     video.removeAttribute('autoplay');
     video.muted = true;
     video.playsInline = true;
-    video.setAttribute('preload', 'auto');
+    video.setAttribute('preload', 'none');
     if (video.readyState >= 2) show();
-    if (video.readyState >= 1) video.dispatchEvent(new Event('loadedmetadata'));
-    if (video.networkState === 0 || video.networkState === 3) {
-      try { video.load(); } catch {}
+    if (frameObserver) frameObserver.observe(video);
+    else {
+      video.setAttribute('preload', 'auto');
+      if (video.readyState < 2) { try { video.load(); } catch {} }
     }
   };
 
