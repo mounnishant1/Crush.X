@@ -18,7 +18,7 @@ function cleanTopics(value) {
   throw Error('TOPICS_INVALID');
  return [...new Set(value)];
 }
-const ELIGIBLE="c.status='published' AND c.moderation='approved' "+
+const ELIGIBLE="c.status='published' AND c.moderation='approved' AND "+
  "(c.visibility='public' OR (c.visibility='self' AND c.creator_subject=$1)) "+
  "AND (c.expires_at IS NULL OR c.expires_at>NOW()) "+
  "AND NOT EXISTS(SELECT 1 FROM cx_content_blocks b WHERE b.subject=$1 AND b.blocked_creator=c.creator_subject) "+
