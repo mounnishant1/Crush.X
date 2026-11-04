@@ -47,7 +47,8 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  if(modelProvider!==undefined){
   if(!modelProvider||typeof modelProvider.suggest!=='function')throw TypeError('INVALID_MODEL_PROVIDER');
   tasks.registerAction({name:'aura.suggest',capability:'aura:use',handler:async(payload,context)=>{
-   const suggestion=await modelProvider.suggest({prompt:payload.prompt,subject:context.subject});
+   const suggestion=await modelProvider.suggest({prompt:payload.prompt,subject:context.subject,
+    workflow:'home',context:'',instruction:'Give general app guidance only.',mode:'advice_only'});
    if(typeof suggestion!=='string'||suggestion.length>2500)throw Error('MODEL_OUTPUT_INVALID');
    return {suggestion,executed:false};
   },maxAttempts:2});
