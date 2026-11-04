@@ -3,7 +3,7 @@
  'use strict';
  if(typeof renderDiscover!=='function'||typeof bindRepairEvents!=='function')return;
  const baseDiscover=renderDiscover,baseBind=bindRepairEvents,baseLogout=logout;
- let mode='idle',tab='for-you',lastInput='';
+ let mode='idle',tab='for-you',lastInput='',skipRestoredFocus=false;
  const recent=new Map(),cats=[['for-you','For you'],['accounts','Accounts'],['audio','Audio'],['tags','Tags']];
  const clean=q=>String(q??'').trim().replace(/\s+/g,' ').slice(0,200);
  const match=(value,q)=>clean(q).toLowerCase().split(' ').filter(Boolean).every(word=>String(value??'').toLowerCase().includes(word));
@@ -68,7 +68,7 @@
    '</nav><div class="cx261-body">'+body+'</div>';
  }
  renderDiscover=function(state){
-  if(mode==='editing'&&state.searchQuery!==lastInput)mode='idle';
+  if(mode==='editing'&&state.searchQuery!==lastInput){mode='idle';skipRestoredFocus=true;}
   const original=baseDiscover(state);
   if(mode==='idle')return original;
   const extra='<section class="cx261-search-panel"><div class="cx261-controls">'+
@@ -83,7 +83,7 @@
   baseBind();
   if(getState().activeTab!=='discover'){mode='idle';return;}
   const input=document.getElementById('searchInput');
-  input?.addEventListener('focus',()=>{if(mode==='idle'){mode='editing';lastInput=input.value;renderApp();}});
+  input?.addEventListener('focus',()=>{if(skipRestoredFocus){skipRestoredFocus=false;return;}if(mode==='idle'){mode='editing';lastInput=input.value;renderApp();}});
   input?.addEventListener('input',()=>{lastInput=input.value;mode='editing';});
   input?.addEventListener('keydown',e=>{
    if(e.key==='Enter'){e.preventDefault();commit(input.value);input.blur();}
