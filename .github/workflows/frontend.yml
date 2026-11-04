@@ -80,6 +80,7 @@ jobs:
           python -m pip install -r tests/requirements-source.txt
           python -m unittest discover -s tests -p 'test_*.py'
           node --check app-improvements.js
+          node --check search-reference-flow.js
           node --check unified-player.js
           node --test tests/unified-player.test.cjs
           node --check monochrome-player-icons.js
@@ -143,6 +144,7 @@ jobs:
           node tests/monochrome-player-icons-browser.cjs
           node tests/navigation-touch-step254-browser.cjs
           node tests/story-studio-navigation-step255-browser.cjs
+          node tests/search-reference-step261-browser.cjs
           node tests/aura-ui-browser.cjs
           node tests/content-ui-browser.cjs
           node tests/content-connected-ui-browser.cjs
