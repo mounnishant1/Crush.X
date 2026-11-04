@@ -105,3 +105,48 @@ test('rate limit adapter is mandatory, privacy queries have safe response header
   }),/CONTENT_HTTP_TRUSTED_ADAPTERS_REQUIRED/);
  }finally{await t.close();}
 });
+
+
+test('a completed content answer is redacted after revocation, hide or caption replacement',async()=>{
+ const t=await setup();
+ try{
+  await t.call('/v1/content/privacy',{method:'PUT',body:{
+   read:true,analyze:true,personalize:true,topics:['cooking']}});
+  const job=await t.call('/v1/content/questions',{method:'POST',body:{
+   requestId:'request-revoke-01',question:'Find pasta'}});
+  assert.equal(job.code,202);
+  assert.equal((await t.system.tasks.runNext()).status,'completed');
+  assert.equal((await t.call('/v1/content/jobs/'+job.data.jobId)).data.result.sources.length,1);
+  await t.call('/v1/content/privacy',{method:'PUT',body:{
+   read:false,analyze:false,personalize:false,topics:[]}});
+  assert.equal((await t.call('/v1/content/jobs/'+job.data.jobId)).code,403);
+  await t.call('/v1/content/privacy',{method:'PUT',body:{
+   read:true,analyze:true,personalize:false,topics:[]}});
+  t.store.authorizeContent=async()=>false;
+  const hidden=await t.call('/v1/content/jobs/'+job.data.jobId);
+  assert.equal(hidden.code,200);
+  assert.deepEqual(hidden.data.result.sources,[]);
+  assert.equal(JSON.stringify(hidden.data).includes('Cooking pasta on the stove'),false);
+  t.store.authorizeContent=async()=>true;
+  t.store.loadAuthorizedContent=async()=>[{
+   id:'reel_1',kind:'reel',creatorId:'creator_1',status:'published',
+   moderation:'approved',visibility:'public',caption:'A new unrelated caption'}];
+  assert.deepEqual((await t.call('/v1/content/jobs/'+job.data.jobId)).data.result.sources,[]);
+ }finally{await t.close();}
+});
+
+test('personalized completed feed receipt fails closed when personalization consent expires',async()=>{
+ const t=await setup();
+ try{
+  await t.call('/v1/content/privacy',{method:'PUT',body:{
+   read:true,analyze:true,personalize:true,topics:['cooking']}});
+  const job=await t.call('/v1/content/feed/rank',{method:'POST',body:{
+   requestId:'request-rank-009',kind:'reel',limit:5}});
+  assert.equal(job.code,202);
+  assert.equal((await t.system.tasks.runNext()).status,'completed');
+  assert.equal((await t.call('/v1/content/jobs/'+job.data.jobId)).data.result.personalized,true);
+  await t.call('/v1/content/privacy',{method:'PUT',body:{
+   read:true,analyze:true,personalize:false,topics:[]}});
+  assert.equal((await t.call('/v1/content/jobs/'+job.data.jobId)).code,403);
+ }finally{await t.close();}
+});
