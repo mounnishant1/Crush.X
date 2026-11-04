@@ -1,5 +1,18 @@
 'use strict';
 // Server-only OpenAI Responses adapter; no tools or browser credentials.
+async function readBounded(res){
+ if(res.body&&typeof res.body.getReader==='function'){
+  const reader=res.body.getReader(),parts=[];let size=0;
+  try{while(true){const {done,value}=await reader.read();if(done)break;
+   size+=value.byteLength;if(size>131072)throw Error('UPSTREAM_TOO_LARGE');
+   parts.push(Buffer.from(value));
+  }}finally{try{reader.releaseLock()}catch{}}
+  return Buffer.concat(parts).toString('utf8');
+ }
+ const text=await res.text();
+ if(Buffer.byteLength(text)>131072)throw Error('UPSTREAM_TOO_LARGE');
+ return text;
+}
 function createProvider({apiKey,model,fetchImpl=globalThis.fetch}={}){
  if(typeof apiKey!=='string'||apiKey.length<12||
     typeof model!=='string'||!/^[\w.:-]{2,128}$/.test(model)||
@@ -22,11 +35,11 @@ function createProvider({apiKey,model,fetchImpl=globalThis.fetch}={}){
   }catch{throw Error('AI_PROVIDER_UNAVAILABLE');}
   if(!res?.ok)throw Error('AI_PROVIDER_UNAVAILABLE');
   let data;
-  try{const raw=await res.text();if(Buffer.byteLength(raw)>131072)throw Error();
-      data=JSON.parse(raw);}catch{throw Error('AI_PROVIDER_INVALID_RESPONSE');}
-  const answer=typeof data.output_text==='string'?data.output_text:
-    (data.output||[]).flatMap(m=>m.type==='message'&&m.role==='assistant'?
-     (m.content||[]).filter(x=>x.type==='output_text').map(x=>x.text):[]).join('\n');
+  try{data=JSON.parse(await readBounded(res));}
+  catch{throw Error('AI_PROVIDER_INVALID_RESPONSE');}
+  const answer=typeof data?.output_text==='string'?data.output_text:
+    Array.isArray(data?.output)?data.output.flatMap(m=>m?.type==='message'&&m.role==='assistant'&&Array.isArray(m.content)?
+     m.content.filter(x=>x?.type==='output_text'&&typeof x.text==='string').map(x=>x.text):[]).join('\n'):'';
   if(typeof answer!=='string'||!answer.trim()||answer.length>2500||
     data.status==='failed'||data.status==='incomplete')throw Error('AI_PROVIDER_INVALID_RESPONSE');
   return answer.trim();
