@@ -1,0 +1,28 @@
+/* Minimal media controls used across Crush.X. Never capture Reel/Story/Editor gestures. */
+.cx-player { position:relative; width:100%; min-width:0; background:#08090d; overflow:hidden; isolation:isolate; color:#fff; }
+.cx-player-video { display:block; width:100%; }
+.cx-player-controls { position:absolute; inset:auto 0 0; z-index:2; display:flex; gap:9px; align-items:center; padding:20px 12px max(9px,env(safe-area-inset-bottom)); background:linear-gradient(0deg,rgba(0,0,0,.68),rgba(0,0,0,0)); opacity:1; transition:opacity 180ms ease; }
+.cx-player button { appearance:none; background:rgba(15,16,21,.55); border:1px solid rgba(255,255,255,.22); color:#fff; min-width:38px; min-height:38px; display:grid; place-items:center; border-radius:50%; cursor:pointer; font:700 17px/1 system-ui,sans-serif; transition:transform 160ms ease, background 160ms ease, opacity 180ms ease; }
+.cx-player button:hover { background:rgba(15,16,21,.82); }
+.cx-player button:active { transform:scale(.92); }
+.cx-player button:focus-visible, .cx-player-seek:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.cx-player-center { position:absolute; z-index:2; inset:50% auto auto 50%; transform:translate(-50%,-50%); width:60px; height:60px; font-size:24px!important; background:rgba(0,0,0,.58)!important; }
+.cx-player-center:active { transform:translate(-50%,-50%) scale(.92)!important; }
+.cx-player.is-playing .cx-player-center { opacity:0; pointer-events:none; }
+.cx-player-clock { font:500 11px/1 system-ui,sans-serif; white-space:nowrap; font-variant-numeric:tabular-nums; text-shadow:0 1px 3px #000; }
+.cx-player-seek { min-width:40px; flex:1; height:22px; margin:0; cursor:pointer; background:transparent; appearance:none; -webkit-appearance:none; touch-action:pan-x; }
+.cx-player-seek::-webkit-slider-runnable-track { height:3px; border-radius:9px; background:linear-gradient(to right,#fff var(--cx-progress,0%),#ffffff65 var(--cx-progress,0%)); }
+.cx-player-seek::-moz-range-track { height:3px; border-radius:9px; background:#ffffff65; }
+.cx-player-seek::-moz-range-progress { height:3px; border-radius:9px; background:#fff; }
+.cx-player-seek::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:12px; height:12px; border-radius:50%; background:#fff; margin-top:-4.5px; box-shadow:0 1px 3px #0005; }
+.cx-player-seek::-moz-range-thumb { width:12px; height:12px; border:0; border-radius:50%; background:#fff; }
+.cx-player-seek:disabled { opacity:.45; cursor:default; }
+.cx-player-audio { width:min(100%,520px); min-height:48px; display:block; accent-color:#fff; border-radius:12px; }
+/* Only ordinary feed/detail controls fade. On touch they stay available. */
+@media(hover:hover) and (pointer:fine) { .cx-player.is-playing:not(:hover):not(:focus-within) .cx-player-controls { opacity:0; } }
+@media(max-width:390px) { .cx-player-controls { gap:6px; padding-inline:7px; } .cx-player button { min-width:35px; min-height:35px; } .cx-player-clock { font-size:10px; } }
+/* Existing special-purpose players use their own interactions, just a gentle shared response. */
+.reel-rail button,.sv-head button,.sv-reactions button,.cxmusic-modal button { transition:transform 160ms ease,opacity 160ms ease; }
+.reel-rail button:active,.sv-head button:active,.sv-reactions button:active,.cxmusic-modal button:active { transform:scale(.94); }
+.story-viewer .sv-photo,.reel-slide { transition:opacity 180ms ease; }
+@media(prefers-reduced-motion:reduce) { .cx-player *, .cx-player-controls, .reel-rail button, .sv-head button, .sv-reactions button, .cxmusic-modal button, .story-viewer .sv-photo, .reel-slide { animation:none!important; transition:none!important; } }
