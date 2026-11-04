@@ -4,11 +4,12 @@ using System.Collections.Generic;
 namespace CrushX.LensEngine
 {
     public enum MiniGameFamily { Lens, Puzzle }
-    public enum MiniGamePhase { Catalog, Playing, Won, TimeUp }
+    public enum MiniGamePhase { Catalog, Playing, Won, TimeUp, Failed }
     public enum MiniGameId
     {
         SmileRush, BlinkCatch, MouthPop, BrowJump, ExpressionCombo, FaceReflex, TargetTap,
-        SlidingTiles, MemoryPairs, SequenceRecall, QuickMath, OddColor, WordScramble, MazeEscape
+        SlidingTiles, MemoryPairs, SequenceRecall, QuickMath, OddColor, WordScramble, MazeEscape,
+        FruitRush, BombDodge, ColorCut, ShapeCut, PrecisionCut, SpeedSlice, ComboMaster
     }
 
     public sealed class MiniGameDefinition
@@ -43,7 +44,14 @@ namespace CrushX.LensEngine
             new MiniGameDefinition(MiniGameId.QuickMath, MiniGameFamily.Puzzle, "Quick Math", "Solve eight short number questions.", 90),
             new MiniGameDefinition(MiniGameId.OddColor, MiniGameFamily.Puzzle, "Odd One Out", "Find the different tile eight times.", 70),
             new MiniGameDefinition(MiniGameId.WordScramble, MiniGameFamily.Puzzle, "Word Scramble", "Unscramble letters and choose the right word.", 90),
-            new MiniGameDefinition(MiniGameId.MazeEscape, MiniGameFamily.Puzzle, "Maze Escape", "Walk to the exit without touching walls.", 100)
+            new MiniGameDefinition(MiniGameId.MazeEscape, MiniGameFamily.Puzzle, "Maze Escape", "Walk to the exit without touching walls.", 100),
+            new MiniGameDefinition(MiniGameId.FruitRush, MiniGameFamily.Lens, "Fruit Rush", "Swipe across flying fruits; avoid bombs.", 60),
+            new MiniGameDefinition(MiniGameId.BombDodge, MiniGameFamily.Lens, "Bomb Dodge", "Cut fruit and dodge extra bombs.", 60),
+            new MiniGameDefinition(MiniGameId.ColorCut, MiniGameFamily.Lens, "Color Cut", "Cut only the displayed color.", 70),
+            new MiniGameDefinition(MiniGameId.ShapeCut, MiniGameFamily.Lens, "Shape Cut", "Cut only the matching shape.", 70),
+            new MiniGameDefinition(MiniGameId.PrecisionCut, MiniGameFamily.Lens, "Precision Cut", "Cut close to the center.", 75),
+            new MiniGameDefinition(MiniGameId.SpeedSlice, MiniGameFamily.Lens, "Speed Slice", "Slice faster objects against the clock.", 50),
+            new MiniGameDefinition(MiniGameId.ComboMaster, MiniGameFamily.Lens, "Combo Master", "Slice several objects in a single swipe.", 65)
         });
 
         private static readonly ExpressionSignal[] ComboSignals =
@@ -53,6 +61,7 @@ namespace CrushX.LensEngine
         private static readonly int[] MazeWalls = { 6, 8, 11, 13, 16, 18 };
 
         private readonly Random random;
+        private readonly SliceChallengeCore cutting;
         private readonly bool[] matched = new bool[16];
         private readonly int[] board = new int[25];
         private readonly int[] choices = new int[4];
@@ -80,12 +89,25 @@ namespace CrushX.LensEngine
         public string Prompt { get { return prompt; } }
         public string ScrambledWord { get { return scrambled; } }
         public bool IsPlaying { get { return Phase == MiniGamePhase.Playing; } }
+        public bool IsSlicingGame { get { return Game >= MiniGameId.FruitRush && Game <= MiniGameId.ComboMaster; } }
+        public SliceChallengeCore Cutting { get { return cutting; } }
+        public void SyncCutting()
+        {
+            if (!IsPlaying || !IsSlicingGame) return;
+            Score = cutting.Score;
+            Progress = cutting.Sliced;
+            Moves = cutting.Strokes;
+            Mistakes = cutting.BombsHit;
+            if (cutting.Won) Phase = MiniGamePhase.Won;
+            else if (cutting.Failed) Phase = MiniGamePhase.Failed;
+        }
         public bool IsLensGame { get { return Definition.Family == MiniGameFamily.Lens; } }
         public MiniGameDefinition Definition { get { return Catalog[(int)Game]; } }
 
         public LensMiniGameCore(int? seed = null)
         {
             random = seed.HasValue ? new Random(seed.Value) : new Random();
+            cutting = new SliceChallengeCore(seed);
         }
 
         public static string SignalLabel(ExpressionSignal signal)
@@ -142,12 +164,15 @@ namespace CrushX.LensEngine
             if (id == MiniGameId.TargetTap || id == MiniGameId.FaceReflex || id == MiniGameId.OddColor)
                 target = random.Next(id == MiniGameId.FaceReflex ? 4 : 9);
             if (id == MiniGameId.MazeEscape) mazePosition = 0;
+            if (IsSlicingGame) cutting.Start((SliceMode)((int)id - (int)MiniGameId.FruitRush), now);
+            else cutting.Clear();
         }
 
         public void ReturnToCatalog()
         {
             Phase = MiniGamePhase.Catalog; pausedAt = -1;
             firstCard = secondCard = -1; lastFaceTimestamp = -1;
+            cutting.Clear();
         }
 
         public void Pause(double now)
@@ -162,6 +187,7 @@ namespace CrushX.LensEngine
             endAt += dt;
             if (flipBackAt >= 0) flipBackAt += dt;
             revealUntil += dt;
+            cutting.ShiftClock(dt);
             pausedAt = -1;
         }
 
@@ -175,6 +201,11 @@ namespace CrushX.LensEngine
         {
             if (!IsPlaying || Paused) return;
             if (now >= endAt) { Phase = MiniGamePhase.TimeUp; return; }
+            if (IsSlicingGame)
+            {
+                cutting.Tick(now);
+                SyncCutting();
+            }
             if (flipBackAt >= 0 && now >= flipBackAt)
             {
                 firstCard = secondCard = -1;
@@ -194,7 +225,7 @@ namespace CrushX.LensEngine
 
         public void ObserveFace(FaceExpressionSample sample, bool tracking, double now)
         {
-            if (!IsPlaying || Paused || !IsLensGame || Game == MiniGameId.TargetTap || !tracking) return;
+            if (!IsPlaying || Paused || !IsLensGame || Game == MiniGameId.TargetTap || IsSlicingGame || !tracking) return;
             if (double.IsNaN(sample.Timestamp) || double.IsInfinity(sample.Timestamp) ||
                 sample.Timestamp <= lastFaceTimestamp || sample.Timestamp > now + .05 || now - sample.Timestamp > .15)
                 return;
@@ -210,7 +241,7 @@ namespace CrushX.LensEngine
 
         public bool TapFallback(double now)
         {
-            if (!IsPlaying || Paused || !IsLensGame || Game == MiniGameId.TargetTap) return false;
+            if (!IsPlaying || Paused || !IsLensGame || Game == MiniGameId.TargetTap || IsSlicingGame) return false;
             Tick(now);
             if (!IsPlaying) return false;
             faceArmed = false;
