@@ -7,6 +7,8 @@ on:
       - 'app-improvements.js'
       - 'unified-player.js'
       - 'unified-player.css'
+      - 'monochrome-player-icons.js'
+      - 'monochrome-player-icons.css'
       - 'app-ai-workflows.js'
       - 'aura-x-assistant.js'
       - 'aura-remote-client.js'
@@ -78,6 +80,8 @@ jobs:
           node --check app-improvements.js
           node --check unified-player.js
           node --test tests/unified-player.test.cjs
+          node --check monochrome-player-icons.js
+          node --test tests/monochrome-player-icons.test.cjs
           node --check coins-ledger-sandbox.js
           node --check live-gifting-preview.js
           node --test tests/coins-ledger.cjs
@@ -128,6 +132,7 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-tests/node_modules/playwright
         run: |
           node tests/frontend.cjs
+          node tests/monochrome-player-icons-browser.cjs
           node tests/aura-ui-browser.cjs
           node tests/content-ui-browser.cjs
           node tests/content-connected-ui-browser.cjs
