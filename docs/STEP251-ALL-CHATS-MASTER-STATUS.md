@@ -12,7 +12,8 @@ This branch is an **isolated GitHub source integration**, not a production deplo
 - PR #67: manually merged AURA-X durable queue and distributed rate-limiter code (#66), preserving Story route in `operating-system/host/staging-host.cjs`.
 - PR #69: manually merged content intelligence HTTP/PostgreSQL/browser client code (#57) with additive `index.html` and `frontend.yml` changes.
 - PR #72: manually merged real provider/feed/media analysis source (#53), preserving consolidated consent model, canonical taxonomy, and adding feed:personalize permissions only.
-- AR/Lens review PR #73: separate draft source reconciliation from `feature/aura-x-real-video-asset-factory-20261104` (includes advanced native Camera/AR, lens games/puzzles, trend lens draft factory and video keyframes). Source-diff 376 paths: 173 identical, 167 copied, 24 Unity/native conflict resolutions from newer branch, 12 shared UI/test files retained from current integration. **Not merged into this branch unless review/QA accepts it.**
+- AR/Lens PR #73: **merged into the isolated Step251 branch after CI PASS**, including native Camera/AR, 21 game modes, authorized trend lens drafts, AURA video-keyframe review and original asset generation. Reconciliation: 376 paths inspected, 173 identical, 167 safely copied, 24 Unity/native path conflicts resolved from newer branch; 12 shared browser/frontend conflicts retained integrated versions. One missing Unity `SliceChallengeCore.cs.meta` was added with stable GUID; no Unity Editor/IL2CPP/on-device verification. See `docs/STEP251-AR-MERGE-REVIEW.md`.
+- Additional new draft PR #74 (`feature/unified-simple-animated-media-player-20261104`) remains **outside** this master branch until Android/device QA and explicit release review; its browser CI passed, but native media interaction remains unverified.
 
 ## Local Windows source still requires separate reconciliation
 The prior Step250 archive was described as `CrushX-Step250-ALL-CHATS-MASTER-INTEGRATION-STAGING.zip` (~63 MB), with Step248 integrated Story/Live/Reels, Step249 merge/preflight, and a 14-file Unity overlay. That archive and `F:\CrushX-Step202\CrushX-v220` are not accessible to this GitHub integration runtime. The Windows app, Editor, Avatar, Story animation, Live, and on-device flows must be reconciled in a **separate clean worktree** with exact hashes, backups, import-level review and regression testing.
@@ -20,7 +21,7 @@ The prior Step250 archive was described as `CrushX-Step250-ALL-CHATS-MASTER-INTE
 ## DO NOT CLAIM DONE BEFORE
 1. Audit Step250 ZIP SHA/CRC and Step249 preflight in Windows without overwriting source.
 2. Compare latest app React/Capacitor sources against GitHub/browser-specific code, port by feature contract (not blind root `index.html` replacement).
-3. Reconcile AR candidate PR #73 and any failed CI checks.
+3. Re-run full integrated CI after AR PR #73 merge; review the 12 preserved browser conflict decisions and PR #74 pending device QA.
 4. Run whole-app frontend/backend tests, security, contract and release gates.
 5. Unity 6.0.30f1 compilation and Android ARM64 IL2CPP export (MediaPipe/model licenses and ARCore graph included).
 6. Build/install debug APK and test on OnePlus 9 Pro (Android 14): front camera, recorded media, Editor Save/Publish, Story, Reels, messages and notifications, account back/keyboard, lens games.
