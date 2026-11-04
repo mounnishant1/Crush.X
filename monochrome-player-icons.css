@@ -1,0 +1,40 @@
+/* Crush.X small black/white player icon: Explore, search, profile, saved media. */
+.cx-mono-video-tile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #141414 !important;
+}
+.cx-mono-video-tile:not(.cx-mono-has-poster) .cx-mono-video-preview {
+  visibility: hidden;
+}
+.cx-mono-video-tile .cx-mono-play-mark {
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 42px;
+  height: 42px;
+  padding-left: 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.94);
+  background: rgba(0,0,0,.82);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,.22);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+.cx-mono-video-tile .cx-mono-play-mark svg { display: block; width: 19px; height: 19px; }
+.cx-mono-video-tile:active .cx-mono-play-mark { transform: translate(-50%,-50%) scale(.92); }
+.cx-mono-video-tile:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
+.cx-mono-video-tile:focus-visible .cx-mono-play-mark { background: #000; }
+/* No colored player controls. Keep Reel/Story gesture surfaces transparent. */
+.cx-player button:not([hidden]) { color:#fff; background-color:rgba(0,0,0,.78); border-color:rgba(255,255,255,.7); }
+.cx-player button:active { background-color:#000; }
+@media (prefers-reduced-motion:reduce) {
+  .cx-mono-video-tile .cx-mono-play-mark { transition:none; }
+}
