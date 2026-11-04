@@ -31,6 +31,13 @@ function createAuraHttpHandler({system,verifyCredential,allowedOrigins=[],now=Da
   try{
    const origin=req.headers.origin;
    if(origin&&!origins.has(origin))return send(res,403,{error:'ORIGIN_DENIED'});
+   if(origin){
+    res.setHeader('access-control-allow-origin',origin);
+    res.setHeader('vary','Origin');
+    res.setHeader('access-control-allow-methods','GET, POST, OPTIONS');
+    res.setHeader('access-control-allow-headers','Authorization, Content-Type');
+   }
+   if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
    const auth=req.headers.authorization;
    if(typeof auth!=='string'||!/^Bearer [A-Za-z0-9._-]{32,8192}$/.test(auth))
     return send(res,401,{error:'AUTH_REQUIRED'});
@@ -46,6 +53,7 @@ function createAuraHttpHandler({system,verifyCredential,allowedOrigins=[],now=Da
    hits.set(subject,window);
    const url=new URL(req.url,'http://backend.internal');
    if(req.method==='POST'&&url.pathname==='/v1/aura/guide'){
+    if(!/^application\/json(?:;|$)/i.test(req.headers['content-type']||''))return send(res,415,{error:'JSON_REQUIRED'});
     const input=await readJson(req);
     if(Object.keys(input).some(k=>!['workflow','prompt','context','requestId'].includes(k))||
      typeof input.workflow!=='string'||!ALLOWED.has(input.workflow)||
