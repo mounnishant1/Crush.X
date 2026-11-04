@@ -25,3 +25,8 @@ test('Repost does not introduce another Reel seek control or an external publish
   assert.equal((js.match(/data-reel-progress="\$\{id\}"/g)||[]).length,1);
   assert.match(js,/local-only repost state/);
 });
+
+test('Repost empty-state caption interpolates the active profile filter',()=>{
+  assert.doesNotMatch(js,/\$\{items\.length \? '' : '<p class="mt-5 text-sm text-slate-500">\$\{appProfileFilter/);
+  assert.match(js,/\$\{items\.length \? '' : `<p class="mt-5 text-sm text-slate-500">\$\{appProfileFilter/);
+});
