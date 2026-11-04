@@ -111,6 +111,12 @@
     storyViewerProgress();
   };
 
+  const baseMove = storyViewerMove;
+  storyViewerMove = function (delta) {
+    if (storyViewerDialog) storyViewerDialog.setAttribute('data-cx-story-direction', delta < 0 ? 'previous' : 'next');
+    baseMove(delta);
+  };
+
   function openLinked(kind) {
     const story = currentStory();
     const state = getState();
