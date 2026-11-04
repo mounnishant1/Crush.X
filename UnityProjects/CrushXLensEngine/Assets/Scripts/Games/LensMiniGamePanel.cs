@@ -57,7 +57,8 @@ namespace CrushX.LensEngine
         {
             float w = layout.Width, h = layout.Height;
             Color old = GUI.color;
-            GUI.color = new Color(.035f, .04f, .075f, .94f);
+            GUI.color = new Color(.035f, .04f, .075f,
+                core.IsPlaying && core.IsLensGame ? .62f : .94f);
             GUI.DrawTexture(layout.Bounds, Texture2D.whiteTexture);
             GUI.color = old;
 
@@ -89,7 +90,7 @@ namespace CrushX.LensEngine
             foreach (MiniGameDefinition def in LensMiniGameCore.Catalog)
                 if (def.Family == family) count++;
             int rows = (count + 1) / 2;
-            float cellWidth = Mathf.Max(86, (w - 47) / 2f);
+            float cellWidth = Mathf.Max(86, (w - 52) / 2f);
             float contentHeight = rows * 100 + 10;
             Rect viewport = new Rect(12, 158, w - 24, viewportHeight);
             catalogScroll = GUI.BeginScrollView(viewport, catalogScroll,
