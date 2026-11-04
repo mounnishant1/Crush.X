@@ -17,7 +17,7 @@ await page.locator('#searchInput').fill('Midnight');
 await page.locator('#searchInput').press('Enter');
 assert.equal(await page.evaluate(()=>CrushXSearchStep261.mode),'results');
 assert.equal(await page.locator('[data-cx261-tab]').count(),4);
-assert.equal(await page.locator('[data-open-local-item="reel_1"]').count(),1);
+assert.equal(await page.locator('.cx261-grid [data-open-local-item="reel_1"]').count(),1);
 await page.locator('[data-cx261-tab="accounts"]').click();
 assert.match(await page.locator('.cx261-body').innerText(),/No matching sample accounts/);
 await page.locator('[data-cx261-tab="audio"]').click();
