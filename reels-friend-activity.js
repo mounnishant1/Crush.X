@@ -5,6 +5,7 @@
   var originalBindReelEvents = bindRepairEvents;
   var friendsOnly = false;
   var returnReelId = null;
+  var activeActivityReelId = null;
   var activeSheet = null;
 
   function activityFor(state, reelId) {
@@ -107,7 +108,7 @@
   }
 
   function showEmojiPreview(emoji) {
-    var target = document.querySelector('.reel-slide[data-reel-slide="' + CSS.escape(returnReelId || '') + '"]') ||
+    var target = document.querySelector('.reel-slide[data-reel-slide="' + CSS.escape(activeActivityReelId || '') + '"]') ||
       document.querySelector('.reel-slide');
     if (!target || !emoji) return;
     var bubble = document.createElement('span');
@@ -126,7 +127,7 @@
     });
     if (!activity || !socialItem(state, reelId)) return;
     closeSheet();
-    returnReelId = reelId;
+    activeActivityReelId = reelId;
     var opener = document.activeElement;
     var actor = activity.actor;
     var action = type === 'repost' ? 'reposted' : 'liked';
