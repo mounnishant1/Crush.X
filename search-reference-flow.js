@@ -68,7 +68,9 @@
    '</nav><div class="cx261-body">'+body+'</div>';
  }
  renderDiscover=function(state){
-  if(mode==='editing'&&state.searchQuery!==lastInput){mode='idle';skipRestoredFocus=true;}
+  // External navigation and legacy callers can reset the query while the
+  // Search overlay is showing either suggestions OR results.
+  if(mode!=='idle'&&state.searchQuery!==lastInput){mode='idle';skipRestoredFocus=true;}
   const original=baseDiscover(state);
   if(mode==='idle')return original;
   const extra='<section class="cx261-search-panel"><div class="cx261-controls">'+

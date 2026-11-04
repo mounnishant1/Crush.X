@@ -24,6 +24,13 @@ await page.locator('[data-cx261-tab="audio"]').click();
 await page.locator('[data-cx261-tab="tags"]').click();
 await page.locator('[data-cx261-back]').click();
 assert.equal(await page.evaluate(()=>CrushXSearchStep261.mode),'idle');
+// Existing Explore profile links must become visible after a programmatic reset.
+await page.locator('#searchInput').focus();
+await page.locator('#searchInput').fill('Midnight');
+await page.locator('#searchInput').press('Enter');
+await page.evaluate(()=>{const state=getState();state.searchQuery='';saveState(state);renderApp();});
+assert.equal(await page.evaluate(()=>CrushXSearchStep261.mode),'idle','external clear exits result overlay');
+assert.equal(await page.locator('[data-profile-user="user_2"]').first().isVisible(),true,'legacy Explore profile visible');
 assert.deepEqual(errors,[]);
 console.log('Step261 mobile browser Search/Suggestions/For you/Accounts/Audio/Tags/Back PASS');
 } finally{await browser.close();}
