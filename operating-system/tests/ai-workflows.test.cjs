@@ -70,8 +70,8 @@ test('missing consent or revocation while queued denies execution',async()=>{
 test('owner diagnostics cannot be requested by an ordinary user',async()=>{
  const f=fixture();await f.os.start();
  f.grants.add('owner-1:owner');
- await assert.rejects(request(f.os,{name:'ai.owner.guide',owner:undefined,key:'ai-owner-001'}),/ACCESS_DENIED/);
- const r=await request(f.os,{credential:'owner',name:'ai.owner.guide',owner:undefined,key:'ai-owner-002'});
+ await assert.rejects(request(f.os,{name:'ai.owner.guide',owner:null,key:'ai-owner-001'}),/ACCESS_DENIED/);
+ const r=await request(f.os,{credential:'owner',name:'ai.owner.guide',owner:null,key:'ai-owner-002'});
  assert.equal((await f.os.tasks.runNext()).status,'completed');
  assert.equal((await f.os.tasks.inspect({credential:'owner',jobId:r.jobId})).result.executed,false);
  assert.equal(f.calls[0].subject,'owner-1');
@@ -96,6 +96,5 @@ test('AI answers cannot contain executable receipts and provider failures are fa
  const answer=(await f.os.tasks.inspect({credential:'alice',jobId:r.jobId})).result;
  assert.equal(answer.charged,false);
  assert.equal(answer.published,false);
- const bad=fixture();bad.os.modelProvider=undefined; // should not change frozen OS or its adapter
  assert.equal(f.calls.length,1);
 });
