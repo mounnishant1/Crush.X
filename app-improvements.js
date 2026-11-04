@@ -23,6 +23,9 @@ let storyViewerDrafts = {};
 const storyViewerDuration = 6500;
 let reelObserver = null;
 let reelAudioEnabled = false;
+// Track the actual ranked Reel ID, never its index in unsorted sample state.
+let reelPendingOpenId = null;
+let reelReturnId = null;
 const localCommentDrafts = Object.create(null);
 let submittingCommentId = null;
 const originalHome = renderHome;
@@ -215,9 +218,13 @@ function openGridMedia(id) {
   const state = getState();
   const index = state.reels.findIndex(item => item.id === id);
   if (index >= 0) {
+    // Explore/Profile and the Reel deck can rank/filter the same array differently.
+    // Do not open the wrong Reel if it was hidden from the actual Reel deck.
+    if (!previewRanked('reel', state.reels).some(reel => reel.id === id)) {
+      return appDialog('Reel unavailable', '<p>This sample Reel is hidden by your current content preferences. Change the filter before opening it.</p>');
+    }
+    reelPendingOpenId = id;
     navigate('reels');
-    const deck = document.querySelector('.reels-deck');
-    if (deck) deck.scrollTop = index * deck.clientHeight;
     return;
   }
   showLocalItem(id);
@@ -566,11 +573,13 @@ function bindReelControls() {
       const next = Math.max(0, Math.min(slides.length - 1, current + Math.sign(direction)));
       if (next === current) return false;
       gestureLockUntil = now + 550;
-      deck.scrollTo({ top: next * height, behavior: 'smooth' });
+      const reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      deck.scrollTo({ top: next * height, behavior: reducedMotion ? 'auto' : 'smooth' });
       return true;
     };
     deck.addEventListener('wheel', event => {
-      if (event.ctrlKey || event.target.closest('input, textarea, select, [contenteditable], .caption-expanded .reel-caption')) return;
+      // Nested action controls, scrubber and the scrollable right rail own their wheel events.
+      if (event.ctrlKey || event.target?.closest?.('.reel-rail, .reel-progress, .reel-comment-box, input, textarea, select, button, dialog, [contenteditable], .caption-expanded .reel-caption')) return;
       event.preventDefault();
       const now = Date.now();
       if (now < gestureLockUntil) return;
@@ -845,11 +854,18 @@ renderApp = function() {
     cxGroupDraft = { open: false, members: [], note: '', saved: false };
     cxVoiceNotice = '';
     cxLocalMessagingOwnerId = cxRoute.currentUserId;
+    reelPendingOpenId = null; reelReturnId = null;
   }
   if ((cxVoiceRecorder || cxVoiceStream || cxVoiceChatId) && (cxRoute.activeTab !== 'messages' || cxRoute.chatUserId !== cxVoiceChatId)) cxVoiceDiscardActive();
   cxGroupDraft.open = cxRoute.activeTab === 'messages' && !cxRoute.chatUserId && location.hash === '#messages/group-draft';
   if (document.getElementById('authOverlay')?.style.display !== 'none') closeAppDialog();
-  const reelScroll=document.querySelector?.('.reels-deck')?.scrollTop;
+  const priorReelDeck = document.querySelector?.('.reels-deck');
+  const reelScroll = priorReelDeck?.scrollTop;
+  if (priorReelDeck && Number.isFinite(reelScroll)) {
+    const oldSlides = [...priorReelDeck.querySelectorAll('[data-reel-slide]')];
+    const current = Math.max(0, Math.min(oldSlides.length - 1, Math.round(reelScroll / Math.max(1, priorReelDeck.clientHeight))));
+    reelReturnId = oldSlides[current]?.dataset.reelSlide || reelReturnId;
+  }
   // Preserve only browser-local unsent comments when likes/saves/tabs trigger a rerender.
   document.querySelectorAll('[data-comment-input]').forEach(input => {
     const id = input.dataset.commentInput;
@@ -867,7 +883,15 @@ renderApp = function() {
     media.addEventListener('error', unavailable, { once: true });
     if (media.tagName === 'IMG' && media.complete && media.currentSrc && media.naturalWidth === 0) unavailable();
   });
-  if(Number.isFinite(reelScroll)){const deck=document.querySelector?.('.reels-deck');if(deck)deck.scrollTop=reelScroll;}
+  const deck = document.querySelector?.('.reels-deck');
+  if (deck) {
+    const newSlides = [...deck.querySelectorAll('[data-reel-slide]')];
+    const desiredId = reelPendingOpenId || reelReturnId;
+    const index = newSlides.findIndex(slide => slide.dataset.reelSlide === desiredId);
+    if (index >= 0 && deck.clientHeight > 0) deck.scrollTop = index * deck.clientHeight;
+    else if (Number.isFinite(reelScroll)) deck.scrollTop = reelScroll;
+    reelPendingOpenId = null;
+  }
 };
 // A dialog consumes Escape itself; otherwise close the routed group draft first.
 document.addEventListener('keydown', event => {
@@ -876,4 +900,4 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   history.back();
 });
-logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };
+logout = function() { cxVoiceDiscardActive(); for (const url of cxVoiceDrafts.values()) URL.revokeObjectURL(url); cxVoiceDrafts.clear(); cxGroupDraft = { open: false, members: [], note: '', saved: false }; cxVoiceNotice = ''; closeAppDialog(); for (const id of Object.keys(localCommentDrafts)) delete localCommentDrafts[id]; reelAudioEnabled = false; reelPendingOpenId = null; reelReturnId = null; captionDraft = ''; if(pcDraft.audioUrl)URL.revokeObjectURL(pcDraft.audioUrl);pcDraft=pcFresh(); originalLogout(); };

@@ -251,3 +251,8 @@
   .reel-repost-action.repost-spin svg { animation:none; }
   .reel-repost-toast { transition:none; }
 }
+
+/* Step254: reduced-motion setting must disable animated Reel jumps. */
+@media (prefers-reduced-motion: reduce) {
+  .reels-deck { scroll-behavior: auto !important; }
+}
