@@ -82,7 +82,9 @@
       if (item.error) { rejected[item.error] = (rejected[item.error] || 0) + 1; continue; }
       const key = item.source + ':' + item.postId;
       const previous = dedup.get(key);
-      if (!previous || previous.observedAt < item.observedAt) dedup.set(key, item);
+      if (!previous || previous.observedAt < item.observedAt ||
+          (previous.observedAt === item.observedAt && previous.metrics.views < item.metrics.views))
+        dedup.set(key, item);
     }
     const groups = new Map();
     for (const item of dedup.values()) {
