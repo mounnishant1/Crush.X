@@ -33,6 +33,38 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
+        public void GamesOverlay_BackFirstReturnsToCatalogThenCamera()
+        {
+            var panel = new LensMiniGamePanel();
+            panel.OpenPanel();
+            Assert.IsTrue(panel.IsOpen);
+            panel.Game.Start(MiniGameId.MemoryPairs, 0);
+            Assert.IsTrue(panel.Back());
+            Assert.AreEqual(MiniGamePhase.Catalog, panel.Game.Phase);
+            Assert.IsTrue(panel.IsOpen);
+            Assert.IsTrue(panel.Back());
+            Assert.IsFalse(panel.IsOpen);
+            Assert.IsFalse(panel.Back());
+        }
+
+        [Test]
+        public void MemoryMismatch_IsTemporarilyVisibleThenFlipsBack()
+        {
+            var game = new LensMiniGameCore(15);
+            game.Start(MiniGameId.MemoryPairs, 0);
+            int[] cards = game.Board;
+            int first = 0, other = Array.FindIndex(cards, value => value != cards[first]);
+            Assert.IsTrue(game.TapCell(first, 1));
+            Assert.IsTrue(game.TapCell(other, 1));
+            Assert.IsTrue(game.IsMemoryVisible(first));
+            Assert.IsFalse(game.TapCell(2, 1.2));
+            game.Tick(2);
+            Assert.IsFalse(game.IsMemoryVisible(first));
+            Assert.IsFalse(game.IsMemoryVisible(other));
+            Assert.AreEqual(1, game.Mistakes);
+        }
+
+        [Test]
         public void FaceInput_RejectsStaleRepeatedAndMissingTrackingSamples()
         {
             var game = new LensMiniGameCore(13);
