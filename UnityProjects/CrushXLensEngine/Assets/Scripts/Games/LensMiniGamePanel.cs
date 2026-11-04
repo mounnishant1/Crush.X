@@ -260,6 +260,25 @@ namespace CrushX.LensEngine
                 }
             sliceDisc.SetPixels(pixels);
             sliceDisc.Apply(false, true);
+            for (int shape = 0; shape < 3; shape++)
+            {
+                Texture2D mask = new Texture2D(n, n, TextureFormat.RGBA32, false);
+                mask.name = "CrushX_SliceShape_" + shape;
+                var colored = new Color[n * n];
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float dx = (x + .5f - n * .5f) / (n * .5f);
+                        float dy = (y + .5f - n * .5f) / (n * .5f);
+                        float distance = shape == 0 ? Mathf.Sqrt(dx * dx + dy * dy) :
+                            shape == 1 ? Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) * 1.14f :
+                            Mathf.Max(-.82f - dy, dy - .86f, Mathf.Abs(dx) * 1.18f + dy * .61f - .41f) + 1;
+                        colored[y * n + x] = new Color(1, 1, 1, Mathf.Clamp01((1 - distance) * 9));
+                    }
+                mask.SetPixels(colored);
+                mask.Apply(false, true);
+                sliceShapes[shape] = mask;
+            }
         }
 
         private void DrawCuttingGame(float w, float h, GUIStyle title, GUIStyle status, GUIStyle small)
@@ -287,10 +306,13 @@ namespace CrushX.LensEngine
                 float cy = bounds.y + (float)target.Y * bounds.height;
                 Rect disk = new Rect(cx - diameter * .5f, cy - diameter * .5f, diameter, diameter);
                 GUI.color = target.Bomb ? new Color(.18f, .2f, .25f) : SliceColor(target.ColorIndex);
-                GUI.DrawTexture(disk, sliceDisc, ScaleMode.StretchToFill, true);
+                Texture2D sprite = core.Game == MiniGameId.ShapeCut && !target.Bomb
+                    ? sliceShapes[target.ShapeIndex] : sliceDisc;
+                GUI.DrawTexture(disk, sprite, ScaleMode.StretchToFill, true);
                 GUI.color = Color.white;
-                GUI.Label(disk, target.Bomb ? "!" : core.Game == MiniGameId.ShapeCut ?
-                    (target.ShapeIndex + 1).ToString() : "●", status);
+                GUI.Label(disk, target.Bomb ? "!" :
+                    core.Game == MiniGameId.ShapeCut ? (target.ShapeIndex + 1).ToString() :
+                    core.Game == MiniGameId.ColorCut ? (target.ColorIndex + 1).ToString() : "●", status);
             }
             GUI.color = old;
             if (now < trailUntil)
