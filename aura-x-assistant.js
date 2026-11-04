@@ -30,6 +30,12 @@
     const status = mode === 'reel' ? (reel ? 'Selected sample reel' : 'No reel selected')
       : mode === 'feature' ? (feature ? 'Local guidance: ' + feature.title : 'Select an app feature')
       : (validMessage ? 'Local draft for @' + user.username : 'Select a message draft');
+    // Optional trusted bootstrap only. No backend is configured by default.
+    // This stays inside the ONE existing AURA-X assistant.
+    const connected = root.CrushXContentBackend &&
+      ['ask','getJob','setPreferences','eraseHistory'].every(
+        action => typeof root.CrushXContentBackend[action] === 'function'
+      ) ? root.CrushXContentBackend : null;
     const body = `
       <p class="text-xs text-slate-500 mb-3">One AURA-X assistant · local rule-based guidance. No live model, external inbox, model training, publishing or autonomous tasks.</p>
       <section class="cx-aura-permissions" aria-label="AURA-X local permissions">
@@ -72,6 +78,18 @@
         <p data-ax-content-status role="status" class="text-sm mt-2"></p>
         <pre data-ax-content-output class="whitespace-pre-wrap break-words text-sm"></pre>
       </details>
+      ${connected ? `<details class="cx-aura-connected"><summary>Connected account content · authenticated API</summary>
+        <p class="text-xs text-slate-500">Only if a reviewed backend is configured. Server consent is separate from the 15-minute sample preview.
+          Questions are queued and must be checked manually. No hidden browsing or background analysis.</p>
+        <div class="cx-aura-permission-actions">
+          <button type="button" data-ax-remote-enable>Allow server content search</button>
+          <button type="button" data-ax-remote-disable>Turn off and erase server content history</button>
+        </div>
+        <button type="button" data-ax-remote-ask>Ask connected Feed question</button>
+        <button type="button" data-ax-remote-check>Check queued answer</button>
+        <p role="status" data-ax-remote-status class="text-sm mt-2"></p>
+        <pre data-ax-remote-output class="whitespace-pre-wrap break-words text-sm"></pre>
+      </details>` : ''}
       <p class="mt-4 text-xs text-slate-500">Autopilot, direct messages, purchases, calls, publishing and background memory are unavailable. Every local draft requires review.</p>`;
     let suggestion = '';
     // appDialog is the existing modal with escape-safe title and close management.
@@ -143,6 +161,60 @@
           '['+item.kind+':'+item.id+'] '+item.excerpt)].join('\n');
         showContentStatus();
       });
+      if (connected) {
+        let pendingJobId = '';
+        const remoteStatus=dialog.querySelector('[data-ax-remote-status]');
+        const remoteOutput=dialog.querySelector('[data-ax-remote-output]');
+        const safeError=error=>{
+          const text=String(error?.message||'CONTENT_REQUEST_FAILED');
+          remoteStatus.textContent=/^[A-Z_]{4,40}$/.test(text)?text:'Content service unavailable.';
+        };
+        dialog.querySelector('[data-ax-remote-enable]').addEventListener('click',async()=>{
+          remoteStatus.textContent='Requesting explicit server permission…';
+          try{
+            await connected.setPreferences({read:true,analyze:true,personalize:false,topics:[]});
+            remoteStatus.textContent='Connected content search enabled for this signed-in account. No personalization enabled.';
+          }catch(error){safeError(error);}
+        });
+        dialog.querySelector('[data-ax-remote-disable]').addEventListener('click',async()=>{
+          pendingJobId=''; remoteOutput.textContent='';
+          try{
+            await connected.setPreferences({read:false,analyze:false,personalize:false,topics:[]});
+            await connected.eraseHistory();
+            remoteStatus.textContent='Connected content access disabled and stored history reset.';
+          }catch(error){safeError(error);}
+        });
+        dialog.querySelector('[data-ax-remote-ask]').addEventListener('click',async()=>{
+          const question=dialog.querySelector('#axContentQuestion').value;
+          if(!root.crypto?.randomUUID){remoteStatus.textContent='Secure request ID unavailable.';return;}
+          remoteStatus.textContent='Requesting authorized source lookup…';
+          remoteOutput.textContent='';pendingJobId='';
+          try{
+            const requestId=root.crypto.randomUUID().replace(/-/g,'');
+            const receipt=await connected.ask(question,requestId);
+            if(typeof receipt?.jobId!=='string')throw Error('CONTENT_RESPONSE_INVALID');
+            pendingJobId=receipt.jobId;
+            remoteStatus.textContent='Question queued. Select Check queued answer after the server worker has processed it.';
+          }catch(error){safeError(error);}
+        });
+        dialog.querySelector('[data-ax-remote-check]').addEventListener('click',async()=>{
+          if(!pendingJobId){remoteStatus.textContent='No queued question in this dialog.';return;}
+          try{
+            const receipt=await connected.getJob(pendingJobId);
+            remoteStatus.textContent='Job status: '+String(receipt?.status||'unknown').slice(0,30);
+            if(receipt?.status==='completed'){
+              const result=receipt.result;
+              const sources=Array.isArray(result?.sources)?result.sources:[];
+              remoteOutput.textContent=[String(result?.answer||''),
+                ...sources.slice(0,8).map(source=>
+                  '['+String(source.kind||'')+':'+String(source.id||'')+'] '+
+                  String(source.excerpt||'').slice(0,200))].join('\n');
+            }else if(['failed','blocked','cancelled','audit_error'].includes(receipt?.status)){
+              remoteOutput.textContent='No verified answer available. Check permissions or backend status.';
+            }
+          }catch(error){safeError(error);}
+        });
+      }
       const memoryStatus=dialog.querySelector('[data-ax-memory-status]');
       const memoryOutput=dialog.querySelector('[data-ax-memory-output]');
       dialog.querySelector('[data-ax-memory-consent]').addEventListener('click', () => {

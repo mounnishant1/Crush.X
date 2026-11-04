@@ -84,7 +84,7 @@ function registerContentWorkflows({tasks,aura,adapters,now=Date.now}={}){
    await allowed(ctx.subject,'content:read');
    await allowed(ctx.subject,'content:analyze');
    return {answer:verified.length?'Matching authorized content excerpts (not independent factual verification).':
-     'No matching authorized content found.',sources:verified,modelUsed:false,
+     'No matching authorized content found.',sources:verified,modelUsed:false,origin:'authorized_content',
      executed:false,published:false,sent:false};
   }
  });

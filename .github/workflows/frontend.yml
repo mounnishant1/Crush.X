@@ -102,6 +102,8 @@ jobs:
           node --check aura-x-assistant.js
           node --check content-intelligence.js
           node --check app-content-intelligence.js
+          node --check content-api-client.js
+          node --test tests/content-api-client.test.cjs
           node --test tests/content-intelligence-integration.test.cjs
           node --test tests/aura-x-core.test.cjs
           node --test tests/aura-x-policy.test.cjs
@@ -124,6 +126,7 @@ jobs:
           node tests/frontend.cjs
           node tests/aura-ui-browser.cjs
           node tests/content-ui-browser.cjs
+          node tests/content-connected-ui-browser.cjs
           node tests/aura-remote-browser.cjs
           node tests/os-feature-browser.cjs
       # cloud-onboarding/crushx/smoke.cjs is intentionally separate: it needs
