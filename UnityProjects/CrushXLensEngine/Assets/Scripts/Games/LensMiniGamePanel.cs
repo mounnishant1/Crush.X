@@ -15,10 +15,17 @@ namespace CrushX.LensEngine
 
         public void OpenPanel()
         {
+            now = Time.realtimeSinceStartupAsDouble;
             IsOpen = true;
             family = MiniGameFamily.Lens;
             core.ReturnToCatalog();
             catalogScroll = Vector2.zero;
+        }
+
+        public void ClosePanel()
+        {
+            IsOpen = false;
+            core.ReturnToCatalog();
         }
 
         public bool Back()
