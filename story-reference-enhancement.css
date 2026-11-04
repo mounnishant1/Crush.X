@@ -1,0 +1,86 @@
+/* Video-reference Story viewer: media card over full-bleed soft background. */
+.story-viewer .sv-shell { isolation:isolate; background:#08080a; }
+.story-viewer .cx-story-stage { overflow:hidden; background:#111116; touch-action:pan-y; }
+.story-viewer .cx-story-background {
+  position:absolute; inset:-24px; overflow:hidden; z-index:0; pointer-events:none;
+  background:linear-gradient(160deg,#25212a,#0a0a0c);
+}
+.story-viewer .cx-story-background img {
+  display:block; width:100%; height:100%; max-width:none; max-height:none;
+  object-fit:cover; filter:blur(26px) brightness(.58); transform:scale(1.12);
+}
+.story-viewer .cx-story-background::after {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg,#0006 0%,transparent 27%,transparent 64%,#000a 100%);
+}
+.story-viewer .cx-story-media {
+  position:relative; z-index:1; display:grid; place-items:center;
+  width:calc(100% - 20px); max-width:540px;
+  height:min(68dvh, 760px); max-height:calc(100dvh - 210px);
+  margin:0 auto; border-radius:12px; overflow:hidden; background:#0002;
+  box-shadow:0 2px 28px #0002;
+}
+.story-viewer .cx-story-media > img,
+.story-viewer .cx-story-media > video {
+  display:block; width:100%; height:100%; max-width:100%; max-height:100%;
+  object-fit:contain; border-radius:10px;
+}
+.story-viewer .cx-story-stickers {
+  position:absolute; z-index:4; display:flex; align-items:center; justify-content:center;
+  flex-wrap:wrap; gap:8px; left:9%; right:9%; bottom:calc(135px + env(safe-area-inset-bottom));
+  pointer-events:none;
+}
+.story-viewer .cx-story-stickers button {
+  pointer-events:auto; min-height:38px; max-width:100%; padding:8px 13px;
+  border-radius:18px; color:#fff; background:#282830d9; border:1px solid #fff7;
+  font-size:12px; font-weight:800; text-shadow:0 1px 2px #0009;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.story-viewer .cx-story-stickers .cx-story-linked { background:#24252bcf; }
+.story-viewer .cx-story-stickers button:focus-visible,
+.story-viewer .cx-story-follow:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.story-viewer .sv-head .cx-story-follow {
+  flex:none; width:auto; min-height:35px; max-width:85px; padding:5px 10px;
+  border:1px solid #fff9; border-radius:9px; font-size:12px; font-weight:800;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.story-viewer .sv-head strong { max-width:30%; }
+.story-viewer .sv-footer { padding-bottom:calc(14px + env(safe-area-inset-bottom)); }
+.story-viewer .sv-progress { z-index:10; }
+.story-viewer .sv-photo .cx-story-main { user-select:none; }
+@media (max-width:380px) {
+  .story-viewer .sv-head { gap:5px; padding-inline:8px; }
+  .story-viewer .sv-head strong { max-width:25%; font-size:12px; }
+  .story-viewer .sv-head small { font-size:10px; }
+  .story-viewer .sv-head .cx-story-follow { max-width:71px; padding:5px 7px; }
+  .story-viewer .cx-story-media { width:calc(100% - 14px); max-height:calc(100dvh - 230px); }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .story-viewer .cx-story-media { animation:cx-story-enter .2s ease-out; }
+  @keyframes cx-story-enter {
+    from { opacity:.66; transform:translateX(9px) scale(.992); }
+    to { opacity:1; transform:translateX(0) scale(1); }
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .story-viewer .cx-story-media { animation:none; }
+}
+/* Gentle 3D page-turn cue when moving between Story items. */
+@media (prefers-reduced-motion:no-preference) {
+  .story-viewer[data-cx-story-direction="next"] .cx-story-media {
+    animation:cx-story-next .23s cubic-bezier(.2,.8,.2,1) both;
+    transform-origin:100% 50%;
+  }
+  .story-viewer[data-cx-story-direction="previous"] .cx-story-media {
+    animation:cx-story-previous .23s cubic-bezier(.2,.8,.2,1) both;
+    transform-origin:0% 50%;
+  }
+  @keyframes cx-story-next {
+    from { opacity:.8; transform:perspective(850px) rotateY(-12deg) translateX(14px); }
+    to { opacity:1; transform:perspective(850px) rotateY(0deg) translateX(0); }
+  }
+  @keyframes cx-story-previous {
+    from { opacity:.8; transform:perspective(850px) rotateY(12deg) translateX(-14px); }
+    to { opacity:1; transform:perspective(850px) rotateY(0deg) translateX(0); }
+  }
+}

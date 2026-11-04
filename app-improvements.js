@@ -299,7 +299,7 @@ function storyViewerHandleClick(event) {
 }
 function openSampleStory(id) {
   const state=getState();
-  const stories=state.stories.filter(story=>story.expiresAt>Date.now()&&safeMediaUrl(story.image));
+  const stories=state.stories.filter(story=>story.expiresAt>Date.now()&&(safeMediaUrl(story.image)||safeMediaUrl(story.video)));
   const index=stories.findIndex(story=>story.id===id);
   if(index<0)return;
   closeAppDialog();
