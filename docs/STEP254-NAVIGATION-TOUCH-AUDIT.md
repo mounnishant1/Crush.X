@@ -17,3 +17,7 @@
 - Browser preview actions include explicitly local-only data. Live DMs/calls, publishing, backend views and payment require production-connected app tests.
 - Needed on actual OnePlus 9 Pro: 320/390px viewport and keyboard, one-swipe-one-Reel, 30+ tiles, rail wheel/touch scroll, thumbnails to correct ranked Reel, Profile back restoration, Story swipe-down and hold, tabs/dialog focus, reduced-motion, battery/thermal/frame budget, safe areas and editor input controls.
 - Do not claim all screens fully certified or production deployed from static/CI checks.
+
+## Additional automated browser exercise
+- `tests/navigation-touch-step254-browser.cjs`: Chromium 390×844 with touch support. Simulates deliberately reversed Reel ranking (three sample Reels), checks Explore tile tap selects the requested ID, correct count and icon overlay, 44px vertical icon hit target, nested rail wheel not stolen, Profile route + browser Back returns to exactly the same Reel, and no horizontal overflow or script exceptions.
+- Action buttons get an explicit keyboard focus ring. Minimum vertical hit target on Reel rail raised from 41px to 44px.

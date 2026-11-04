@@ -232,7 +232,8 @@
 /* Step252 local-only Repost action: no extra popup dots and no second Reel player. */
 .reel-rail { max-height:72%; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; gap:4px; }
 .reel-rail::-webkit-scrollbar { display:none; }
-.reel-rail button { min-height:41px; }
+.reel-rail button { min-height:44px; }
+.reel-rail button:focus-visible { outline:2px solid #fff; outline-offset:-2px; border-radius:8px; }
 .reel-rail .reel-repost-action[aria-pressed="true"] { color:#fff; }
 .reel-repost-action svg { transform-origin:center; }
 .reel-repost-action.repost-spin svg { animation:crushx-repost-spin .52s cubic-bezier(.2,.8,.2,1) both; }

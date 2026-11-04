@@ -62,6 +62,10 @@ test('keyboard, media touch, cancellation and one-wheel-step remain wired',()=>{
     assert.ok((app+'\n'+css).includes(phrase),phrase);
   }
 });
+test('Reel rail hit area and keyboard focus outline are accessible',()=>{
+  assert.match(css,/\.reel-rail button \{ min-height:44px; \}/);
+  assert.match(css,/\.reel-rail button:focus-visible/);
+});
 test('reduce motion bypasses smooth navigation and animation',()=>{
   assert.match(app,/behavior: reducedMotion \? 'auto' : 'smooth'/);
   assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);

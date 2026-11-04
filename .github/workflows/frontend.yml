@@ -140,6 +140,7 @@ jobs:
         run: |
           node tests/frontend.cjs
           node tests/monochrome-player-icons-browser.cjs
+          node tests/navigation-touch-step254-browser.cjs
           node tests/aura-ui-browser.cjs
           node tests/content-ui-browser.cjs
           node tests/content-connected-ui-browser.cjs
