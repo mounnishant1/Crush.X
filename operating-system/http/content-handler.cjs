@@ -13,6 +13,9 @@ function createContentHttpHandler({system,verifyCredential,checkActiveAccount,
  if(typeof system?.aura?.invoke!=='function'||typeof system?.tasks?.inspect!=='function'||
     typeof system?.audit?.record!=='function'||typeof verifyCredential!=='function'||
     typeof checkActiveAccount!=='function'||typeof contentStore?.getPreferences!=='function'||
+    typeof contentStore?.checkConsent!=='function'||
+    typeof contentStore?.loadAuthorizedContent!=='function'||
+    typeof contentStore?.authorizeContent!=='function'||
     typeof contentStore?.setPreferences!=='function'||typeof contentStore?.eraseHistory!=='function'||
     typeof consumeRateLimit!=='function'||typeof now!=='function'||
     !Array.isArray(allowedOrigins)||!allowedOrigins.length||
@@ -108,8 +111,55 @@ function createContentHttpHandler({system,verifyCredential,checkActiveAccount,
      args:{question:body.question},resourceOwner:subject,idempotencyKey:body.requestId}));
    }
    const match=/^\/v1\/content\/jobs\/([0-9a-f-]{36})$/i.exec(url.pathname);
-   if(req.method==='GET'&&match)
-    return send(res,200,await system.tasks.inspect({credential,jobId:match[1]}));
+   if(req.method==='GET'&&match) {
+    const receipt=await system.tasks.inspect({credential,jobId:match[1]});
+    if(receipt.status!=='completed')return send(res,200,receipt);
+    const result=receipt.result;
+    if(!result||result.origin!=='authorized_content')
+     return send(res,404,{error:'NOT_FOUND'});
+    // A completed job can outlive consent or a creator privacy change.
+    // Recheck *current* authorization before rendering any previous excerpt.
+    if(await contentStore.checkConsent({subject,scope:'content:read'})!==true)
+     return send(res,403,{error:'ACCESS_DENIED'});
+    if(Array.isArray(result.sources)&&
+       await contentStore.checkConsent({subject,scope:'content:analyze'})!==true)
+     return send(res,403,{error:'ACCESS_DENIED'});
+    if(Array.isArray(result.items)&&result.personalized===true&&
+       await contentStore.checkConsent({subject,scope:'content:personalize'})!==true)
+     return send(res,403,{error:'ACCESS_DENIED'});
+    const current=await contentStore.loadAuthorizedContent({subject,limit:300});
+    if(!Array.isArray(current))throw Error('CONTENT_SOURCE_INVALID');
+    const currentById=new Map(current.map(item=>[item.id,item]));
+    if(Array.isArray(result.sources)){
+     const sources=[];
+     for(const prior of result.sources.slice(0,8)){
+      if(!prior||typeof prior.id!=='string'||typeof prior.kind!=='string'||
+         typeof prior.excerpt!=='string')continue;
+      const item=currentById.get(prior.id);
+      if(!item||item.kind!==prior.kind)continue;
+      const latest=[item.title,item.caption,item.transcript].filter(v=>typeof v==='string'&&v).join('. ');
+      if(!latest.includes(prior.excerpt))continue;
+      if(await contentStore.authorizeContent({subject,id:prior.id,kind:prior.kind})!==true)continue;
+      sources.push({id:prior.id,kind:prior.kind,excerpt:prior.excerpt.slice(0,200)});
+     }
+     const answer=sources.length?'Matching currently authorized content excerpts (not factual verification).':
+      'No matching currently authorized content found.';
+     return send(res,200,{...receipt,result:{answer,sources,origin:'authorized_content',
+      modelUsed:false,executed:false}});
+    }
+    if(Array.isArray(result.items)){
+     const items=[];
+     for(const prior of result.items.slice(0,40)){
+      const item=currentById.get(prior?.id);
+      if(!item||item.kind!==prior.kind)continue;
+      if(await contentStore.authorizeContent({subject,id:prior.id,kind:prior.kind})!==true)continue;
+      items.push({id:item.id,kind:item.kind,why:String(prior.why||'').slice(0,160)});
+     }
+     return send(res,200,{...receipt,result:{items,personalized:result.personalized===true,
+      origin:'authorized_content',modelUsed:false,executed:false}});
+    }
+    return send(res,404,{error:'NOT_FOUND'});
+   }
    return send(res,404,{error:'NOT_FOUND'});
   }catch(error){
    const code=String(error?.message||'');
