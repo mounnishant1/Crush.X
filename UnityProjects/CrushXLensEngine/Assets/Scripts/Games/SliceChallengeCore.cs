@@ -180,6 +180,13 @@ namespace CrushX.LensEngine
             strokeHits = 0;
         }
 
+        public void CancelStroke()
+        {
+            strokeActive = false;
+            strokeHits = 0;
+            LastCombo = 0;
+        }
+
         public bool SliceForTest(double x0, double y0, double x1, double y1)
         {
             if (!BeginStroke(x0, y0)) return false;
