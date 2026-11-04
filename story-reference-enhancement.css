@@ -65,3 +65,22 @@
 @media (prefers-reduced-motion:reduce) {
   .story-viewer .cx-story-media { animation:none; }
 }
+/* Gentle 3D page-turn cue when moving between Story items. */
+@media (prefers-reduced-motion:no-preference) {
+  .story-viewer[data-cx-story-direction="next"] .cx-story-media {
+    animation:cx-story-next .23s cubic-bezier(.2,.8,.2,1) both;
+    transform-origin:100% 50%;
+  }
+  .story-viewer[data-cx-story-direction="previous"] .cx-story-media {
+    animation:cx-story-previous .23s cubic-bezier(.2,.8,.2,1) both;
+    transform-origin:0% 50%;
+  }
+  @keyframes cx-story-next {
+    from { opacity:.8; transform:perspective(850px) rotateY(-12deg) translateX(14px); }
+    to { opacity:1; transform:perspective(850px) rotateY(0deg) translateX(0); }
+  }
+  @keyframes cx-story-previous {
+    from { opacity:.8; transform:perspective(850px) rotateY(12deg) translateX(-14px); }
+    to { opacity:1; transform:perspective(850px) rotateY(0deg) translateX(0); }
+  }
+}
