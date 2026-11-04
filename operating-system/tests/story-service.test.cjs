@@ -52,7 +52,11 @@ function fixture(){
  const verifyMedia=async({ownerId,mediaId})=>({
   ready:mediaId!=='pending',ownerId,mediaId,kind:'video',moderationStatus:mediaId==='unsafe'?'rejected':'approved'
  });
- const service=createStoryService({store,relationship,verifyMedia,now:()=>clock});
+ const verifyRelated=async({id})=>({allowed:id!=='private-reel'});
+ const verifyMentions=async({subjectIds})=>({allowed:!subjectIds.includes('blocked')});
+ const reviewText=async({caption})=>({approved:!caption.includes('disallowed')});
+ const service=createStoryService({store,relationship,verifyMedia,
+  verifyRelated,verifyMentions,reviewText,now:()=>clock});
  const publish=(audience='public',extra={})=>service.publish({subject:'alice',input:{
   mediaId:'asset-123',requestId:'unique-request-001',audience,...extra
  }});
@@ -70,6 +74,9 @@ test('Story publish requires trusted media approval and idempotent owner',async(
  await assert.rejects(service.publish({subject:'alice',input:{mediaId:'pending',requestId:'unique-request-123',audience:'public'}}),/MEDIA_NOT_APPROVED/);
  await assert.rejects(service.publish({subject:'alice',input:{mediaId:'asset-123',requestId:'unique-request-123',audience:'bogus'}}),/INVALID_STORY_REQUEST/);
  await assert.rejects(service.publish({subject:'alice',input:{mediaId:'asset-123',requestId:'unique-request-123',audience:'public',ownerId:'bob'}}),/INVALID_STORY_REQUEST/);
+ await assert.rejects(service.publish({subject:'alice',input:{mediaId:'asset-123',requestId:'unique-request-123',audience:'public',caption:'disallowed text'}}),/STORY_NOT_APPROVED/);
+ await assert.rejects(service.publish({subject:'alice',input:{mediaId:'asset-123',requestId:'unique-request-123',audience:'public',mentions:['blocked']}}),/STORY_NOT_APPROVED/);
+ await assert.rejects(service.publish({subject:'alice',input:{mediaId:'asset-123',requestId:'unique-request-123',audience:'public',related:{type:'reel',id:'private-reel'}}}),/STORY_NOT_APPROVED/);
 });
 test('Audience, blocks, expiry, deletion and owner insights always checked',async()=>{
  const {service,publish,setClock,now}=fixture();
