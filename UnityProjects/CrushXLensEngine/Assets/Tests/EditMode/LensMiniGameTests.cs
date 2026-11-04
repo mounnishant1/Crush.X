@@ -32,6 +32,7 @@ namespace CrushX.LensEngine.Tests
             }
         }
 
+#if UNITY_2019_4_OR_NEWER
         [Test]
         public void GamesOverlay_BackFirstReturnsToCatalogThenCamera()
         {
@@ -47,6 +48,7 @@ namespace CrushX.LensEngine.Tests
             Assert.IsFalse(panel.Back());
         }
 
+#endif
         [Test]
         public void MemoryMismatch_IsTemporarilyVisibleThenFlipsBack()
         {
