@@ -86,6 +86,10 @@ jobs:
           node tests/experience-flows.cjs
           node --check story-reference-enhancement.js
           node tests/story-reference-enhancement.cjs
+          node --check operating-system/stories/story-service.cjs
+          node --check operating-system/stories/dynamo-story-store.cjs
+          node --check operating-system/http/story-handler.cjs
+          node --test operating-system/tests/story-service.test.cjs
           node tests/social-interactions.cjs
           node tests/social-advanced.cjs
           node tests/social-notifications.cjs
