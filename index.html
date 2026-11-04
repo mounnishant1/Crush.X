@@ -1040,7 +1040,7 @@
             const isVideo = post.mediaType === 'video' || post.contentType?.startsWith('video/') || /\.(mp4|webm)(?:[?#]|$)/i.test(media || '');
 
             return `
-              <article class="feed-card glass rounded-[2rem] sm:mx-auto sm:max-w-xl">
+              <article class="feed-card glass rounded-[2rem] sm:mx-auto sm:max-w-xl" data-content-card="${escapeHTML(post.id)}">
                 <div class="feed-author">
                   <img src="${safeMediaUrl(author.avatar)}" alt="" class="feed-author-avatar ring-2 ring-pink-200" />
                   <div class="min-w-0 flex-1">
@@ -1095,6 +1095,10 @@
 
     function renderDiscover(state) {
       const query = state.searchQuery.toLowerCase();
+      const discovered = [
+        ...previewRanked('reel',state.reels).map(item => ({...item,kind:'reel'})),
+        ...previewRanked('post',state.posts).map(item => ({...item,kind:'post'}))
+      ].filter(item => !query || (String(item.caption || '')+' '+String(item.song || '')).toLowerCase().includes(query)).slice(0,12);
 
       const filteredUsers = state.users.filter(user => {
         const text =
@@ -1177,6 +1181,19 @@
               `}
             </div>
           </section>
+          <section class="glass mt-4 rounded-[2rem] p-4" aria-label="Recommended sample content">
+            <h2 class="text-lg font-bold">Explore sample Reels and Posts</h2>
+            <p class="mb-3 text-xs text-slate-500">Local preview only · ranking follows your optional AURA-X interests.</p>
+            <div class="grid grid-cols-2 gap-2">
+              ${discovered.map(item => `<button type="button"
+                data-content-open="${escapeHTML(item.id)}" data-content-kind="${item.kind}"
+                class="rounded-xl border p-3 text-left text-sm dark:border-slate-700">
+                <strong class="block mb-1">${item.kind === 'reel' ? 'Reel' : 'Post'}</strong>
+                <span>${escapeHTML((item.caption || item.song || 'Sample content').slice(0,110))}</span>
+              </button>`).join('')}
+              ${discovered.length ? '' : '<p class="text-sm text-slate-500">No matching sample media.</p>'}
+            </div>
+          </section>
         </main>
       `;
     }
@@ -1236,7 +1253,7 @@
         const source = safeMediaUrl(reel.source);
         const video = reel.mediaType === 'video' || reel.contentType?.startsWith('video/') || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(reel.source);
         const comments = Array.isArray(reel.comments) ? reel.comments : [];
-        return `<article class="glass mx-auto max-w-md overflow-hidden rounded-[2rem]">
+        return `<article class="glass mx-auto max-w-md overflow-hidden rounded-[2rem]" data-content-card="${escapeHTML(reel.id)}">
           ${video ? `<video src="${source}" controls playsinline preload="metadata" class="reel-media w-full bg-black object-contain" aria-label="Reel video" data-cx-content-video="${escapeHTML(reel.id)}" data-content-kind="reel"></video>` : `<img src="${source}" alt="Reel image" class="reel-media w-full object-cover" />`}
           <div class="p-4">
             <div class="flex items-center gap-3"><img src="${safeMediaUrl(creator.avatar)}" alt="" class="h-11 w-11 rounded-full" /><strong>@${escapeHTML(creator.username)}</strong>
