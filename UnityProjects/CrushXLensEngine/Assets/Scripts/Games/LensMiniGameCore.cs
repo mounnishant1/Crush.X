@@ -69,7 +69,7 @@ namespace CrushX.LensEngine
         private double endAt, pausedAt = -1, revealUntil, flipBackAt = -1, lastFaceTimestamp = -1;
         private bool faceArmed = true;
         private int firstCard = -1, secondCard = -1, sequenceIndex, sequenceLength;
-        private int goal, target, correctChoice, mazePosition;
+        private int target, correctChoice, mazePosition;
         private string word = "", scrambled = "", prompt = "";
 
         public MiniGamePhase Phase { get; private set; } = MiniGamePhase.Catalog;
