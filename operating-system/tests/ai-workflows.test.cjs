@@ -30,8 +30,8 @@ test('a missing provider or consent never registers AI tools',async()=>{
  assert.deepEqual(empty.os.aiWorkflowRegistration.configured,[]);
  await empty.os.start();
  await assert.rejects(request(empty.os),/UNKNOWN_TOOL/);
- assert.throws(()=>fixture({model:true,consent:false}),/MODEL_AND_TRUSTED_CONSENT_REQUIRED/);
- assert.throws(()=>fixture({model:false,consent:true}),/MODEL_AND_TRUSTED_CONSENT_REQUIRED/);
+ assert.deepEqual(fixture({model:true,consent:false}).os.aiWorkflowRegistration.configured,[]);
+ assert.deepEqual(fixture({model:false,consent:true}).os.aiWorkflowRegistration.configured,[]);
 });
 test('whole app domain tools are registered only as opt-in advice',async()=>{
  const f=fixture();await f.os.start();
