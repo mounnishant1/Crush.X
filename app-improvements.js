@@ -430,7 +430,7 @@ renderProfile = function(state) {
 };
 renderReels = function(state) {
   const reels=previewRanked('reel',state.reels);
-  if(!reels.length)return '<main class="glass rounded-[2rem] p-5">No sample reels here. Reset hidden content in AURA-X.</main>';
+  if(!reels.length)return '<main class="glass rounded-[2rem] p-5">No reels here. Reset hidden sample content in AURA-X.</main>';
   const glyph=(name,fallback)=>`<i data-lucide="${name}" aria-hidden="true">${fallback}</i>`;
   return `<main class="reels-deck" aria-label="Reels, swipe vertically to change" tabindex="0">${reels.map((reel,i)=>{
     const creator=userById(state,reel.userId)||currentUser(state);
