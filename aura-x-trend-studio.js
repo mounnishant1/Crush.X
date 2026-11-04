@@ -128,7 +128,7 @@
           BaseLensId:type.baseLensId, Category:type.category, Author:'AURA-X draft',
           Description:'Original Crush.X prototype inspired by the general ' + label + ' trend; no third-party assets copied.',
           AssetLicense:'Unreviewed', ThumbnailReference:'', Shader:'Installed',
-          RequiredAssets:[], Parameters:{Scale:1,OffsetX:0,OffsetY:0,OffsetZ:0,RotationX:0,
+          RequiredAssets:['procedural:'+type.baseLensId], Parameters:{Scale:1,OffsetX:0,OffsetY:0,OffsetZ:0,RotationX:0,
             RotationY:0,RotationZ:0,OverrideTint:false,TintRed:1,TintGreen:1,TintBlue:1,
             PulseAmplitude:0.04,PulseHz:0.8}, ExpressionRules:[]
         },
