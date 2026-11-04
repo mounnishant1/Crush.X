@@ -48,6 +48,14 @@
         <pre data-ax-output class="whitespace-pre-wrap break-words text-sm mt-2 font-sans"></pre>
         ${mode === 'message' ? '<button type="button" data-ax-apply disabled class="rounded-xl border px-4 py-2 mt-3 font-semibold">Use as local draft</button>' : ''}
       </section>
+      <details class="cx-aura-memory"><summary>Optional private note — browser memory only</summary>
+        <p>No automatic collection. This note is stored only in page memory and is erased on reload or logout.</p>
+        <button type="button" data-ax-memory-consent>Allow local memory for 15 minutes</button>
+        <label for="axMemory">Your note (max 500 characters; no secrets)</label>
+        <textarea id="axMemory" maxlength="500" rows="3" placeholder="Add a non-sensitive preference yourself"></textarea>
+        <div class="cx-aura-memory-actions"><button type="button" data-ax-memory-save>Save note</button><button type="button" data-ax-memory-export>View/export note</button><button type="button" data-ax-memory-delete>Delete note</button></div>
+        <p data-ax-memory-status role="status"></p><pre data-ax-memory-output></pre>
+      </details>
       <details class="cx-aura-content"><summary>Find in Feed · Local content intelligence</summary>
         <p>Only the six built-in sample posts, reels and stories are searchable. No live video frames, private messages or server feeds are read. Consent expires after 15 minutes.</p>
         <div class="cx-aura-permission-actions">
@@ -63,14 +71,6 @@
         <button type="button" data-ax-content-ask class="mt-2 rounded-xl border px-3 py-2">Find source references</button>
         <p data-ax-content-status role="status" class="text-sm mt-2"></p>
         <pre data-ax-content-output class="whitespace-pre-wrap break-words text-sm"></pre>
-      </details>
-      <details class="cx-aura-memory"><summary>Optional private note — browser memory only</summary>
-        <p>No automatic collection. This note is stored only in page memory and is erased on reload or logout.</p>
-        <button type="button" data-ax-memory-consent>Allow local memory for 15 minutes</button>
-        <label for="axMemory">Your note (max 500 characters; no secrets)</label>
-        <textarea id="axMemory" maxlength="500" rows="3" placeholder="Add a non-sensitive preference yourself"></textarea>
-        <div class="cx-aura-memory-actions"><button type="button" data-ax-memory-save>Save note</button><button type="button" data-ax-memory-export>View/export note</button><button type="button" data-ax-memory-delete>Delete note</button></div>
-        <p data-ax-memory-status role="status"></p><pre data-ax-memory-output></pre>
       </details>
       <p class="mt-4 text-xs text-slate-500">Autopilot, direct messages, purchases, calls, publishing and background memory are unavailable. Every local draft requires review.</p>`;
     let suggestion = '';

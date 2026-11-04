@@ -108,6 +108,7 @@ jobs:
         run: |
           node tests/frontend.cjs
           node tests/aura-ui-browser.cjs
+          node tests/content-ui-browser.cjs
           node tests/os-feature-browser.cjs
       # cloud-onboarding/crushx/smoke.cjs is intentionally separate: it needs
       # the managed cloud's SDK/proxy/CA setup and /usr/bin/chromium.

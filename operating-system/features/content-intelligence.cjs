@@ -60,6 +60,8 @@ function registerContentWorkflows({tasks,aura,adapters,now=Date.now}={}){
     if(await stillAllowed(ctx.subject,entry.item))
      verified.push({id:entry.item.id,kind:entry.item.kind,why:entry.why,score:entry.score});
    }
+   await allowed(ctx.subject,'content:read');
+   if(personalization)await allowed(ctx.subject,'content:personalize');
    return {items:verified,personalized:personalization,modelUsed:false,origin:'authorized_content',
     executed:false,published:false,sent:false};
   }
@@ -79,6 +81,8 @@ function registerContentWorkflows({tasks,aura,adapters,now=Date.now}={}){
     if(item&&await stillAllowed(ctx.subject,item))
      verified.push({id:source.id,kind:source.kind,excerpt:source.excerpt});
    }
+   await allowed(ctx.subject,'content:read');
+   await allowed(ctx.subject,'content:analyze');
    return {answer:verified.length?'Matching authorized content excerpts (not independent factual verification).':
      'No matching authorized content found.',sources:verified,modelUsed:false,
      executed:false,published:false,sent:false};
