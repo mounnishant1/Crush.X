@@ -93,7 +93,7 @@ namespace CrushX.LensEngine
         public SliceChallengeCore Cutting { get { return cutting; } }
         public void SyncCutting()
         {
-            if (!IsPlaying || !IsSlicingGame) return;
+            if (Phase == MiniGamePhase.Catalog || !IsSlicingGame) return;
             Score = cutting.Score;
             Progress = cutting.Sliced;
             Moves = cutting.Strokes;
