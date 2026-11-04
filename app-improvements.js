@@ -268,8 +268,18 @@ function storyViewerProgress() {
 }
 function storyViewerPaint() {
   if(!storyViewerDialog)return;
+  // Restoring focus after replacing the viewer keeps hardware keyboards,
+  // switch controls and screen reader navigation on the chosen action.
+  const active = document.activeElement;
+  const inside = !!storyViewerDialog.contains?.(active);
+  const action = inside && active?.getAttribute?.('data-sv');
+  const onStage = inside && !!active?.matches?.('[data-sv-stage]');
   storyViewerDialog.innerHTML=storyViewerHTML();
   try{window.lucide?.createIcons?.();}catch{}
+  const target = action ? [...storyViewerDialog.querySelectorAll('[data-sv]')].find(node => node.dataset.sv === action) :
+    onStage ? storyViewerDialog.querySelector('[data-sv-stage]') : null;
+  // Do not focus a disabled previous button when the first Story is active.
+  if (target && !target.disabled) try { target.focus({preventScroll:true}); } catch { target.focus(); }
 }
 function storyViewerMove(delta) {
   const index=storyViewerIndex+delta;
@@ -321,7 +331,7 @@ function openSampleStory(id) {
     if(event.target?.closest?.('input,textarea,button,a,select') || event.target?.matches?.('input,textarea,button,a,select'))return;
     if(event.key==='ArrowRight'){event.preventDefault();storyViewerMove(1);}
     if(event.key==='ArrowLeft'){event.preventDefault();storyViewerMove(-1);}
-    if(event.key===' '){event.preventDefault();storyViewerPaused=!storyViewerPaused;storyViewerPaint();}
+    if(event.key===' ' || (event.key==='Enter' && event.target?.matches?.('[data-sv-stage]'))){event.preventDefault();storyViewerPaused=!storyViewerPaused;storyViewerPaint();}
   });
   dialog.addEventListener('input',event=>{if(event.target.matches('[data-sv-reply]'))storyViewerDrafts[stories[storyViewerIndex].id]=event.target.value.slice(0,200);});
   dialog.addEventListener('focusin',event=>{if(event.target.matches('[data-sv-reply]')){storyViewerPaused=true;dialog.querySelector('[data-sv="pause"]')?.setAttribute('aria-label','Resume story');}});
@@ -358,6 +368,8 @@ function openSampleStory(id) {
     if(storyViewerPointerId!==event.pointerId)return;
     storyViewerHold=false;storyViewerStartX=null;storyViewerStartY=null;storyViewerPointerId=null;
     storyViewerLastTick=Date.now();
+    // A canceled pointer may generate a synthetic click on touchscreens.
+    storyViewerSwipeUntil=Date.now()+250;
   });
   document.body.append(dialog);storyViewerDialog=dialog;
   storyViewerPaint();dialog.showModal();

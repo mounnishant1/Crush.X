@@ -98,6 +98,7 @@ jobs:
           node tests/experience-flows.cjs
           node --test tests/story-pointer-ownership-step252.test.cjs
           node --test tests/navigation-touch-step254.test.cjs
+          node --test tests/story-focus-step255.test.cjs
           node --test tests/repost-local-step252.test.cjs
           node --check story-reference-enhancement.js
           node tests/story-reference-enhancement.cjs
@@ -141,6 +142,7 @@ jobs:
           node tests/frontend.cjs
           node tests/monochrome-player-icons-browser.cjs
           node tests/navigation-touch-step254-browser.cjs
+          node tests/story-studio-navigation-step255-browser.cjs
           node tests/aura-ui-browser.cjs
           node tests/content-ui-browser.cjs
           node tests/content-connected-ui-browser.cjs
