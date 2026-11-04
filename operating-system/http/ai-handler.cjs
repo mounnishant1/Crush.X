@@ -6,12 +6,19 @@ const {MODULES}=require('../features/ai-workflows.cjs');
 const allowed=new Set(MODULES);
 const validKey=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(x);
 const validUuid=x=>typeof x==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
-function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date.now}={}){
+function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date.now,
+ durableAdvice=null,rateLimiter=null,requireDistributedLimiter=false}={}){
  if(!system?.aura?.invoke||!system?.tasks?.inspect||!system?.tasks?.cancel||
   typeof verifyCredential!=='function'||typeof now!=='function'||
   !Array.isArray(allowedOrigins)||allowedOrigins.some(x=>typeof x!=='string'||
    !/^https:\/\/[A-Za-z0-9.-]+(?::[0-9]{2,5})?$/.test(x)))
   throw TypeError('AI_HTTP_TRUSTED_ADAPTERS_REQUIRED');
+ if(durableAdvice!==null&&['submit','inspect','cancel','purge'].some(k=>typeof durableAdvice[k]!=='function'))
+  throw TypeError('AI_HTTP_DURABLE_SERVICE_REQUIRED');
+ if(rateLimiter!==null&&typeof rateLimiter.allow!=='function')
+  throw TypeError('AI_HTTP_RATE_LIMITER_INVALID');
+ if(requireDistributedLimiter===true&&rateLimiter===null)
+  throw TypeError('DISTRIBUTED_RATE_LIMITER_REQUIRED');
  const origins=new Set(allowedOrigins),rates=new Map();
  function respond(res,status,data){
   res.setHeader('cache-control','no-store');
@@ -56,10 +63,16 @@ function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date
     !Number.isFinite(verified.expiresAt)||verified.expiresAt<=now())
     return respond(res,401,{error:'AUTH_REQUIRED'});
    const subject=verified.subject;
-   const time=now(),prior=rates.get(subject);
-   const current=prior&&time-prior.at<60000?prior:{at:time,count:0};
-   current.count++;rates.set(subject,current);
-   if(current.count>60)return respond(res,429,{error:'RATE_LIMITED'});
+   if(rateLimiter){
+    if(await rateLimiter.allow({subject,now:now(),bucket:'aura'})!==true)
+     return respond(res,429,{error:'RATE_LIMITED'});
+   }else{
+    // In-process fallback is allowed for local staging only.
+    const time=now(),prior=rates.get(subject);
+    const current=prior&&time-prior.at<60000?prior:{at:time,count:0};
+    current.count++;rates.set(subject,current);
+    if(current.count>60)return respond(res,429,{error:'RATE_LIMITED'});
+   }
    const pathname=new URL(req.url,'http://internal.invalid').pathname;
    const route=new URL(req.url,'http://internal.invalid');
    if(pathname==='/v1/aura/consent'&&['POST','GET','DELETE'].includes(req.method)){
@@ -84,10 +97,13 @@ function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date
      (data.context!==undefined&&(typeof data.context!=='string'||data.context.length>1000)))
      return respond(res,400,{error:'INVALID_REQUEST'});
     const args={prompt:data.prompt};if(data.context!==undefined)args.context=data.context;
-    const receipt=await system.aura.invoke({
-     credential,toolName:'ai.'+data.workflow+'.guide',
-     args,resourceOwner:subject,idempotencyKey:data.requestId
-    });
+    const receipt=durableAdvice
+     ?await durableAdvice.submit({credential,subject,workflow:data.workflow,
+       prompt:args.prompt,context:args.context||'',requestId:data.requestId})
+     :await system.aura.invoke({
+       credential,toolName:'ai.'+data.workflow+'.guide',
+       args,resourceOwner:subject,idempotencyKey:data.requestId
+      });
     return respond(res,202,receipt);
    }
    if(req.method==='POST'&&['/v1/aura/content-find','/v1/aura/content-rank'].includes(pathname)){
@@ -107,17 +123,25 @@ function createAIHttpHandler({system,verifyCredential,allowedOrigins=[],now=Date
    const match=/^\/v1\/aura\/jobs\/([0-9a-f-]{36})(\/cancel)?$/i.exec(pathname);
    if(match&&validUuid(match[1])){
     const options={credential,jobId:match[1]};
-    if(req.method==='GET'&&!match[2])return respond(res,200,await system.tasks.inspect(options));
-    if(req.method==='POST'&&match[2])return respond(res,200,await system.tasks.cancel(options));
+    if(req.method==='GET'&&!match[2])
+     return respond(res,200,durableAdvice
+      ?await durableAdvice.inspect({...options,subject})
+      :await system.tasks.inspect(options));
+    if(req.method==='POST'&&match[2])
+     return respond(res,200,durableAdvice
+      ?await durableAdvice.cancel({...options,subject})
+      :await system.tasks.cancel(options));
+    if(req.method==='DELETE'&&!match[2]&&durableAdvice)
+     return respond(res,200,await durableAdvice.purge({...options,subject}));
    }
    return respond(res,404,{error:'NOT_FOUND'});
   }catch(e){
    const code=String(e?.message||'');
    if(code==='UNSUPPORTED_MEDIA_TYPE')return respond(res,415,{error:'JSON_REQUIRED'});
    if(['INVALID_BODY','INVALID_CONSENT_TTL','INVALID_TOOL_ARGUMENTS','INVALID_PAYLOAD',
-       'IDEMPOTENCY_KEY_REQUIRED','IDEMPOTENCY_CONFLICT'].includes(code))
+       'INVALID_ADVICE_REQUEST','IDEMPOTENCY_KEY_REQUIRED','IDEMPOTENCY_CONFLICT'].includes(code))
     return respond(res,400,{error:'INVALID_REQUEST'});
-   if(['ACCESS_DENIED','GRANT_INVALID','GRANT_REVOKED'].includes(code))
+   if(['ACCESS_DENIED','GRANT_INVALID','GRANT_REVOKED','AI_CONSENT_REQUIRED'].includes(code))
     return respond(res,403,{error:'ACCESS_DENIED'});
    if(['JOB_NOT_FOUND','UNKNOWN_TOOL'].includes(code))
     return respond(res,404,{error:'NOT_FOUND'});
