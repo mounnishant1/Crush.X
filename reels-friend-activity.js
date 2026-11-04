@@ -132,6 +132,12 @@
     var action = type === 'repost' ? 'reposted' : 'liked';
     var sheet = document.createElement('dialog');
     activeSheet = sheet;
+    var currentSlide = Array.from(document.querySelectorAll('[data-reel-slide]')).find(function (node) {
+      return node.dataset.reelSlide === reelId;
+    });
+    var currentVideo = currentSlide && currentSlide.querySelector('video');
+    var shouldResume = !!(currentVideo && !currentVideo.paused);
+    if (shouldResume) currentVideo.pause();
     sheet.className = 'cx-friend-sheet';
     sheet.setAttribute('aria-label', 'Reply to @' + actor.username);
     sheet.innerHTML =
@@ -161,6 +167,9 @@
       if (activeSheet === sheet) activeSheet = null;
       sheet.remove();
       if (opener && opener.isConnected) opener.focus();
+      if (shouldResume && currentVideo && currentVideo.isConnected && getState().activeTab === 'reels') {
+        currentVideo.play().catch(function () {});
+      }
     });
     sheet.querySelector('[data-cx-close]').addEventListener('click', closeSheet);
     sheet.querySelector('[data-cx-view-profile]').addEventListener('click', function () {
@@ -168,7 +177,7 @@
     });
     var input = sheet.querySelector('[data-cx-reply-input]');
     var status = sheet.querySelector('[data-cx-reply-status]');
-    function saveDraft(message, reaction) {
+    function saveDraft(message) {
       var clean = String(message || '').trim().slice(0, 500);
       if (!clean) { input.focus(); return false; }
       var preface = type === 'repost' ? 'About your sample Reel repost: ' : 'About the Reel you liked: ';
@@ -176,17 +185,19 @@
       if (!count) { status.textContent = 'Unable to save draft. Try again.'; return false; }
       status.textContent = 'DM draft saved locally. Nothing was sent.';
       input.value = '';
-      if (reaction) showEmojiPreview(reaction);
       return true;
     }
     sheet.querySelector('[data-cx-reply-form]').addEventListener('submit', function (event) {
-      event.preventDefault(); saveDraft(input.value, null);
+      event.preventDefault(); saveDraft(input.value);
     });
     sheet.querySelectorAll('[data-cx-emoji]').forEach(function (button) {
-      button.addEventListener('click', function () { saveDraft(button.dataset.cxEmoji, button.dataset.cxEmoji); });
+      button.addEventListener('click', function () {
+        var emoji = button.dataset.cxEmoji;
+        if (saveDraft(emoji)) { closeSheet(); showEmojiPreview(emoji); }
+      });
     });
     sheet.querySelector('[data-cx-open-dm]').addEventListener('click', function () {
-      if (input.value.trim()) saveDraft(input.value, null);
+      if (input.value.trim()) saveDraft(input.value);
       closeSheet();
       navigate('messages', actorId);
     });
@@ -214,6 +225,7 @@
   };
 
   window.addEventListener('popstate', function () {
+    if (activeSheet) closeSheet();
     if (!returnReelId) return;
     var id = returnReelId;
     requestAnimationFrame(function () {
