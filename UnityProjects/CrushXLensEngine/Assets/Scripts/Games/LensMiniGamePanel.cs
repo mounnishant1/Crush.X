@@ -16,6 +16,7 @@ namespace CrushX.LensEngine
         private double trailUntil;
         private bool slicingGesture;
         private bool highScoreSaved;
+        private bool manuallyPaused;
         public bool IsOpen { get; private set; }
         public LensMiniGameCore Game { get { return core; } }
         public bool IsCuttingGame { get { return IsOpen && core.IsPlaying && core.IsSlicingGame; } }
@@ -93,27 +94,29 @@ namespace CrushX.LensEngine
             CancelCut();
             catalogScroll = Vector2.zero;
             highScoreSaved = false;
+            manuallyPaused = false;
         }
 
         public void ClosePanel()
         {
             IsOpen = false;
             CancelCut();
+            manuallyPaused = false;
             core.ReturnToCatalog();
         }
 
         public bool Back()
         {
             if (!IsOpen) return false;
-            if (core.Phase != MiniGamePhase.Catalog) { CancelCut(); core.ReturnToCatalog(); }
-            else { CancelCut(); IsOpen = false; }
+            if (core.Phase != MiniGamePhase.Catalog) { CancelCut(); manuallyPaused = false; core.ReturnToCatalog(); }
+            else { CancelCut(); manuallyPaused = false; IsOpen = false; }
             return true;
         }
 
         public void FocusChanged(bool focused, double time)
         {
             if (!IsOpen) return;
-            if (focused) core.Resume(time);
+            if (focused) { if (!manuallyPaused) core.Resume(time); }
             else { CancelCut(); core.Pause(time); }
         }
 
@@ -145,7 +148,16 @@ namespace CrushX.LensEngine
             GUI.color = old;
 
             if (GUI.Button(new Rect(12, 12, 82, 46), "Back", button)) Back();
-            GUI.Label(new Rect(100, 12, Mathf.Max(100, w - 112), 44), "Crush.X Games", title);
+            GUI.Label(new Rect(100, 12, Mathf.Max(90, w - 204), 44), "Crush.X Games", title);
+            if (core.IsPlaying)
+            {
+                if (GUI.Button(new Rect(w - 96, 12, 84, 46),
+                    core.Paused ? "Resume" : "Pause", button))
+                {
+                    if (core.Paused) { manuallyPaused = false; core.Resume(now); }
+                    else { manuallyPaused = true; CancelCut(); core.Pause(now); }
+                }
+            }
 
             if (core.Phase == MiniGamePhase.Catalog) DrawCatalog(w, h, title, status, button, small);
             else DrawGame(w, h, title, status, button, small, faceTracking);
@@ -189,6 +201,7 @@ namespace CrushX.LensEngine
                     core.Start(def.Id, now);
                     CancelCut();
                     highScoreSaved = false;
+                    manuallyPaused = false;
                     GUI.FocusControl(null);
                 }
                 index++;
@@ -224,9 +237,9 @@ namespace CrushX.LensEngine
                 GUI.Label(new Rect(20, h * .48f, w - 40, 55),
                     "Final score: " + core.Score + "    Misses: " + core.Mistakes, status);
                 if (GUI.Button(new Rect(22, h * .65f, w - 44, 56), "Play again", button))
-                { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; }
+                { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; manuallyPaused = false; }
                 if (GUI.Button(new Rect(22, h * .65f + 70, w - 44, 56), "All games", button))
-                { CancelCut(); core.ReturnToCatalog(); }
+                { CancelCut(); manuallyPaused = false; core.ReturnToCatalog(); }
                 return;
             }
 
