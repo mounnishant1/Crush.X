@@ -5,6 +5,7 @@
 - User-uploaded ZIP: `CrushX-Step405-HIGHLIGHT-PHOTO-COVER-SAFE-PATCH(1).zip`
 - Original ZIP SHA-256: `53fbf006b5103d601311040244be83d27bd49dfa63dff5cefea3654696087834`
 - Step405 patch was authored against **older React/Capacitor v402 Step65 source**, not the Step252 Windows latest checkout.
+- Combined Step406 ZIP SHA-256: `cfcf44ff29e136b33e2f2f26e91de4b7e3847ea065f0d6e9b6b40a5c912959bd` (file delivered in ChatGPT conversation; not installed on the Windows F: drive).
 - The Step252 GitHub browser+OS+Unity tree **does not contain** `frontend/src/components/StoryLibrary.jsx`, `frontend/src/lib/highlight-viewer-v358.mjs`, `frontend/src/profile-highlights-v320.css` or `backend/social/story-library.mjs`. Do not add orphan files to the GitHub root and call the Android app integrated.
 
 ## Safe merge deliverable (generated in conversation)
@@ -25,8 +26,9 @@ Payload: 4 modified source files + 2 new unit tests. No GitHub app feature file 
 
 - Uploaded archive path/CRC/manifest SHA: PASS.
 - Reverse + forward patch roundtrip to the exact target: PASS.
-- 7/7 synthetic safe-merge tests: PASS.
+- 7/7 dedicated synthetic merge safety tests: PASS; plus 1 backend contract fixture runner: PASS.
 - 2/2 frontend cover URL unit tests: PASS.
+- 6/6 backend cover contract tests with **explicit test doubles** for settings/audience dependencies: PASS; not cloud end-to-end.
 - Provided backend/JS module syntax checks: PASS.
 
 ## Remaining release gates
