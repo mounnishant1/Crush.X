@@ -18,11 +18,12 @@ function cleanTopics(value) {
   throw Error('TOPICS_INVALID');
  return [...new Set(value)];
 }
-const ELIGIBLE="c.status='published' AND c.moderation='approved' AND "+
+const EVENT_ELIGIBLE="c.status='published' AND c.moderation='approved' AND "+
  "(c.visibility='public' OR (c.visibility='self' AND c.creator_subject=$1)) "+
  "AND (c.expires_at IS NULL OR c.expires_at>NOW()) "+
- "AND NOT EXISTS(SELECT 1 FROM cx_content_blocks b WHERE b.subject=$1 AND b.blocked_creator=c.creator_subject) "+
- "AND NOT EXISTS(SELECT 1 FROM cx_content_hides h WHERE h.subject=$1 AND h.content_id=c.content_id)";
+ "AND NOT EXISTS(SELECT 1 FROM cx_content_blocks b WHERE b.subject=$1 AND b.blocked_creator=c.creator_subject)";
+const ELIGIBLE=EVENT_ELIGIBLE+
+ " AND NOT EXISTS(SELECT 1 FROM cx_content_hides h WHERE h.subject=$1 AND h.content_id=c.content_id)";
 const PROJECT="c.content_id,c.creator_subject,c.kind,c.status,c.moderation,c.visibility,"+
  "c.title,c.caption,c.transcript,c.topics,"+
  "EXTRACT(EPOCH FROM c.published_at)*1000 AS published_ms,"+
@@ -118,7 +119,7 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
    'EXTRACT(EPOCH FROM e.occurred_at)*1000 AS at_ms FROM cx_content_events e '+
    'JOIN cx_content_catalog c ON c.content_id=e.content_id '+
    'JOIN cx_content_preferences p ON p.subject=$1 AND p.can_read AND p.can_personalize '+
-   'WHERE e.subject=$1 AND '+ELIGIBLE+
+   'WHERE e.subject=$1 AND '+EVENT_ELIGIBLE+
    ' ORDER BY e.occurred_at DESC,e.event_id LIMIT $2',[subject,limit]);
   return (result.rows||[]).map(row=>({viewerId:subject,action:row.action,contentId:row.content_id,
    creatorId:row.creator_subject,topics:Array.isArray(row.topics)?row.topics.filter(t=>SAFE.has(t)):[],
@@ -143,6 +144,14 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
    const prefs=await client.query('SELECT can_read,can_personalize FROM cx_content_preferences WHERE subject=$1 FOR UPDATE',[subject]);
    if(prefs.rows?.[0]?.can_read!==true||prefs.rows?.[0]?.can_personalize!==true)
     throw Error('PERSONALIZATION_CONSENT_REQUIRED');
+   const prior=await client.query(
+    'SELECT content_id,action FROM cx_content_events WHERE subject=$1 AND event_id=$2',
+    [subject,event.eventId]);
+   if(prior.rows?.[0]){
+    if(prior.rows[0].content_id!==event.contentId||prior.rows[0].action!==event.action)
+     throw Error('ENGAGEMENT_EVENT_CONFLICT');
+    return Object.freeze({recorded:false,duplicate:true});
+   }
    const media=await client.query('SELECT c.content_id,c.creator_subject,c.topics,c.kind FROM cx_content_catalog c '+
     'WHERE '+ELIGIBLE+' AND c.content_id=$2 LIMIT 1',[subject,event.contentId]);
    const source=media.rows?.[0];
