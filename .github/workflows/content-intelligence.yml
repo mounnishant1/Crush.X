@@ -21,6 +21,8 @@ jobs:
       - name: Validate content modules
         run: |
           node --check operating-system/http/content-handler.cjs
+          node --check content-api-client.js
+          node --test tests/content-api-client.test.cjs
           node --check operating-system/storage/postgres-content-store.cjs
           node --check operating-system/integration/content-postgres.integration.cjs
           node --check operating-system/tests/content-http.test.cjs
