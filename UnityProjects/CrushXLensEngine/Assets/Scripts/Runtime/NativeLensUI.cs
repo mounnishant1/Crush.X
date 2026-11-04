@@ -23,6 +23,11 @@ namespace CrushX.LensEngine
         private int timerSeconds;
 
         public bool SearchVisible { get { return searchVisible; } }
+        public bool GameIsOpen { get { return gamePanel.IsOpen; } }
+        public bool BeginGameCut(Vector2 position) { return gamePanel.BeginCut(position); }
+        public void MoveGameCut(Vector2 position) { gamePanel.MoveCut(position); }
+        public void EndGameCut(Vector2 position, bool canceled) { gamePanel.EndCut(position, canceled); }
+        public void CancelGameCut() { gamePanel.CancelCut(); }
         public Rect CameraGestureRect
         {
             get
@@ -368,6 +373,7 @@ namespace CrushX.LensEngine
         {
             if (dark != null) Destroy(dark);
             if (shutter != null) Destroy(shutter);
+            gamePanel.Dispose();
         }
     }
 }
