@@ -90,6 +90,8 @@ state.activeTab = 'home';
 assert.equal(notify({ ...payload, id: 'switch-to-chat', type: 'message' }), true);
 panel = nodes[0].children[0];
 state.activeTab = 'messages'; state.chatUserId = 'u1';
+const exitsBefore = new Set([...scheduled.entries()].filter(([, task]) => task.delay === 290).map(([id]) => id));
 listeners['crushx:conversation-opened']();
-assert.equal([...scheduled.values()].some(t => t.delay === 290), true, 'popup starts dismiss animation when chat opens');
+assert.equal([...scheduled.entries()].some(([id, task]) => task.delay === 290 && !exitsBefore.has(id)), true,
+  'opening the conversation schedules a new dismissal for its active popup');
 console.log('Heads-up: reel, message, dedupe, open-chat suppression, thread routing, 3.9s timing, tap navigation, escaped rendering, recipient/mute checks, session cleanup PASS');
