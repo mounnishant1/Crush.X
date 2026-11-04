@@ -62,12 +62,14 @@ namespace CrushX.LensEngine.Tests
         {
             var core = Find(SliceMode.FruitRush, g => g.Objects.Any(x => !x.Bomb && x.Y < 1));
             SliceObject fruit = core.Objects.First(x => !x.Bomb && x.Y < 1);
-            DrawAcross(core, fruit);
-            Assert.GreaterOrEqual(core.Sliced, 1);
+            double x0 = Math.Max(.005, fruit.X - fruit.Radius * 1.15);
+            double x1 = Math.Min(.995, fruit.X + fruit.Radius * 1.15);
+            Assert.IsTrue(core.BeginStroke(x0, fruit.Y));
+            Assert.GreaterOrEqual(core.MoveStroke(x0, fruit.Y, x1, fruit.Y), 1);
             int score = core.Score;
-            Assert.IsFalse(core.SliceForTest(Math.Max(.005, fruit.X - .06), fruit.Y,
-                Math.Min(.995, fruit.X + .06), fruit.Y) && core.Score > score);
+            Assert.AreEqual(0, core.MoveStroke(x0, fruit.Y, x1, fruit.Y));
             Assert.AreEqual(score, core.Score);
+            core.EndStroke();
         }
 
         [Test]
