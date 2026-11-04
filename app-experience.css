@@ -228,3 +228,26 @@
  .cx-permissions-dialog>section,.cx-activity-fullscreen>section { max-width:none; padding-inline:13px; }
  .cx-activity-fullscreen .social-notif-tabs button { min-height:44px; }
 }
+
+/* Step252 local-only Repost action: no extra popup dots and no second Reel player. */
+.reel-rail { max-height:72%; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; gap:4px; }
+.reel-rail::-webkit-scrollbar { display:none; }
+.reel-rail button { min-height:41px; }
+.reel-rail .reel-repost-action[aria-pressed="true"] { color:#fff; }
+.reel-repost-action svg { transform-origin:center; }
+.reel-repost-action.repost-spin svg { animation:crushx-repost-spin .52s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes crushx-repost-spin {
+  0% { transform:rotate(0) scale(.88); }
+  65% { transform:rotate(310deg) scale(1.18); }
+  100% { transform:rotate(360deg) scale(1); }
+}
+.reel-repost-toast { position:absolute; z-index:6; left:50%; bottom:21%; max-width:calc(100% - 112px);
+  padding:10px 14px; border:1px solid #ffffff44; border-radius:999px; background:#151515e8;
+  color:#fff; font-size:12px; font-weight:700; text-align:center; pointer-events:none;
+  opacity:0; transform:translate(-50%,10px); transition:opacity .16s ease,transform .16s ease; }
+.reel-repost-toast.is-visible { opacity:1; transform:translate(-50%,0); }
+.reel-repost-toast[hidden] { display:none; }
+@media(prefers-reduced-motion:reduce) {
+  .reel-repost-action.repost-spin svg { animation:none; }
+  .reel-repost-toast { transition:none; }
+}
