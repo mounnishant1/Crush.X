@@ -34,7 +34,7 @@ function createAuraHttpHandler({system,verifyCredential,allowedOrigins=[],now=Da
    if(origin){
     res.setHeader('access-control-allow-origin',origin);
     res.setHeader('vary','Origin');
-    res.setHeader('access-control-allow-methods','GET, POST, OPTIONS');
+    res.setHeader('access-control-allow-methods','GET, POST, DELETE, OPTIONS');
     res.setHeader('access-control-allow-headers','Authorization, Content-Type');
    }
    if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
@@ -67,6 +67,28 @@ function createAuraHttpHandler({system,verifyCredential,allowedOrigins=[],now=Da
      args,resourceOwner:input.workflow==='owner'?undefined:subject,idempotencyKey:input.requestId});
     return send(res,202,job);
    }
+   // Client telemetry cannot directly invent watch events: a trusted
+   // backend collector must validate and submit interest signals.
+   if(req.method==='GET'&&/^\/v1\/feed\/(home|reels|explore|stories|posts)$/.test(url.pathname)){
+    if(!system.feed)return send(res,503,{error:'SERVICE_UNAVAILABLE'});
+    const feed=url.pathname.split('/')[3];
+    const limit=url.searchParams.has('limit')?Number(url.searchParams.get('limit')):20;
+    if(!Number.isInteger(limit)||limit<1||limit>50)return send(res,400,{error:'INVALID_REQUEST'});
+    return send(res,200,await system.feed.recommend({credential,subject,feed,limit}));
+   }
+   if(req.method==='DELETE'&&url.pathname==='/v1/feed/history'){
+    if(!system.feed)return send(res,503,{error:'SERVICE_UNAVAILABLE'});
+    return send(res,200,await system.feed.erase({credential,subject}));
+   }
+   if(req.method==='POST'&&url.pathname==='/v1/media/analyze'){
+    if(!system.media)return send(res,503,{error:'SERVICE_UNAVAILABLE'});
+    if(!/^application\/json(?:;|$)/i.test(req.headers['content-type']||''))
+     return send(res,415,{error:'JSON_REQUIRED'});
+    const input=await readJson(req);
+    if(Object.keys(input).length!==1||typeof input.mediaId!=='string')
+     return send(res,400,{error:'INVALID_REQUEST'});
+    return send(res,200,await system.media.analyze({credential,subject,mediaId:input.mediaId}));
+   }
    const match=/^\/v1\/aura\/jobs\/([0-9a-f-]{36})(\/cancel)?$/i.exec(url.pathname);
    if(match&&uuid.test(match[1])){
     const opts={credential,jobId:match[1]};
@@ -79,9 +101,9 @@ function createAuraHttpHandler({system,verifyCredential,allowedOrigins=[],now=Da
    if(['BODY_TOO_LARGE','INVALID_JSON','INVALID_TOOL_ARGUMENTS','INVALID_PAYLOAD',
      'IDEMPOTENCY_KEY_REQUIRED','IDEMPOTENCY_CONFLICT'].includes(code))
     return send(res,400,{error:'INVALID_REQUEST'});
-   if(['ACCESS_DENIED','GRANT_INVALID','GRANT_REVOKED'].includes(code))
+   if(['ACCESS_DENIED','GRANT_INVALID','GRANT_REVOKED','MEDIA_CONSENT_REQUIRED','INTEREST_CONSENT_REQUIRED'].includes(code))
     return send(res,403,{error:'ACCESS_DENIED'});
-   if(code==='JOB_NOT_FOUND'||code==='UNKNOWN_TOOL')
+   if(code==='JOB_NOT_FOUND'||code==='UNKNOWN_TOOL'||code==='MEDIA_NOT_OWNED_OR_READY')
     return send(res,404,{error:'NOT_FOUND'});
    return send(res,503,{error:'SERVICE_UNAVAILABLE'});
   }
