@@ -92,9 +92,9 @@ namespace CrushX.LensEngine.Tests
             Assert.AreEqual(0, CrushXCameraSwipe.SwipeStep(Vector2.zero, new Vector2(90, 200), 440));
         }
 
-        [TestCase(100f, 0f, 1)]
-        [TestCase(1000f, 0f, 1)]
-        [TestCase(-1000f, 0f, -1)]
+        [TestCase(100f, 0f, -1)]
+        [TestCase(1000f, 0f, -1)]
+        [TestCase(-1000f, 0f, 1)]
         [TestCase(30f, 0f, 0)]
         [TestCase(100f, 100f, 0)]
         [TestCase(0f, 150f, 0)]

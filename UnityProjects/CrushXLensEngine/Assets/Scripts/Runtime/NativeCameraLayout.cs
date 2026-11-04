@@ -46,7 +46,7 @@ namespace CrushX.LensEngine
         public Rect CameraGesture(bool searchVisible)
         {
             float bottom = searchVisible ? Search.yMin : Tabs.yMin;
-            return new Rect(12, 156, Width - 24, Mathf.Max(0, bottom - 166));
+            return new Rect(12, 252, Width - 24, Mathf.Max(0, bottom - 262));
         }
         public Vector2 ToGui(Vector2 screenPosition, float screenHeight)
         {

@@ -23,6 +23,16 @@ def guid_map():
     return result
 
 class UnitySourceTests(unittest.TestCase):
+    def test_microphone_request_exception_cannot_leave_capture_preparing(self):
+        # Source regression only: no Android permission API is simulated or run here.
+        capture=source('Scripts/Capture/NativeMediaCapture.cs')
+        request=capture.split('private IEnumerator MicrophonePermission(int token)',1)[1].split('#endif',1)[0]
+        self.assertRegex(request,r'try\s*\{\s*Permission\.RequestUserPermission\(Permission\.Microphone, callbacks\);\s*requestStarted = true;\s*\}\s*catch \(Exception ex\) \{ Fail\(')
+        self.assertIn('if (!requestStarted) yield break;',request)
+        failure=capture.split('private void Fail(string message)',1)[1].split('private static void Notify',1)[0]
+        self.assertIn('WaitingForMicrophonePermission = false;',failure)
+        self.assertIn('SetState(MediaCaptureState.Error, message);',failure)
+
     def test_metadata_and_asset_guid_integrity(self):
         mapping=guid_map()
         self.assertTrue(mapping)
@@ -121,7 +131,7 @@ class UnitySourceTests(unittest.TestCase):
         self.assertIn('RequireComponent(typeof(CrushXCameraSwipe))',ui)
         self.assertIn('gameObject.AddComponent<CrushXCameraSwipe>()',ui)
         self.assertNotIn('engine.Step(',ui)
-        self.assertIn('if (canceled) return;',swipe)
+        self.assertIn('if (canceled) { if (carousel != null) carousel.CancelDrag(); return; }',swipe)
         self.assertIn('pressed > 1',swipe)
         self.assertIn('Touchscreen.current',swipe)
         self.assertIn('ENABLE_LEGACY_INPUT_MANAGER',swipe)

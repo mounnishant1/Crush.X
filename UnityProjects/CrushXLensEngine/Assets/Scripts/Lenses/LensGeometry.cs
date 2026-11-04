@@ -45,7 +45,11 @@ namespace CrushX.LensEngine
             obj.transform.localScale = scale;
             if (rotation.HasValue) obj.transform.localRotation = Quaternion.Euler(rotation.Value);
             Collider collider = obj.GetComponent<Collider>();
-            if (collider != null) Object.Destroy(collider);
+            if (collider != null)
+            {
+                if (Application.isPlaying) Object.Destroy(collider);
+                else Object.DestroyImmediate(collider);
+            }
             obj.GetComponent<MeshRenderer>().sharedMaterial = MakeMaterial(color);
             return obj.transform;
         }

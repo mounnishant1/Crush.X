@@ -9,14 +9,22 @@ namespace CrushX.LensEngine
         public virtual void OnSelected() { }
         public virtual void OnDeselected() { }
         public virtual void Animate(FaceSample face, float elapsedSeconds) { }
-        protected virtual void OnDestroy()
+        private bool resourcesReleased;
+        public virtual void ReleaseResources()
         {
+            if (resourcesReleased) return;
+            resourcesReleased = true;
             foreach (MeshFilter filter in GetComponentsInChildren<MeshFilter>(true))
             {
                 Mesh mesh = filter.sharedMesh;
-                if (mesh != null && (mesh.name.EndsWith("-torus") || mesh.name.EndsWith("-mesh"))) Destroy(mesh);
+                if (mesh != null && (mesh.name.EndsWith("-torus") || mesh.name.EndsWith("-mesh")))
+                {
+                    filter.sharedMesh = null;
+                    if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh);
+                }
             }
         }
+        protected virtual void OnDestroy() { ReleaseResources(); }
 
         protected Transform Piece(string name, PrimitiveType type, Vector3 position, Vector3 scale, Color color, Vector3? rotation = null)
         { return LensGeometry.Add(transform, name, type, position, scale, color, rotation); }
@@ -42,8 +50,9 @@ namespace CrushX.LensEngine
         }
         public override void Animate(FaceSample face, float t)
         {
-            left.localRotation = Quaternion.Euler(0, 0, -7 + Mathf.Sin(t * 3) * 5);
-            right.localRotation = Quaternion.Euler(0, 0, 7 - Mathf.Sin(t * 3) * 5);
+            float brow = face.Expressions.TryGet(ExpressionSignal.BrowRaise, out float measured) ? measured * 12 : 0;
+            left.localRotation = Quaternion.Euler(0, 0, -7 + Mathf.Sin(t * 3) * 5 - brow);
+            right.localRotation = Quaternion.Euler(0, 0, 7 - Mathf.Sin(t * 3) * 5 + brow);
         }
     }
 
@@ -65,7 +74,9 @@ namespace CrushX.LensEngine
         {
             left.localRotation = Quaternion.Euler(0, 0, -32 - Mathf.Sin(t * 7) * 6);
             right.localRotation = Quaternion.Euler(0, 0, 32 + Mathf.Sin(t * 7) * 6);
-            tongue.localScale = new Vector3(.055f, .025f + face.MouthOpen * .16f, .035f);
+            bool available = face.Expressions.TryGet(ExpressionSignal.MouthOpen, out float mouth);
+            tongue.gameObject.SetActive(available && mouth > .08f);
+            tongue.localScale = new Vector3(.055f, .025f + mouth * .16f, .035f);
         }
     }
 
@@ -176,7 +187,8 @@ namespace CrushX.LensEngine
         }
         public override void Animate(FaceSample face, float t)
         {
-            float blink = face.Blink > .5f || Mathf.Sin(t * .65f) > .995f ? .01f : .065f;
+            bool closed = face.Expressions.TryGet(ExpressionSignal.Blink, out float measured) && measured > .5f;
+            float blink = closed ? .01f : .065f;
             leftEye.localScale = new Vector3(.075f, blink, .018f);
             rightEye.localScale = new Vector3(.075f, blink, .018f);
         }
@@ -245,7 +257,8 @@ namespace CrushX.LensEngine
         }
         public override void Animate(FaceSample face, float t)
         {
-            float expression = Mathf.Max(.1f, face.MouthOpen);
+            bool available = face.Expressions.TryGet(ExpressionSignal.MouthOpen, out float expression);
+            flame.gameObject.SetActive(available && expression > .08f);
             flame.localScale = new Vector3(1 + Mathf.Sin(t * 14) * .2f, expression, 1);
         }
     }

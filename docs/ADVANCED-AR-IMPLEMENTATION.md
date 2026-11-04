@@ -1,0 +1,314 @@
+# Advanced AR implementation — 31 October 2026
+
+Development branch: `feature/crushx-advanced-ar-lens-engine`. No merge, deployment,
+live AWS mutation or device installation is part of this work.
+
+## Verified source baseline
+
+Repository `/workspace/Crush.X`, remote `mounnishant1/Crush.X`.
+Initial clean branch `work`: `a4135f99987601e3fbcf6bbaa0b5af8c7598e8e1`.
+Fetched and compared every advertised remote branch. Selected the latest cumulative
+development tree, `origin/fix/reel-swipe-no-ghost-audio-20261028` at
+`da22abcbc2d4ec1a39380f57567566683aedb3d3`, rather than older `main`.
+
+Compared the divergent Unity implementation at `c9a91fb` and its subsequent
+Android repair branch `928a57a`. Those contain useful capture, filters, diagnostics
+and fit improvements, but replacing the current tree would remove newer permission,
+delayed rig binding and touch identity fixes. Reconciliation is selective.
+
+The workspace and fetched trees contain **no complete v402 or newer Android app**:
+no original full-source ZIP, React frontend package/src, Capacitor Android host or
+application Gradle tree. The v402 branches hold audit/preflight tooling, not that
+application. Existing `STEP12-V402-SOURCE-HANDOFF-AUDIT.md` corroborates this.
+The available source is a browser sample and Unity engine. No historical v402 test
+counts establish a result for this branch.
+
+Inspected the browser camera/navigation/editors, all Unity runtime/bridge/capture/
+tracking/lens/scene builder scripts, shaders, imported Fox references, XR/player/
+renderer/package configuration and existing tests. The source inventory is
+`ADVANCED-AR-SOURCE-BASELINE.json` (hashes identify the baseline, not new changes).
+
+## Build and integration limits
+
+Unity `6000.0.30f1`, AR Foundation/ARCore `6.0.8`, URP package `17.0.3`.
+The selected active renderer is Built-in. URP installation alone does not enable
+URP rendering. No licensed Unity Editor, Android Build Support/SDK, signing setup,
+ADB or OnePlus device is attached. Host .NET, Java reference compilation, Python,
+Node and mocked browser tests can run; none substitutes for Unity import or APK QA.
+
+No MediaPipe runner, facial blendshape model, segmentation/hair/hand/body models or
+their redistribution licenses are supplied. Existing Fox OBJ/texture/prefab bytes
+are preserved; their provenance/license still needs review. Procedural lenses
+remain explicitly labeled prototypes.
+
+Actual host integration requires the missing React/Capacitor routes/editors,
+Unity Activity launcher/result callback, an `ILensComposerHost` implementation,
+FileProvider/content-URI handoff, durable draft/media ownership, gallery import,
+account-scoped catalogue/personalization and verified authenticated publishing
+contracts. Existing browser navigation and disabled publication are preserved.
+
+## Verification interpretation
+
+`IMPLEMENTED` means source exists. `TESTED` always names the executed environment.
+Unity shaders, XR APIs, native permissions/codecs, output decoding/orientation/audio
+sync and sustained 30/60 FPS require separate Unity/Android/device evidence.
+No such target is claimed from host source checks.
+
+Baseline host results: 69 Python checks passed (including optional C# syntax parser
+under six define sets); 23 Node cases passed. Native Java reference compilation and
+8 conversion cases passed with three pre-existing YUV format deprecation warnings.
+Mocked browser suites run with network writes blocked. Later phase entries record
+the results after changes.
+
+## Phase 1 — camera and input repair
+
+**IMPLEMENTED** on verified baseline `da22abc`, feature branch above. Added exclusive
+AR/native camera ownership, actual facing/frame readiness, bounded startup/frozen
+frame recovery, permission/background teardown, front preference with native
+fallback after AR release, quarter-turn/inversion/selfie-mirror/aspect-fill
+transforms, camera switch/retry controls, safe-area gesture cancellation and
+carousel release animation. Retained late rig/UI recovery and touch identity fixes.
+Removed an obsolete camera permission callback. Fixed reversed swipe expectations
+in three pre-existing Unity test cases; leftward swipes advance one lens.
+
+Inspected/changed `LensEngineBootstrap`, permission gate, swipe, carousel, native UI,
+and interaction tests. WebCamTexture uses the existing Audio module; no package was added. Created `CameraSessionController`,
+`CameraRecoveryPolicy`, `CameraPreviewTransform`, `LensSwipePolicy`, the retained
+native background shader, host .NET runner/tests and this source report/inventory.
+
+**TESTED (host):** 69 Python tests PASS, six C# define sets parsed; actual pure C#
+policies + existing diagnostic classifier compiled on .NET 8, 38/38 NUnit cases PASS,
+zero warnings/errors; `git diff --check` PASS. No Unity stubs used.
+Camera recovery/UV/swipe policy behavior is executable and tested on host.
+
+**BLOCKED:** Unity import, shader compilation and device preview/orientation/
+switch/lifecycle evidence. Native fallback provides real camera pixels only;
+face/hand/body inference remains unavailable without its runner/models.
+AR background orientation stays under AR Foundation's provider display transform;
+native UV correction is not applied twice to AR pixels. ARCore front support is
+never inferred from the request; a mismatched actual direction cannot become ready.
+Next phase: tracking validity, identity, smoothing and real expression ingress.
+
+Phase commit: `b4cbe3d4eba4155ccb1c2fe97da4bdf1dd0fd9c2`.
+
+## Phase 2 — tracking and expression validity
+
+**IMPLEMENTED** after Phase 1 on the same verified repository/feature branch.
+Stable AR face identity and update-event snapshots, finite pose validation,
+normalized rotations, stale/repeated/future/out-of-order rejection, identity-aware
+pose/width/expression smoothing, tracking expiry/reacquisition and per-channel
+expression validity. Added a local blendshape ingress adapter with strict face ID,
+time-skew and confidence matching. It maps genuine supplied coefficients and never
+manufactures missing model output. AR tracking-state confidence is explicitly
+marked unmeasured. Provider capabilities remain conditional on real support.
+
+Also completed the Phase 1 frame-adapter review fix: textureless callbacks and
+duplicate sensor timestamps cannot sustain preview readiness. Readiness requires
+an accepted image reaching the configured AR background render callback.
+
+Inspected/changed Core `FaceSample`, all tracking adapters/manager/mock, camera
+session adapter and PlayMode fixture. Created `TrackingSampleGate`,
+`FaceExpressions`, `BlendshapeTrackingProvider`, `CameraFrameFreshness`, portable
+expression/tracking tests, Unity manager tests and `ADVANCED-AR-TRACKING.md`.
+
+**TESTED (host):** Python suite 69/69 PASS; actual pure C# core 59/59 NUnit cases
+PASS, build zero warnings/errors; patch whitespace PASS. The 59 include the prior
+38, six new camera-frame cases and fifteen tracking/expression cases; reruns are
+not additional test cases. Unity-dependent manager and PlayMode tests were authored
+but not executed. Exact ARFace/frame event APIs checked against AR Foundation 6.0.8.
+
+**BLOCKED:** actual model inference, semantic facial landmark/eye accuracy, physical
+tracking and latency/multi-face validation. No model/runner is supplied. The
+implemented adapter and mapping policies work with validated inputs; they do not
+establish on-device inference. See tracking document for exact acquisition and
+association requirements. Next phase: calibrated 3D lens attachment and expression
+consumers, preserving supplied Fox assets.
+
+Phase commit: `7218344c38cdc3154a439f0649bfb7ca7196e290`.
+
+## Phase 3 — 3D lens attachment and expressions
+
+**IMPLEMENTED** on the same branch after Phase 2. Procedural Fox/Cat/accessory
+geometry now converts its 0.54-unit mock-head width to measured metre-based face
+width (0.08–0.25m accepted; conservative 0.145m reference when unavailable).
+Synthetic Editor demonstrations retain their original scale. Imported prefabs
+retain their authored calibration. Pose application runs in LateUpdate after
+tracking updates. New lens activation is transactional; failed activation restores
+the prior selection, and a failed restore stays visibly failed until retry.
+Generated mesh release is explicit and idempotent.
+
+Puppy tongue and Dragon flame require a valid mouth-open channel; robotic eyes
+require a genuine bilateral blink. Removed clock-generated blinks and forced
+minimum flame. Cat ears can react to available brow signals while retaining their
+ordinary authored idle animation. Async expression results can update a held pose
+without extending the pose lifetime (Phase 2 review followup).
+
+Inspected/changed `LensEffects`, bootstrap selection/attachment lifecycle,
+tracking manager and its tests. Created `LensAttachmentPolicy`, portable physical
+scale tests and Unity `ExpressionLensTests`; exposed read-only current face/active
+lens root for the later creator adapter. Existing imported Fox OBJ, texture,
+material, prefab and depth occlusion assets are unchanged.
+
+**TESTED (host):** 69 Python checks PASS; 65/65 actual C# NUnit cases PASS, zero
+build warnings/errors; patch whitespace PASS. Six new portable cases validate
+physical scaling and corrupt input fallback. Four new effect/render-object tests
+and the async manager regression require Unity and were **not executed** here.
+
+**BLOCKED:** visual alignment/occlusion/lighting/artistic quality on device; properly
+licensed, rigged artistic replacements for the ten procedural prototypes. No new
+premium art, face transformation model or production-ready rig is claimed. Existing
+per-trackable imported Fox attachments support only the face counts offered by
+the real subsystem. Next phase: GPU visual effects with honest model boundaries.
+
+Phase commit: `9dbd377c77a0cb906c6faf3e1f707849261607d3`.
+
+## Phase 4 — GPU visual effects
+
+**IMPLEMENTED** after Phase 3: one Built-in GPU compositor with 5/9/13-tap
+edge-aware masked skin smoothing, bounded skin tone, eye/lip/blush/hair effects,
+person-mask background blur/replacement and actual chroma compositing. Mask-specific
+effects require genuine source-owned confidence textures registered to the same
+camera/viewport and a fresh monotonic timestamp. Missing/stale masks bypass those
+effects. No inference is fabricated. Warm Cinema, Noir and Neon Duotone grading
+also work without masks in the same pass. Native controls cycle grade/quality;
+the adjustable beauty slider appears when a real skin mask is available.
+
+Inspected/created `Effects/GpuBeautyPipeline`, `VisualEffectPolicy`, retained
+`GpuBeautyComposite` shader, portable policy tests and
+`ADVANCED-AR-VISUAL-EFFECTS.md`. Bootstrap binds the current AR/native render camera,
+disables the old compositor and invalidates masks on camera lifecycle changes,
+retaining selected settings across switches. Shared safe-area layout reserves
+the effect controls. The pass runs before the existing media capture copy, omits
+camera UI and detaches when no effect is active; no CPU image processing was added.
+
+**TESTED (host):** 69 Python checks PASS, 70/70 actual C# NUnit cases PASS, zero
+build warnings/errors; patch whitespace PASS. Five new portable cases cover
+registration/freshness/finite parameters/quality/grade selection. Shader source
+reviewed; shader compilation and rendered appearance were **not tested**.
+
+**BLOCKED:** MediaPipe/segmentation/hair/hand/body model inference and licensed model
+assets; actual GPU/skin/mask alignment, visual fidelity and OnePlus measurements.
+No model files were added. Hand/body tracking, GPU particle simulation, advanced
+fire/smoke authoring and production rigged transformations are **NOT STARTED**
+beyond the existing procedural lens effects. URP renderer-feature integration is
+**BLOCKED** by the absent validated URP renderer; active Built-in rendering is
+preserved. Installed URP package alone does not establish URP support. See the
+visual-effects document for mask producer requirements and exact model boundaries.
+Next phase: real recording/export lifecycle and completed media handling.
+
+Phase commit: `12721e445f366ee9c3c8db049736a2e4fe33d344`.
+
+## Phase 5 — recording and export (continued 1 November 2026)
+
+**IMPLEMENTED** after Phase 4 on the same repository/feature branch. Reconciled
+real local video playback, pre-record microphone permission and retained Save
+failures from `928a57a`, preserving later camera/touch changes. Added actual-image
+and encoded-output watchdogs, session-generation interruption checks, capture/
+completion timestamps, frame readback-age PTS, configurable whole-image export
+flip, completed private draft persistence/recovery and explicit Android 29+
+MediaStore export. Photo/native fallback use the same rendered camera/effects
+path. Completed files survive navigation; explicit Retry discards the pending
+draft. The UI uses the tested shutter state machine, recording ring/duration,
+playback, microphone and mirror controls. No-rig native preview gets an audio
+listener when absent. Permission-request exceptions clear the waiting state.
+
+Inspected/changed `NativeMediaCapture`, result validation, native recorder,
+workflow metadata/native receiver, camera session, native UI, capture tests,
+package declarations and Java verifier. Created capture lifecycle/progress policy,
+`ShutterGesture`, `MediaPreviewPlayer`, async `CrushXGalleryExporter`, portable
+capture/shutter and native gallery tests, and `ADVANCED-AR-CAPTURE.md`.
+
+**TESTED (host):** 70 Python checks PASS (20 Unity source/asset/syntax checks),
+103/103 compiled C# NUnit cases PASS, zero build warnings/errors; Android API 34
+reference Java compilation PASS, 26 recorder + 26 gallery JVM cases PASS with
+three existing deprecated YUV-format warnings; patch whitespace PASS. The 33
+new C# cases test actual policy/container/shutter source. Java tests exercise
+conversion/path/size/copy/cancellation/timestamp/watchdog logic; they do not
+execute Android codecs or MediaStore. Unity integration fixtures remain unrun.
+
+**BLOCKED:** actual rendered PNG/MP4, hardware encoding, microphone synchronization,
+VideoPlayer decoding and gallery/provider acceptance on OnePlus. This remains a
+CPU byte-buffer recorder capped at 15 FPS, 1280 pixels and 30 seconds; no measured
+30/60 FPS recording or lip-sync claim. URP capture still rejects unsupported
+configuration explicitly. Full Story/Reel/Post editor handoff needs the missing
+native app host; metadata/events do not manufacture that integration. Exact
+commands and phone procedures are in the capture document. Next phase: local
+creator manifest save/import/validation/preview.
+
+Phase commit: `54f541c5539ada3156bae11b99f4b30ac0c22e98`.
+
+## Phase 6 — local creator foundation
+
+**IMPLEMENTED** after Phase 5. The local Unity Editor window selects an installed
+procedural lens, edits bounded transform/tint/pulse/expression rules, builds an
+isolated real-geometry preview, validates dependencies and shaders, saves immutable
+versioned JSON revisions, imports hash-checked local data and exports pending-review
+metadata. Runtime application reuses the existing engine/face signals and owns
+its material overrides. Missing expression channels stay neutral. Media/local
+draft metadata retains the applied preset ID/revision/configuration fingerprint.
+
+Inspected/created the five `Creator` runtime/document/store/policy files, Editor
+window/assembly definition, portable and Unity fixtures and `CREATOR-FOUNDATION.md`.
+Adjusted primitive collider destruction for safe Editor preview cleanup. Updated
+capture/workflow metadata for creator identity; existing lenses and host routes
+are preserved. Files use strict bounded UTF-8, SHA-256-before-decode, link rejection,
+installed dependency/type/shader allowlists, atomic immutable revision saves and
+default-deny external review hooks. A package's self-claimed licence is not approval.
+
+**TESTED (host):** 70 Python checks PASS, 130/130 actual C# NUnit cases PASS,
+zero warnings/errors; patch whitespace PASS. The 27 new portable cases exercise
+tampering, trust-before-decode, invalid text/size/paths/IDs/dependencies/shaders,
+finite bounds, immutable saves and signal availability/hysteresis. Three Unity
+fixtures cover serialization/application/restoration but were **not executed**.
+
+**BLOCKED:** Editor preview/rendering interaction and Android preset/capture
+acceptance without Unity/device access. Binary AssetBundle execution, creator
+publishing transport, externally approved moderation/licensing, imported-scene
+and fullscreen-filter preset adapters are **NOT STARTED**. This is a local preset
+editor foundation, not a complete production creator platform. Full application
+draft/editor integration still needs the absent v402 host. Next phase: final
+regression automation, media validation tools and precise device handoff.
+
+Phase commit: `a8bd018506f467e04039ce74e9c80a384abff832`.
+
+## Phase 7 — integration boundaries, regression automation and handoff
+
+**IMPLEMENTED:** actual portable core compilation in GitHub CI, local FFprobe/
+FFmpeg media validation (file hash, streams, effective display dimensions/rotation,
+duration, packet time consistency and full decode), input-preserving report paths,
+and nine synthetic media regression cases. Added CPU tracking/attachment/readback
+Profiler markers and GPU beauty/capture copy samples. Retained existing FPS/
+memory/GC/battery telemetry. Device commands, manual acceptance and precise missing
+model/host integration requirements are in `ADVANCED-AR-DEVICE-HANDOFF.md`.
+
+Inspected/changed `.github/workflows/frontend.yml`, media validation tool/tests,
+tracking manager, bootstrap, GPU compositor and capture readback/copy instrumentation.
+Created this handoff, `ADVANCED-AR-TEST-RESULTS.json` and
+`ADVANCED-AR-CHANGED-FILES.md`. The inventory gives exact changed paths per phase.
+Verified browser source and original imported Fox asset bytes are unchanged from
+the selected cumulative baseline. No main merge, push, APK installation,
+production deployment or live AWS mutation occurred.
+
+**TESTED:** all 32 available check groups PASS: 79/79 Python cases (including the
+nine synthetic media cases), 130/130 actual portable C# NUnit cases (zero build
+warnings/errors), 52/52 Java host cases (three existing YUV deprecation warnings),
+23/23 Node cases, nine standalone JS suites, 17 JS syntax checks and two mocked
+Chromium browser suites. Python/C#/Node have no skipped cases. Browser remote
+writes: zero. Complete patch whitespace check PASS. Python was rerun after the
+Profiler changes. Updated GitHub Actions was not executed remotely.
+
+**BLOCKED:** licensed Unity compilation/EditMode/PlayMode/shader execution, Android
+build/native codecs/MediaStore, actual OnePlus acceptance and real captured output.
+Synthetic video validates the validator, not this camera pipeline. No target FPS,
+latency, thermal/leak result, visual orientation/mirroring or perceptual audio sync
+is claimed. Full application end-to-end Story/Reel/Post edit/draft/publish remains
+blocked by missing v402 source/host contracts. Model inference, licensed artistic
+production assets, advanced GPU VFX and binary creator publishing remain incomplete
+as specified in the phase reports.
+
+Next executable step: open the committed project in licensed Unity 6000.0.30f1,
+run its actual tests/build and follow the OnePlus handoff. Then integrate the
+reviewed full application/model assets when supplied; no guessed host routes or
+fabricated models were substituted.
+
+Phase commit: the commit containing this entry (`media verification`).

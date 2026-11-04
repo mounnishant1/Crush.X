@@ -1,0 +1,7 @@
+{
+  "name": "CrushXLensCreator.Editor",
+  "rootNamespace": "CrushX.LensEngine.Creator.Editor",
+  "references": ["CrushXLensEngine.Runtime"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

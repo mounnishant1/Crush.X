@@ -13,7 +13,8 @@ namespace CrushX.LensEngine.Tests
         public string ProviderName { get { return "Lifecycle test fixture"; } }
         public bool TryGetFace(out FaceSample sample)
         {
-            sample = new FaceSample { Valid = HasFace, Position = Position, Rotation = Quaternion.identity, Confidence = 1 };
+            sample = new FaceSample { Valid = HasFace, Identity = new FaceIdentity(1, 1), Position = Position, Rotation = Quaternion.identity, Confidence = 1,
+                Timestamp = Time.realtimeSinceStartupAsDouble };
             return HasFace;
         }
     }

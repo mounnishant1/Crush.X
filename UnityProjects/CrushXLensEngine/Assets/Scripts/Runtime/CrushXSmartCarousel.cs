@@ -151,6 +151,7 @@ namespace CrushX.LensEngine
 
         public void BeginDrag() { dragging = true; dragOffset = 0; }
         public void Drag(float logicalDelta) { if (dragging) dragOffset = Mathf.Clamp(logicalDelta, -100, 100); }
+        public void EndDrag() { dragging = false; }
         public void CancelDrag() { dragging = false; dragOffset = 0; }
 
         public bool StepVisible(int amount)
@@ -158,10 +159,18 @@ namespace CrushX.LensEngine
             if (!EnsureEngine() || visible.Count == 0 || amount == 0) return false;
             int direction = amount < 0 ? -1 : 1;
             int index = WrappedIndex(CenterIndex() + direction, visible.Count);
-            CancelDrag();
+            EndDrag();
             for (int attempt = 0; attempt < visible.Count; attempt++)
             {
-                if (visible[index].Id == engine.ActiveId || engine.SelectLens(visible[index].Id)) return true;
+                if (visible[index].Id == engine.ActiveId) return true;
+                if (engine.SelectLens(visible[index].Id))
+                {
+                    // The selected card becomes the center; animate its remaining travel.
+                    int slots = Mathf.Min(5, visible.Count);
+                    float cell = Mathf.Min(120f, (NativeCameraLayout.Current.Carousel.width - 12f) / slots);
+                    dragOffset = Mathf.Clamp(dragOffset + direction * cell, -cell, cell);
+                    return true;
+                }
                 index = WrappedIndex(index + direction, visible.Count);
             }
             return false;
@@ -174,7 +183,7 @@ namespace CrushX.LensEngine
             int slots = Mathf.Min(5, visible.Count);
             int center = CenterIndex();
             for (int slot = 0; slot < slots; slot++)
-                if (CardRect(bounds, slot, slots).Contains(logicalPosition))
+                if (CardRect(bounds, slot, slots).Contains(logicalPosition - new Vector2(dragOffset, 0)))
                 {
                     LensManifest lens = visible[WrappedIndex(center + slot - slots / 2, visible.Count)];
                     CancelDrag();
