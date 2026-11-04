@@ -100,8 +100,12 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
   if(typeof jobId!=='string'||!/^[-a-f0-9]{36}$/.test(jobId))throw Error('JOB_NOT_FOUND');
   const job=await store.get(jobId);
   if(!job||job.subject!==subject)throw Error('JOB_NOT_FOUND');
+  // A previously finished suggestion must also disappear from API responses
+  // after consent withdrawal, even before its TTL-based deletion.
+  const mayRead=job.status==='completed'&&
+    await consents.check({subject,scope:'ai:'+job.workflow})===true;
   return Object.freeze({...receipt(job),
-   result:job.status==='completed'?{suggestion:decryptResult(job),workflow:job.workflow,
+   result:mayRead?{suggestion:decryptResult(job),workflow:job.workflow,
     executed:false,published:false,sent:false,charged:false}:null,
    code:job.status==='failed'||job.status==='blocked'?job.code:null});
  }
