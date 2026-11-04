@@ -10,9 +10,10 @@ const {registerUserFeatures}=require('./features/user-features.cjs');
 const {registerAIWorkflows}=require('./features/ai-workflows.cjs');
 const {registerContentWorkflows}=require('./features/content-intelligence.cjs');
 const {createMediaAnalysisService}=require('./media/media-analysis.cjs');
+const {createFeedService}=require('./recommendations/feed-service.cjs');
 const {createConsentService}=require('./consent/consent-service.cjs');
 function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink,now=Date.now,
- readOwnProfile,modelProvider,userFeatures,aiConsent,contentIntelligence,mediaOptions,consentOptions}={}){
+ readOwnProfile,modelProvider,userFeatures,aiConsent,contentIntelligence,mediaOptions,consentOptions,feedOptions}={}){
  const kernel=createKernel(),events=createEventBus();
  const audit=createAuditLedger({sink:auditSink,now});
  const permissions=createPermissionEngine({verifyCredential,getRoles,ownerSubject,now});
@@ -73,6 +74,7 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  const aiWorkflowRegistration=registerAIWorkflows({tasks,aura,modelProvider,checkConsent:trustedConsent});
  const contentWorkflowRegistration=registerContentWorkflows({tasks,aura,adapters:contentAdapter,now});
  const media=mediaAdapter===undefined?null:createMediaAnalysisService({permissions,audit,...mediaAdapter});
+ const feed=feedOptions===undefined?null:createFeedService({permissions,audit,now,...feedOptions});
  let started=false;
  async function start(){
   if(started)throw Error('OS_ALREADY_STARTED');
@@ -80,6 +82,6 @@ function createOperatingSystem({verifyCredential,getRoles,ownerSubject,auditSink
  }
  async function stop(){if(!started)return;await kernel.stop();started=false;}
  // Return the backend service object. Never serialize it or expose it to clients.
- return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration,contentWorkflowRegistration,media,consents});
+ return Object.freeze({start,stop,kernel,permissions,tasks,aura,audit,events,userFeatureRegistration,aiWorkflowRegistration,contentWorkflowRegistration,media,feed,consents});
 }
 module.exports=Object.freeze({createOperatingSystem});

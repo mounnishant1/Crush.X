@@ -15,7 +15,8 @@ const POLICY=Object.freeze({
  'camera:preflight':'self',
  'call:preflight':'self',
  'aura:use':'self',
- 'media:analyze':'self'
+ 'media:analyze':'self',
+ 'feed:personalize':'self'
 });
 function createPermissionEngine({verifyCredential,getRoles,ownerSubject,now=Date.now,grantTtlMs=60000}={}){
  if(typeof verifyCredential!=='function'||typeof getRoles!=='function'||typeof ownerSubject!=='string'||!ownerSubject||typeof now!=='function'||!Number.isSafeInteger(grantTtlMs)||grantTtlMs<1000||grantTtlMs>300000)throw TypeError('TRUSTED_PERMISSION_ADAPTERS_REQUIRED');
