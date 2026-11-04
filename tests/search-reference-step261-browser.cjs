@@ -19,9 +19,14 @@ assert.equal(await page.evaluate(()=>CrushXSearchStep261.mode),'results');
 assert.equal(await page.locator('[data-cx261-tab]').count(),4);
 assert.equal(await page.locator('.cx261-grid [data-open-local-item="reel_1"]').count(),1);
 await page.locator('[data-cx261-tab="accounts"]').click();
-assert.match(await page.locator('.cx261-body').innerText(),/No matching sample accounts/);
+assert.equal(await page.locator('[data-cx261-tab="accounts"]').getAttribute('aria-pressed'),'true');
 await page.locator('[data-cx261-tab="audio"]').click();
 await page.locator('[data-cx261-tab="tags"]').click();
+await page.locator('[data-cx261-clear]').click();
+await page.locator('#searchInput').fill('zzunlikelysearch261');
+await page.locator('#searchInput').press('Enter');
+await page.locator('[data-cx261-tab="accounts"]').click();
+assert.match(await page.locator('.cx261-body').innerText(),/No matching sample accounts/);
 await page.locator('[data-cx261-back]').click();
 assert.equal(await page.evaluate(()=>CrushXSearchStep261.mode),'idle');
 // Existing Explore profile links must become visible after a programmatic reset.
