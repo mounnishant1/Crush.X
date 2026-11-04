@@ -45,12 +45,18 @@
         bridge.rerender();
         show('Hidden for this page session. Reset interests in AURA-X to restore it.');
       });
-      app.addEventListener('ended', event => {
-        const video = event.target.closest('[data-cx-content-video]');
-        if (!video || video.dataset.cxCompletionRecorded === 'true') return;
-        video.dataset.cxCompletionRecorded = 'true';
-        bridge.record('complete', video.dataset.cxContentVideo, video.dataset.contentKind);
-      }, true);
+      // Reels loop by default, so ended rarely fires. Record one local
+      // completion on reaching 95% of actual duration; no background telemetry.
+      const maybeCompleted = event => {
+        const video=event.target.closest?.('[data-cx-content-video]');
+        if (!video || video.dataset.cxCompletionRecorded==='true') return;
+        if (!Number.isFinite(video.duration)||video.duration<=0||
+            !Number.isFinite(video.currentTime)||video.currentTime/video.duration<0.95)return;
+        video.dataset.cxCompletionRecorded='true';
+        bridge.record('complete',video.dataset.cxContentVideo,video.dataset.contentKind);
+      };
+      app.addEventListener('timeupdate',maybeCompleted,true);
+      app.addEventListener('ended',maybeCompleted,true);
     };
     if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', attach, {once:true});
     else attach();
