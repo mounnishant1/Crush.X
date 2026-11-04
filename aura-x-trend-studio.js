@@ -115,7 +115,9 @@
     ranked.sort((a,b)=>b.score-a.score || b.samplePosts-a.samplePosts || a.keyword.localeCompare(b.keyword));
     const drafts = ranked.slice(0,maxDrafts).map((t,index) => {
       const type = themeFor(t.keyword);
-      const id = ('trend-' + t.keyword.replace(/[^\p{L}\p{N}-]+/gu,'-').replace(/^-|-$/g,'')).slice(0,54);
+      const asciiSlug = t.keyword.normalize('NFKD').replace(/[^a-z0-9-]+/g,'-').replace(/^-|-$/g,'');
+      const digest = [...t.keyword].reduce((h,ch)=>((h*31) + ch.codePointAt(0))>>>0,2166136261).toString(36);
+      const id = ('trend-' + (asciiSlug || 'theme') + '-' + digest).slice(0,54);
       const label = t.keyword.replace(/[-_]/g,' ').slice(0,40);
       return {
         id: id + '-' + String(index + 1),
