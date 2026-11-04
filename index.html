@@ -1098,7 +1098,7 @@
       const discovered = [
         ...previewRanked('reel',state.reels).map(item => ({...item,kind:'reel'})),
         ...previewRanked('post',state.posts).map(item => ({...item,kind:'post'}))
-      ].filter(item => !query || (String(item.caption || '')+' '+String(item.song || '')).toLowerCase().includes(query)).slice(0,12);
+      ].filter(item => ['reel_1','post_1','post_2'].includes(item.id) && (!query || (String(item.caption || '')+' '+String(item.song || '')).toLowerCase().includes(query))).slice(0,12);
 
       const filteredUsers = state.users.filter(user => {
         const text =
