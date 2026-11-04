@@ -44,7 +44,7 @@ function registerAIWorkflows({tasks,aura,modelProvider,checkConsent}={}){
   throw TypeError('AI_WORKFLOW_DEPENDENCIES_REQUIRED');
  // Fail closed: a model and an independently verified consent service are BOTH
  // required. A browser-supplied checkbox is not trusted consent.
- if(modelProvider===undefined&&checkConsent===undefined)
+ if(modelProvider===undefined||checkConsent===undefined)
   return Object.freeze({configured:Object.freeze([]),reason:'MODEL_AND_CONSENT_NOT_CONFIGURED'});
  if(!modelProvider||typeof modelProvider.suggest!=='function'||typeof checkConsent!=='function')
   throw TypeError('MODEL_AND_TRUSTED_CONSENT_REQUIRED');
