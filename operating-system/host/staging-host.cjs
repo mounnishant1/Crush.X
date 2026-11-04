@@ -4,7 +4,8 @@
 // durable queue, not this direct loopback listener.
 const {createServer}=require('node:http');
 const {createAIHttpHandler}=require('../http/ai-handler.cjs');
-function createStagingHost({system,verifyCredential,allowedOrigins=[],host='127.0.0.1',
+const {createStoryHttpHandler}=require('../http/story-handler.cjs');
+function createStagingHost({system,storyService,verifyCredential,allowedOrigins=[],host='127.0.0.1',
  port=0,pollMs=50}={}){
  if(!system?.start||!system?.stop||!system?.tasks?.runNext||
   typeof verifyCredential!=='function'||host!=='127.0.0.1'||
@@ -12,7 +13,9 @@ function createStagingHost({system,verifyCredential,allowedOrigins=[],host='127.
   !Number.isInteger(pollMs)||pollMs<20||pollMs>1000)
   throw TypeError('STAGING_HOST_CONFIG_REQUIRED');
  const handler=createAIHttpHandler({system,verifyCredential,allowedOrigins});
- const http=createServer(handler);
+ const storyHandler=storyService?createStoryHttpHandler({service:storyService,verifyCredential,allowedOrigins}):null;
+ const http=createServer((req,res)=>storyHandler&&/^\/v1\/stories(?:\/|\?|$)/.test(req.url||'')?
+  storyHandler(req,res):handler(req,res));
  let started=false,busy=false,interval=null,active=Promise.resolve();
  async function worker(){
   if(!started||busy)return;
