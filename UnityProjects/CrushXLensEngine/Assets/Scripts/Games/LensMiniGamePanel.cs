@@ -11,6 +11,7 @@ namespace CrushX.LensEngine
         private Vector2 catalogScroll;
         private double now;
         private Texture2D sliceDisc;
+        private readonly Texture2D[] sliceShapes = new Texture2D[3];
         private Vector2 previousSlicePoint, lastTrailFrom, lastTrailTo;
         private double trailUntil;
         private bool slicingGesture;
@@ -26,6 +27,7 @@ namespace CrushX.LensEngine
             Rect area = CuttingArea(layout.Width, layout.Height);
             Vector2 point = layout.ToGui(screen, Screen.height);
             if (!area.Contains(point)) return false;
+            core.Cutting.SetViewportAspect(area.width / area.height);
             if (!core.Cutting.BeginStroke((point.x - area.x) / area.width, (point.y - area.y) / area.height))
                 return false;
             previousSlicePoint = point;
@@ -78,6 +80,8 @@ namespace CrushX.LensEngine
         {
             CancelCut();
             if (sliceDisc != null) { UnityEngine.Object.Destroy(sliceDisc); sliceDisc = null; }
+            for (int i = 0; i < sliceShapes.Length; i++)
+                if (sliceShapes[i] != null) { UnityEngine.Object.Destroy(sliceShapes[i]); sliceShapes[i] = null; }
         }
 
         public void OpenPanel()
@@ -210,7 +214,7 @@ namespace CrushX.LensEngine
                 "Score " + core.Score + "    Moves " + core.Moves +
                 "    Time " + core.SecondsLeft(now) + "s", status);
             int best = PlayerPrefs.GetInt("crushx.game.localhigh.v1." + core.Game, 0);
-            GUI.Label(new Rect(16, 203, w - 32, 26), "Personal best: " + best, small);
+            GUI.Label(new Rect(16, h - 38, w - 32, 26), "Local high score: " + best, small);
 
             if (core.Phase != MiniGamePhase.Playing)
             {
@@ -263,7 +267,11 @@ namespace CrushX.LensEngine
             EnsureSliceDisc();
             SliceChallengeCore slicing = core.Cutting;
             Rect bounds = CuttingArea(w, h);
-            GUI.Box(bounds, GUIContent.none);
+            slicing.SetViewportAspect(bounds.width / bounds.height);
+            Color background = GUI.color;
+            GUI.color = new Color(.045f, .06f, .10f, .18f);
+            GUI.DrawTexture(bounds, Texture2D.whiteTexture);
+            GUI.color = background;
             string rule = core.Game == MiniGameId.ColorCut
                 ? "CUT ONLY COLOR " + (slicing.RequiredColor + 1)
                 : core.Game == MiniGameId.ShapeCut
