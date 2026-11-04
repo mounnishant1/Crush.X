@@ -59,6 +59,12 @@ jobs:
       - name: Compile and execute portable lens engine policies
         timeout-minutes: 6
         run: python tools/check_engine_core.py --dotnet dotnet --output "$GITHUB_WORKSPACE/work/engine-core"
+      - name: Install FFmpeg if runner image omits it
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
       - name: Verify FFmpeg tools for synthetic media regression tests
         run: |
           ffmpeg -version
