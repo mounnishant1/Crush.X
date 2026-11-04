@@ -1,0 +1,14 @@
+/* Optional AURA-X verified-model section, inside the existing dialog. */
+.cx-aura-remote{margin-top:1rem;padding:1rem;border:1px solid var(--line);
+ border-radius:1rem;background:var(--card);display:grid;gap:.7rem}
+.cx-aura-remote h3{font-size:1rem;font-weight:800}
+.cx-aura-remote p{font-size:.83rem;line-height:1.45}
+.cx-aura-remote-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.cx-aura-remote-actions button{min-height:44px;padding:.6rem .85rem;
+ border:1px solid var(--line);border-radius:.75rem;background:var(--strong);
+ color:var(--text);font-weight:700}
+.cx-aura-remote-actions button:disabled{opacity:.55;cursor:not-allowed}
+.cx-aura-remote-actions button:focus-visible{outline:3px solid #db2777;outline-offset:2px}
+.cx-aura-remote pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:15rem;
+ overflow:auto;font-size:.82rem}
+@media(prefers-reduced-motion:reduce){.cx-aura-remote *{transition:none!important}}

@@ -27,7 +27,7 @@ jobs:
           node-version: '22'
       - name: Validate server-only module syntax
         run: |
-          for f in operating-system/index.cjs operating-system/core/*.cjs operating-system/features/*.cjs operating-system/tests/*.cjs; do
+          for f in operating-system/index.cjs operating-system/core/*.cjs operating-system/features/*.cjs operating-system/providers/*.cjs operating-system/auth/*.cjs operating-system/media/*.cjs operating-system/consent/*.cjs operating-system/http/*.cjs operating-system/host/*.cjs operating-system/tests/*.cjs; do
             node --check "$f"
           done
       - name: Run OS lifecycle, permissions, task and AURA security tests
