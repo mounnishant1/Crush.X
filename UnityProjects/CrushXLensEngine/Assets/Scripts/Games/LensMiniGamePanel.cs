@@ -251,9 +251,9 @@ namespace CrushX.LensEngine
                 DrawBoardGame(w, h, title, status, button, small);
 
             if (GUI.Button(new Rect(20, h - 98, (w - 52) * .5f, 50), "Restart", button))
-            { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; }
+            { CancelCut(); core.Start(def.Id, now); highScoreSaved = false; manuallyPaused = false; }
             if (GUI.Button(new Rect(32 + (w - 52) * .5f, h - 98, (w - 52) * .5f, 50), "All games", button))
-            { CancelCut(); core.ReturnToCatalog(); }
+            { CancelCut(); manuallyPaused = false; core.ReturnToCatalog(); }
         }
 
         private void EnsureSliceDisc()
