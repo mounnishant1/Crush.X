@@ -71,3 +71,14 @@
 @media(prefers-reduced-motion:reduce){
  .cx-os-feature-page *{scroll-behavior:auto!important;animation:none!important;}
 }
+
+/* Whole-app guidance stays inside the existing full-screen controls page. */
+.cx-os-ai-section{max-width:900px;margin:1.4rem auto 0;}
+.cx-os-ai-section h2{font-size:1.05rem;font-weight:800;margin:0 0 .35rem;}
+.cx-os-ai-section p{font-size:.84rem;line-height:1.5;opacity:.85;margin:0 0 .9rem;}
+.cx-os-ai-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;}
+.cx-os-ai-tile{min-height:44px;text-align:left;padding:.75rem .8rem;border-radius:.8rem;
+ border:1px solid rgba(110,110,155,.3);background:rgba(130,110,190,.09);font-weight:650;}
+.cx-os-ai-tile:hover{border-color:#c026d3;}
+@media(max-width:540px){.cx-os-ai-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:345px){.cx-os-ai-grid{grid-template-columns:1fr;}}
