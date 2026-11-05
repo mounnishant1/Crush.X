@@ -31,6 +31,7 @@ namespace CrushX.LensEngine
 
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
+        public int CollectionRevision { get; private set; }
         public IReadOnlyList<LensUserCollection> UserCollections =>
             personalization != null ?
                 personalization.CustomCollections.All() :
@@ -66,6 +67,7 @@ namespace CrushX.LensEngine
             if (personalization == null ||
                 !personalization.CustomCollections.TryCreate(name, out id))
                 return false;
+            CollectionRevision++;
             RefreshVisible();
             return true;
         }
@@ -74,6 +76,7 @@ namespace CrushX.LensEngine
         {
             if (personalization == null ||
                 !personalization.CustomCollections.Rename(id, name)) return false;
+            CollectionRevision++;
             RefreshVisible();
             return true;
         }
@@ -83,14 +86,18 @@ namespace CrushX.LensEngine
             if (personalization == null ||
                 !personalization.CustomCollections.Delete(id)) return false;
             if (collection == id) collection = "All";
+            CollectionRevision++;
             RefreshVisible();
             return true;
         }
 
         public bool ReorderCustomCollection(string id, int direction)
         {
-            return personalization != null &&
-                personalization.CustomCollections.MoveCollection(id, direction);
+            if (personalization == null ||
+                !personalization.CustomCollections.MoveCollection(id, direction))
+                return false;
+            CollectionRevision++;
+            return true;
         }
 
         public bool AddLensToCustomCollection(string folderId, string lensId)
@@ -98,6 +105,7 @@ namespace CrushX.LensEngine
             if (personalization == null ||
                 !personalization.CustomCollections.AddLens(folderId, lensId))
                 return false;
+            CollectionRevision++;
             if (collection == folderId) RefreshVisible();
             return true;
         }
@@ -107,6 +115,7 @@ namespace CrushX.LensEngine
             if (personalization == null ||
                 !personalization.CustomCollections.RemoveLens(folderId, lensId))
                 return false;
+            CollectionRevision++;
             if (collection == folderId) RefreshVisible();
             return true;
         }
@@ -117,6 +126,7 @@ namespace CrushX.LensEngine
             if (personalization == null ||
                 !personalization.CustomCollections.MoveLens(folderId, lensId, direction))
                 return false;
+            CollectionRevision++;
             if (collection == folderId) RefreshVisible();
             return true;
         }
@@ -232,6 +242,7 @@ namespace CrushX.LensEngine
             if (!personalization.ConfigureAccountScope(authenticatedAccountId))
                 return false;
             collection = "All";
+            CollectionRevision++;
             RefreshVisible();
             // Never auto-insert an unintended selection into a new account's
             // recents. Keep prior account's favorites/history inaccessible.
