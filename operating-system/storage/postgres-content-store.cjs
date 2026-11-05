@@ -141,7 +141,7 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
   checkSubject(subject);
   if(!plain(event)||Object.keys(event).some(k=>!['eventId','contentId','action','at','watchFraction'].includes(k))||
     !id(event.eventId)||event.eventId.length<8||!id(event.contentId)||
-    !actions.has(event.action)||!Number.isFinite(event.at)||Math.abs(event.at-now())>300000||
+    !actions.has(event.action)||!Number.isSafeInteger(event.at)||Math.abs(event.at-now())>300000||
     (event.watchFraction!==undefined&&(!Number.isFinite(event.watchFraction)||
      event.watchFraction<0||event.watchFraction>1)))
    throw Error('ENGAGEMENT_EVENT_INVALID');
