@@ -72,6 +72,9 @@ namespace CrushX.LensEngine
 
         private void OnDisable()
         {
+            if (pointerId != -1 && previewArea != null &&
+                previewArea.HasPointerCapture(pointerId))
+                previewArea.ReleasePointer(pointerId);
             pointerId = -1;
             multiTouchCancelled = false;
             browseOpen = false;
@@ -88,6 +91,8 @@ namespace CrushX.LensEngine
             if (Engine == null) return;
 
             root = document.rootVisualElement;
+            categories.Clear();
+            voiceModes.Clear();
             root.Clear(); // Dedicated, owned UIDocument only.
             root.style.flexGrow = 1;
             root.style.width = Length.Percent(100);
@@ -334,6 +339,7 @@ namespace CrushX.LensEngine
             Engine.SetCollection(name);
             browseOpen = false;
             browsePanel.style.display = DisplayStyle.None;
+            browseButton.text = "Browse";
             lastUiKey = null;
             RefreshVisualState(true);
         }
