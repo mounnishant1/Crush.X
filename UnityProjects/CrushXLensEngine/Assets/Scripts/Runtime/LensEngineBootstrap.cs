@@ -10,6 +10,8 @@ namespace CrushX.LensEngine
     {
         private FaceTrackingManager tracking;
         private FaceWarpFrameSource faceWarp;
+        private readonly LiveFaceExpressionState expressions = new LiveFaceExpressionState();
+        private bool preciseTrackingAvailable;
         private LensEffect effect;
         private Transform effectRoot;
         private LensPersonalization personalization;
@@ -28,6 +30,7 @@ namespace CrushX.LensEngine
         public string ActiveCollection { get { return collection; } }
         public float WarpIntensity { get { return faceWarp != null ? faceWarp.Intensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
+        public bool PreciseTrackingActive { get { return preciseTrackingAvailable; } }
 
         private void Awake()
         {
@@ -52,6 +55,9 @@ namespace CrushX.LensEngine
                 warpDriver.PreviewCamera = frontCamera != null ?
                     frontCamera.GetComponent<Camera>() : Camera.main;
                 warpDriver.Engine = this;
+                var mediaPipe = gameObject.AddComponent<ARCameraMediaPipeRunner>();
+                mediaPipe.CameraManager = frontCamera;
+                mediaPipe.Engine = this;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
             else
@@ -130,6 +136,24 @@ namespace CrushX.LensEngine
             return true;
         }
 
+        public void SetPreciseTrackingAvailable(bool available)
+        {
+            if (preciseTrackingAvailable == available) return;
+            preciseTrackingAvailable = available;
+            expressions.Invalidate();
+            if (faceWarp != null) faceWarp.Invalidate();
+        }
+
+        public bool PushMediaPipeResult(string json)
+        {
+            if (!preciseTrackingAvailable) return false;
+            float now = Time.realtimeSinceStartup;
+            bool accepted = expressions.TryApply(json, now);
+            // No face is a valid invalidation message in both systems.
+            if (faceWarp != null) faceWarp.TryApplyJson(json, now);
+            return accepted;
+        }
+
         public bool PushFaceWarpFrame(string json)
         {
             return faceWarp != null &&
@@ -196,6 +220,20 @@ namespace CrushX.LensEngine
             // renderer pass and camera alignment have been device verified.
             if (!showing) return;
             FaceSample face = tracking.Current;
+            float mouthOpen, blink, smile, brow;
+            if (preciseTrackingAvailable &&
+                expressions.TryRead(Time.realtimeSinceStartup,
+                    out mouthOpen, out blink, out smile, out brow))
+            {
+                face.MouthOpen = mouthOpen;
+                face.Blink = blink;
+            }
+            else if (preciseTrackingAvailable)
+            {
+                // No stale expressions when MediaPipe has no current frame.
+                face.MouthOpen = 0f;
+                face.Blink = 0f;
+            }
             effectRoot.position = face.Position;
             effectRoot.rotation = face.Rotation;
             if (effect != null) effect.Animate(face, Time.unscaledTime - startAt);
