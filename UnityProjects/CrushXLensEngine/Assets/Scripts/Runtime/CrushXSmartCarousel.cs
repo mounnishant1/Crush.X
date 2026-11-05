@@ -16,6 +16,9 @@ namespace CrushX.LensEngine
         private GUIStyle nameStyle, monogramStyle, emptyStyle;
         private Texture2D bubbleTexture;
         private LensBrowseFilter filter;
+        private string customCollectionId;
+        private int observedCollectionEpoch = -1;
+        public string CustomCollectionId { get { return customCollectionId; } }
         private LensCategory? categoryFilter;
         private string query = string.Empty;
         private float dragOffset;
@@ -24,8 +27,19 @@ namespace CrushX.LensEngine
 
         public LensBrowseFilter Filter { get { return filter; } }
         public LensCategory? CategoryFilter { get { return categoryFilter; } }
-        public string CategoryLabel { get { return categoryFilter.HasValue ?
-            (categoryFilter.Value == LensCategory.SciFi ? "Sci-Fi" : categoryFilter.Value.ToString()) : "All categories"; } }
+        public string CategoryLabel { get {
+            if (!string.IsNullOrEmpty(customCollectionId) &&
+                engine != null && engine.CollectionStore != null)
+            {
+                LensUserCollection folder =
+                    engine.CollectionStore.Get(customCollectionId);
+                if (folder != null) return folder.name;
+            }
+            return categoryFilter.HasValue ?
+                (categoryFilter.Value == LensCategory.SciFi ?
+                    "Sci-Fi" : categoryFilter.Value.ToString()) :
+                "All categories";
+        } }
         public string Query { get { return query; } }
         public int VisibleCount { get { EnsureEngine(); return visible.Count; } }
 
@@ -105,22 +119,46 @@ namespace CrushX.LensEngine
             return next < 0 ? (LensCategory?)null : categories[next];
         }
 
+        // Only catalog lens IDs from the currently authenticated account's
+        // private folder are browsable. No new lens assets are downloaded.
+        public bool SetCustomCollection(string folderId)
+        {
+            if (!EnsureEngine()) return false;
+            if (string.IsNullOrEmpty(folderId))
+            {
+                customCollectionId = null;
+                Refresh();
+                return true;
+            }
+            if (engine.CollectionStore == null ||
+                engine.CollectionStore.Get(folderId) == null) return false;
+            customCollectionId = folderId;
+            categoryFilter = null;
+            filter = LensBrowseFilter.All;
+            query = string.Empty;
+            Refresh();
+            return true;
+        }
+
         public void CycleCategory(int amount)
         {
             if (amount == 0 || !EnsureEngine()) return;
+            customCollectionId = null;
             SetCategory(NextCategory(AvailableCategories(sessionOrder), categoryFilter, amount));
         }
 
         public void SetCategory(LensCategory? value)
         {
-            if (categoryFilter == value) return;
+            if (categoryFilter == value && customCollectionId == null) return;
+            customCollectionId = null;
             categoryFilter = value;
             Refresh();
         }
 
         public void SetFilter(LensBrowseFilter value)
         {
-            if (filter == value) return;
+            if (filter == value && customCollectionId == null) return;
+            customCollectionId = null;
             filter = value;
             Refresh();
         }
@@ -137,8 +175,22 @@ namespace CrushX.LensEngine
         {
             if (engine == null) return;
             visible.Clear();
-            visible.AddRange(BuildResults(sessionOrder, filter, query, engine.IsFavorite,
-                engine.RecentLensIds, categoryFilter));
+            if (customCollectionId != null)
+            {
+                LensUserCollection folder = engine.CollectionStore != null ?
+                    engine.CollectionStore.Get(customCollectionId) : null;
+                if (folder == null) customCollectionId = null;
+                else
+                {
+                    foreach (string id in folder.lensIds)
+                        foreach (LensManifest lens in sessionOrder)
+                            if (lens.Id == id && Matches(lens, query, null))
+                            { visible.Add(lens); break; }
+                }
+            }
+            if (customCollectionId == null)
+                visible.AddRange(BuildResults(sessionOrder, filter, query,
+                    engine.IsFavorite, engine.RecentLensIds, categoryFilter));
             dragging = false;
             dragOffset = 0;
         }
@@ -246,6 +298,12 @@ namespace CrushX.LensEngine
         {
             // Recent is an active, consented list. External commands and camera swipes
             // can change it without pressing a browse tab; reflect those selections.
+            if (EnsureEngine() && engine.CollectionAccountEpoch !=
+                observedCollectionEpoch)
+            {
+                observedCollectionEpoch = engine.CollectionAccountEpoch;
+                if (customCollectionId != null) Refresh();
+            }
             if (EnsureEngine() && observedActiveId != engine.ActiveId)
             {
                 observedActiveId = engine.ActiveId;
@@ -276,7 +334,9 @@ namespace CrushX.LensEngine
             GUI.Box(bounds, GUIContent.none);
             if (visible.Count == 0)
             {
-                string message = categoryFilter.HasValue ? "No matching " + CategoryLabel + " lenses" :
+                string message = customCollectionId != null ?
+                    "This collection is empty. Save a lens to add it." :
+                    categoryFilter.HasValue ? "No matching " + CategoryLabel + " lenses" :
                     filter == LensBrowseFilter.Favorites ? "Favorite a lens to find it here" :
                     filter == LensBrowseFilter.Recent ? "No recent lenses saved" : "No lenses match your search";
                 GUI.Label(bounds, message, emptyStyle);
