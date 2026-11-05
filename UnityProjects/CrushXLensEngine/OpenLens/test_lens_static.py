@@ -107,7 +107,9 @@ class LensSafetyChecks(unittest.TestCase):
         self.assertIn("Mathf.Abs(delta.x) < width * .16f", toolkit)
         self.assertIn("multiTouchCancelled", toolkit)
         self.assertIn("Length.Percent(100)", toolkit)
-        self.assertIn("LensDiscovery.Collections", toolkit)
+        self.assertIn("RebuildCollectionButtons();", toolkit)
+        self.assertIn("Engine.CollectionKeys()", (SRC / "Runtime" /
+            "LensCameraProductionUI.CustomCollections.cs").read_text())
         self.assertIn("EnsureInstalledForCurrentScene()", editor)
         self.assertIn("new GameObject(\"CrushX Production Camera UI\")", editor)
         self.assertIn("CrushXLensProductionUISetup.EnsureInstalledForCurrentScene()", scene_tools)
