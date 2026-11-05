@@ -20,7 +20,8 @@ namespace CrushX.LensEngine
         private volatile int mode;
         private volatile float wet = .72f;
         private double phase;
-        private float[] lowPass;
+        private readonly float[] lowPass = new float[8];
+        private int deviceSampleRate = 48000;
 
         public FunnyVoiceMode Mode => (FunnyVoiceMode)mode;
         public float Strength => wet;
@@ -33,7 +34,7 @@ namespace CrushX.LensEngine
             source.loop = true;
             source.spatialBlend = 0;
             source.volume = .65f; // local mic-to-speaker feedback caution
-            lowPass = new float[2];
+            deviceSampleRate = Mathf.Max(AudioSettings.outputSampleRate, 8000);
         }
 
         public bool SetMode(string value)
@@ -113,6 +114,7 @@ namespace CrushX.LensEngine
             ownedClip = null;
         }
 
+        private void OnApplicationPause(bool paused) { if (paused) StopPreview(); }
         private void OnDisable() { StopPreview(); }
         private void OnDestroy() { StopPreview(); }
 
@@ -122,10 +124,11 @@ namespace CrushX.LensEngine
             int selected = mode;
             float blend = wet;
             if (selected == (int)FunnyVoiceMode.Off || blend <= 0) return;
-            int sampleRate = Math.Max(8000, AudioSettings.outputSampleRate);
+            if (channels > lowPass.Length) return;
+            int sampleRate = deviceSampleRate;
             float increment = 2f * Mathf.PI *
                 (selected == (int)FunnyVoiceMode.Robot ? 72f : 9f) / sampleRate;
-            if (lowPass == null || lowPass.Length < channels) lowPass = new float[channels];
+            // No heap allocations in Unity's audio callback.
 
             for (int i = 0; i < samples.Length; i += channels)
             {
