@@ -46,6 +46,15 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
    record({eventId:'parallel2_'+suffix,contentId:ids[0],action:'rewatch',at:now})
   ]);
   assert.equal(parallel.every(x=>x.recorded===true),true);
+  assert.equal(await receiptStore.read({subject:'some_other_account',eventId:like.eventId}),null);
+  // Deleting the creator's own catalog row cascades to receipt and
+  // engagement history, preventing deleted content from training the feed.
+  const own={eventId:'own_view_'+suffix,contentId:ids[2],action:'view',at:now};
+  assert.equal((await record(own)).recorded,true);
+  assert.equal(await receiptStore.read({subject,eventId:own.eventId})!==null,true);
+  assert.equal((await store.deleteContent({contentId:ids[2]})).deleted,true);
+  assert.equal(await receiptStore.read({subject,eventId:own.eventId}),null);
+  assert.equal((await store.readEngagementEvents({subject})).some(e=>e.contentId===ids[2]),false);
   await assert.rejects(record({...like,action:'save'}),/RECEIPT_ID_CONFLICT/);
   assert.deepEqual((await store.readEngagementEvents({subject}))[0].topics,['cooking']);
   const hide={eventId:'hide_evt_'+suffix,contentId:ids[0],action:'not_interested',at:now};
