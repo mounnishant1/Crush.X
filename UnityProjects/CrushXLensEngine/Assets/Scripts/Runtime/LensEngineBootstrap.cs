@@ -347,6 +347,8 @@ namespace CrushX.LensEngine
 
         private void OnGUI()
         {
+            var productionUI = FindFirstObjectByType<LensCameraProductionUI>();
+            if (productionUI != null && productionUI.IsReady) return;
             if (!usingMock && FindFirstObjectByType<NativeLensUI>() != null) return;
             // Basic functional debug UI, not a production Snapchat-class screen.
             float uiScale = Mathf.Max(.85f, Mathf.Min(Screen.width / 780f, Screen.height / 1280f));
