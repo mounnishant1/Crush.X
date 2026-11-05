@@ -84,7 +84,7 @@ class LensSafetyChecks(unittest.TestCase):
         discovery = (SRC / "Runtime" / "LensDiscovery.cs").read_text()
         self.assertIn("MaximumRecent = 12", prefs)
         self.assertIn("RecentIds()", prefs)
-        self.assertIn("PlayerPrefs.DeleteKey(RecentKey)", prefs)
+        self.assertIn('PlayerPrefs.DeleteKey(Key("recent"))', prefs)
         self.assertIn('name == "Favorites"', discovery)
         self.assertIn('name == "Recent"', discovery)
         self.assertTrue((ROOT / "Assets" / "Tests" / "EditMode" /
