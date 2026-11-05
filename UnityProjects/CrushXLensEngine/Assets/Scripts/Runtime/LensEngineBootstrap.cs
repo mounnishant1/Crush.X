@@ -116,7 +116,13 @@ namespace CrushX.LensEngine
                 !personalization.CustomCollections.RemoveLens(folderId, lensId))
                 return false;
             CollectionRevision++;
-            if (collection == folderId) RefreshVisible();
+            if (collection == folderId)
+            {
+                RefreshVisible();
+                if (visible.Count > 0 &&
+                    visible.FindIndex(l => l.Id == activeId) < 0)
+                    SelectLensInternal(visible[0].Id, false);
+            }
             return true;
         }
 
