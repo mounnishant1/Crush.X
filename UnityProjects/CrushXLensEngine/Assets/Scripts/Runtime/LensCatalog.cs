@@ -29,7 +29,19 @@ namespace CrushX.LensEngine
             new LensManifest("trend-hearts", "Pink Hearts", LensCategory.Aesthetic, false),
             new LensManifest("trend-pixels", "Pixel Glasses", LensCategory.Funny, false),
             new LensManifest("trend-disco", "Disco Orbit", LensCategory.Aesthetic, false),
-            new LensManifest("trend-starlight", "Starlight", LensCategory.Aesthetic, false)
+            new LensManifest("trend-starlight", "Starlight", LensCategory.Aesthetic, false),
+            new LensManifest("funny-big-eyes", "Pop Eyes", LensCategory.Funny, false),
+            new LensManifest("funny-jumbo-mouth", "Jumbo Mouth", LensCategory.Funny, true),
+            new LensManifest("funny-balloon-cheeks", "Balloon Cheeks", LensCategory.Funny, true),
+            new LensManifest("funny-long-nose", "Rubber Nose", LensCategory.Funny, false),
+            new LensManifest("funny-mini-eyes", "Tiny Eyes", LensCategory.Funny, false),
+            new LensManifest("funny-wiggle-brows", "Wiggle Brows", LensCategory.Funny, false),
+            new LensManifest("funny-party-clown", "Party Clown", LensCategory.Funny, false),
+            new LensManifest("funny-toothy-grin", "Toothy Grin", LensCategory.Funny, true),
+            new LensManifest("funny-noodle-stache", "Noodle Mustache", LensCategory.Funny, false),
+            new LensManifest("funny-bubble-pop", "Bubble Pop", LensCategory.Funny, true),
+            new LensManifest("funny-goofy-glasses", "Goofy Glasses", LensCategory.Funny, false),
+            new LensManifest("funny-jelly-head", "Jelly Head Outline", LensCategory.Funny, false)
         };
         public static IReadOnlyList<LensManifest> All { get { return all; } }
 
@@ -59,6 +71,18 @@ namespace CrushX.LensEngine
                 case "trend-pixels": return typeof(TrendPixelLens);
                 case "trend-disco": return typeof(TrendDiscoLens);
                 case "trend-starlight": return typeof(TrendStarlightLens);
+                case "funny-big-eyes": return typeof(FunnyBigEyesLens);
+                case "funny-jumbo-mouth": return typeof(FunnyJumboMouthLens);
+                case "funny-balloon-cheeks": return typeof(FunnyBalloonCheeksLens);
+                case "funny-long-nose": return typeof(FunnyLongNoseLens);
+                case "funny-mini-eyes": return typeof(FunnyMiniEyesLens);
+                case "funny-wiggle-brows": return typeof(FunnyWiggleBrowsLens);
+                case "funny-party-clown": return typeof(FunnyPartyClownLens);
+                case "funny-toothy-grin": return typeof(FunnyToothyGrinLens);
+                case "funny-noodle-stache": return typeof(FunnyNoodleStacheLens);
+                case "funny-bubble-pop": return typeof(FunnyBubblePopLens);
+                case "funny-goofy-glasses": return typeof(FunnyGoofyGlassesLens);
+                case "funny-jelly-head": return typeof(FunnyJellyHeadLens);
                 default: throw new ArgumentException("Unknown lens ID: " + id);
             }
         }
