@@ -32,9 +32,9 @@
     },
     {
       "id": "crushx-original-urp-shaders",
-      "role": "Face warp and eventual beauty/color processing",
+      "role": "Original Funny image warp plus Glow/Blush face-limited GPU effects",
       "license": "Crush.X project-owned source",
-      "state": "prototype-source-only",
+      "state": "source-integrated-unity-android-qa-pending",
       "packaged": true,
       "requires_legal_review": false,
       "public_branding": false
