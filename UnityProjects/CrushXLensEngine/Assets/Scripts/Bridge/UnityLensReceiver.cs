@@ -22,6 +22,15 @@ namespace CrushX.LensEngine
             LensEngineBootstrap e = GetEngine();
             if (e != null) e.SelectLens(id);
         }
+        // Call only after the host authenticates the account and on each
+        // account switch. Empty string switches to isolated guest storage.
+        public void SetLensAccountScope(string authenticatedAccountId)
+        {
+            LensEngineBootstrap e = GetEngine();
+            if (e != null && !e.ConfigureAccountScope(authenticatedAccountId))
+                Debug.LogWarning("Rejected invalid lens account scope");
+        }
+
         public void SetCollection(string collection)
         {
             LensEngineBootstrap e = GetEngine();
