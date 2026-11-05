@@ -23,6 +23,7 @@ namespace CrushX.LensEngine
         public float RemainingSeconds { get; private set; } = 30f;
         public bool Running { get { return RemainingSeconds > 0f; } }
         private bool previouslyActive;
+        private bool rearmed;
         private float lastTriggerTime = -100f;
         private float previousTime = -1f;
 
@@ -32,6 +33,7 @@ namespace CrushX.LensEngine
             Attempts = 0;
             RemainingSeconds = 30f;
             previouslyActive = false;
+            rearmed = false;
             lastTriggerTime = -100f;
             previousTime = now;
         }
@@ -44,6 +46,7 @@ namespace CrushX.LensEngine
             if (!frame.Valid || frame.Confidence < .6f)
             {
                 previouslyActive = false;
+                rearmed = false;
                 return false;
             }
 
@@ -51,11 +54,15 @@ namespace CrushX.LensEngine
             RemainingSeconds = Mathf.Max(0f, RemainingSeconds - delta);
             bool pressed = kind == FunnyGameKind.BlinkPop ?
                 frame.Blink >= .72f : frame.MouthOpen >= .62f;
-            bool newTrigger = pressed && !previouslyActive;
+            // Require a fresh RELEASE state after starting or reacquiring
+            // face tracking; a held old blink/mouth signal never scores.
+            if (!pressed) rearmed = true;
+            bool newTrigger = pressed && !previouslyActive && rearmed;
             previouslyActive = pressed;
             if (!newTrigger || now - lastTriggerTime < .30f || !Running)
                 return false;
             lastTriggerTime = now;
+            rearmed = false;
             Score += kind == FunnyGameKind.BlinkPop ? 10 : 5;
             Attempts++;
             return true;
