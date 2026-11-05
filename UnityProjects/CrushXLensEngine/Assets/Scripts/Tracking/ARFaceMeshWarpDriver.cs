@@ -22,7 +22,8 @@ namespace CrushX.LensEngine
 
         private void Update()
         {
-            if (Engine == null || FaceManager == null || PreviewCamera == null) return;
+            if (Engine == null || FaceManager == null || PreviewCamera == null ||
+                Engine.PreciseTrackingActive) return;
             if (Engine.ActiveId != "funny-big-eyes" &&
                 Engine.ActiveId != "funny-jumbo-mouth") return;
             if (Time.unscaledTime < nextReadAt) return;
