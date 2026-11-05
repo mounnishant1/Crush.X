@@ -110,7 +110,7 @@ namespace CrushX.LensEngine
             effectRoot.SetParent(transform, false);
             if (usingMock) CreateDemoFace();
             RefreshVisible();
-            if (visible.Count > 0) SelectLens(visible[0].Id);
+            if (visible.Count > 0) SelectLensInternal(visible[0].Id, false);
         }
 
         private void CreateDemoFace()
@@ -133,6 +133,21 @@ namespace CrushX.LensEngine
             ranking = personalization.Ranked();
             visible = LensDiscovery.Browse(collection, ranking, trendFeed, DateTimeOffset.UtcNow,
                 personalization);
+        }
+
+        // Authenticated Android host must send an opaque stable account key
+        // on account switch and clear it on sign-out. No raw ID is stored.
+        public bool ConfigureAccountScope(string authenticatedAccountId)
+        {
+            if (!personalization.ConfigureAccountScope(authenticatedAccountId))
+                return false;
+            collection = "All";
+            RefreshVisible();
+            // Never auto-insert an unintended selection into a new account's
+            // recents. Keep prior account's favorites/history inaccessible.
+            if (visible.Count > 0)
+                SelectLensInternal(visible[0].Id, false);
+            return true;
         }
 
         public bool SetCollection(string name)
@@ -245,6 +260,11 @@ namespace CrushX.LensEngine
 
         public bool SelectLens(string id)
         {
+            return SelectLensInternal(id, true);
+        }
+
+        private bool SelectLensInternal(string id, bool recordUsage)
+        {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
             if (visible != null && visible.FindIndex(l => l.Id == id) < 0)
             {
@@ -261,7 +281,11 @@ namespace CrushX.LensEngine
             effect.Build();
             activeId = id;
             startAt = Time.unscaledTime;
-            personalization.RecordUsage(id);
+            if (recordUsage) personalization.RecordUsage(id);
+            // Reorder recents on intentional selection, but never mid-swipe
+            // for unrelated categories that must keep a stable ranking.
+            if (recordUsage && collection == "Recent")
+                RefreshVisible();
             // Keep the carousel order stable while swiping; refresh on tab/favorite change.
             return true;
         }
@@ -323,6 +347,8 @@ namespace CrushX.LensEngine
 
         private void OnGUI()
         {
+            var productionUI = FindFirstObjectByType<LensCameraProductionUI>();
+            if (productionUI != null && productionUI.IsReady) return;
             if (!usingMock && FindFirstObjectByType<NativeLensUI>() != null) return;
             // Basic functional debug UI, not a production Snapchat-class screen.
             float uiScale = Mathf.Max(.85f, Mathf.Min(Screen.width / 780f, Screen.height / 1280f));

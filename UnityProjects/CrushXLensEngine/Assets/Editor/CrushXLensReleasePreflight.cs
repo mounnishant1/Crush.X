@@ -137,6 +137,37 @@ namespace CrushX.LensEngine.Editor
                     "Use CrushX > Lens Engine > Create Native Android AR Scene.");
                 failures++;
             }
+            // Ensure the actual AR scene has the production UIDocument.
+            // A C# component that was never placed in the scene is NOT a
+            // production camera navigation integration.
+            const string cameraScene = "Assets/Scenes/CrushXNativeAR.unity";
+            const string panelPath =
+                "Assets/CrushXGenerated/CrushXCameraProductionPanel.asset";
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.PanelSettings>(
+                    panelPath) == null)
+            {
+                Debug.LogError("[LENS_GATE] Production UI Toolkit PanelSettings missing.");
+                failures++;
+            }
+            else if (!File.Exists(cameraScene))
+            {
+                Debug.LogError("[LENS_GATE] Native AR scene missing.");
+                failures++;
+            }
+            else
+            {
+                string scriptGuid = AssetDatabase.AssetPathToGUID(
+                    "Assets/Scripts/Runtime/LensCameraProductionUI.cs");
+                string text = File.ReadAllText(cameraScene);
+                if (string.IsNullOrEmpty(scriptGuid) ||
+                    !text.Contains("guid: " + scriptGuid))
+                {
+                    Debug.LogError("[LENS_GATE] Production camera UI controller " +
+                        "not serialized in the native AR scene.");
+                    failures++;
+                }
+            }
+
             if (LensCatalog.All.Count != 37)
             {
                 Debug.LogError("[LENS_GATE] Lens catalog expected 37 registered items.");

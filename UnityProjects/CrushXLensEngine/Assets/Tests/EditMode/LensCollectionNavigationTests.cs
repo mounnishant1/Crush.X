@@ -108,6 +108,64 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
+        public void FavoritesAndRecentNeverLeakAcrossAuthenticatedAccounts()
+        {
+            try
+            {
+                Assert.IsTrue(prefs.ConfigureAccountScope("test-account-1"));
+                prefs.Reset();
+                prefs.ToggleFavorite("alien-classic");
+                prefs.RecordUsage("dragon");
+                Assert.AreEqual(1, Browse("Favorites").Count);
+                Assert.AreEqual("dragon", Browse("Recent")[0].Id);
+
+                Assert.IsTrue(prefs.ConfigureAccountScope("test-account-2"));
+                prefs.Reset();
+                Assert.AreEqual(0, Browse("Favorites").Count);
+                Assert.AreEqual(0, Browse("Recent").Count);
+                prefs.ToggleFavorite("cat-ears");
+
+                Assert.IsTrue(prefs.ConfigureAccountScope("test-account-1"));
+                Assert.AreEqual("alien-classic", Browse("Favorites")[0].Id);
+                Assert.AreEqual("dragon", Browse("Recent")[0].Id);
+                Assert.IsFalse(prefs.IsFavorite("cat-ears"));
+
+                // Empty account ID is guest, not the previously signed-in user.
+                Assert.IsTrue(prefs.ConfigureAccountScope(""));
+                Assert.IsFalse(prefs.IsFavorite("alien-classic"));
+                Assert.IsFalse(prefs.IsFavorite("cat-ears"));
+                Assert.IsFalse(prefs.ConfigureAccountScope(new string('x', 129)));
+            }
+            finally
+            {
+                prefs.ConfigureAccountScope("test-account-1");
+                prefs.Reset();
+                prefs.ConfigureAccountScope("test-account-2");
+                prefs.Reset();
+                prefs.ConfigureAccountScope("");
+                prefs.Reset();
+            }
+        }
+
+        [Test]
+        public void ProductionPreviewSwipeIgnoresTapVerticalAndDiagonalGestures()
+        {
+            UnityEngine.Vector2 start = new UnityEngine.Vector2(220f, 440f);
+            Assert.AreEqual(1, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 440f), 440f));
+            Assert.AreEqual(-1, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(350f, 440f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(205f, 440f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(220f, 280f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 330f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 440f), 0f));
+        }
+
+        [Test]
         public void ResetClearsBothCollectionsButDoesNotDeleteTheLensCatalog()
         {
             prefs.ToggleFavorite("dragon");

@@ -84,11 +84,51 @@ class LensSafetyChecks(unittest.TestCase):
         discovery = (SRC / "Runtime" / "LensDiscovery.cs").read_text()
         self.assertIn("MaximumRecent = 12", prefs)
         self.assertIn("RecentIds()", prefs)
-        self.assertIn("PlayerPrefs.DeleteKey(RecentKey)", prefs)
+        self.assertIn('PlayerPrefs.DeleteKey(Key("recent"))', prefs)
         self.assertIn('name == "Favorites"', discovery)
         self.assertIn('name == "Recent"', discovery)
         self.assertTrue((ROOT / "Assets" / "Tests" / "EditMode" /
                          "LensCollectionNavigationTests.cs").exists())
+
+    def test_production_camera_toolkit_is_wired_with_fallback(self):
+        toolkit = (SRC / "Runtime" / "LensCameraProductionUI.cs").read_text()
+        editor = (ROOT / "Assets" / "Editor" /
+                  "CrushXLensProductionUISetup.cs").read_text()
+        scene_tools = (ROOT / "Assets" / "Editor" /
+                       "CrushXNativeARSceneTools.cs").read_text()
+        legacy = (SRC / "Runtime" / "NativeLensUI.cs").read_text()
+        preflight = (ROOT / "Assets" / "Editor" /
+                     "CrushXLensReleasePreflight.cs").read_text()
+        self.assertIn("[RequireComponent(typeof(UIDocument))]", toolkit)
+        self.assertIn("new ScrollView(ScrollViewMode.Horizontal)", toolkit)
+        self.assertIn("Screen.safeArea", toolkit)
+        self.assertIn("CapturePointer", toolkit)
+        self.assertIn("previewArea.RegisterCallback<PointerDownEvent>", toolkit)
+        self.assertIn("Mathf.Abs(delta.x) < width * .16f", toolkit)
+        self.assertIn("multiTouchCancelled", toolkit)
+        self.assertIn("Length.Percent(100)", toolkit)
+        self.assertIn("LensDiscovery.Collections", toolkit)
+        self.assertIn("EnsureInstalledForCurrentScene()", editor)
+        self.assertIn("new GameObject(\"CrushX Production Camera UI\")", editor)
+        self.assertIn("CrushXLensProductionUISetup.EnsureInstalledForCurrentScene()", scene_tools)
+        self.assertIn("toolkitUI.IsReady", legacy)
+        self.assertIn("Production camera UI controller", preflight)
+
+    def test_production_favorites_are_isolated_by_authenticated_scope(self):
+        source = (SRC / "Runtime" / "LensPersonalization.cs").read_text()
+        engine = (SRC / "Runtime" / "LensEngineBootstrap.cs").read_text()
+        receiver = (SRC / "Bridge" / "UnityLensReceiver.cs").read_text()
+        unity_tests = (ROOT / "Assets" / "Tests" / "EditMode" /
+                       "LensCollectionNavigationTests.cs").read_text()
+        self.assertIn('private string scope = "guest";', source)
+        self.assertIn("SHA256.Create()", source)
+        self.assertIn("ConfigureAccountScope(string accountId)", source)
+        self.assertIn('Key("recent")', source)
+        self.assertIn("Max", source)
+        self.assertIn("SelectLensInternal(visible[0].Id, false)", engine)
+        self.assertIn("ConfigureAccountScope(string authenticatedAccountId)", engine)
+        self.assertIn("SetLensAccountScope(string authenticatedAccountId)", receiver)
+        self.assertIn("FavoritesAndRecentNeverLeakAcrossAuthenticatedAccounts", unity_tests)
 
     def test_games_group_comedy_and_opt_in_voice(self):
         data = (SRC / "Lenses" / "FunnyLensGames.cs").read_text()
