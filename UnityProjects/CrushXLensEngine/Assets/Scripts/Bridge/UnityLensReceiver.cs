@@ -35,6 +35,31 @@ namespace CrushX.LensEngine
             if (e != null && !e.ApplyTrustedTrendingFeed(trustedJson))
                 Debug.LogWarning("Rejected invalid or stale lens trend feed");
         }
+        // Host supplies viewport-aligned, normalized landmarks from real frames.
+        public void PushFaceWarpFrame(string json)
+        {
+            LensEngineBootstrap e = GetEngine();
+            if (e != null && !e.PushFaceWarpFrame(json))
+                Debug.LogWarning("Rejected unsafe / stale face warp frame");
+        }
+        public void ResetFaceWarpFrame(string ignored)
+        {
+            LensEngineBootstrap e = GetEngine();
+            if (e != null) e.ClearWarpTracking();
+        }
+        public void SetFaceWarpIntensity(string rawValue)
+        {
+            float intensity;
+            if (float.TryParse(rawValue,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out intensity))
+            {
+                LensEngineBootstrap e = GetEngine();
+                if (e != null) e.SetWarpIntensity(intensity);
+            }
+        }
+
         public void TakePhoto(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
