@@ -54,9 +54,16 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),true);
   await record({...like,eventId:'extra_evt_'+suffix});
   assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix})!==null,true);
-  await pool.query("UPDATE cx_trusted_event_receipts SET expires_at=NOW()-INTERVAL '1 second' "+
-   "WHERE subject=$1 AND event_id=$2",[subject,'extra_evt_'+suffix]);
-  assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix}),null);
+  // Use a separate historic, valid signing clock for an actually expired
+  // test fixture; do not mutate an active receipt into an impossible lifetime.
+  const oldTime=now-600000,expiredId='expired_evt_'+suffix;
+  const oldSvc=createTrustedReceiptService({key:Buffer.alloc(32,64),now:()=>oldTime,
+   readSignedReceipt:async()=>null});
+  const oldStore=createPostgresReceiptStore({pool,now:()=>oldTime,
+   validateReceipt:oldSvc.verifyIssuedReceipt});
+  await oldStore.save({receipt:oldSvc.signTrustedEvent({subject,event:{
+   eventId:expiredId,contentId:ids[0],action:'view',at:oldTime}})});
+  assert.equal(await receiptStore.read({subject,eventId:expiredId}),null);
   assert.equal((await receiptStore.purgeExpired({limit:10})).deleted>=1,true);
   await store.setPreferences({subject,read:true,analyze:false,personalize:false,topics:[]});
   assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix}),null);
