@@ -164,13 +164,13 @@ namespace CrushX.LensEngine
             return true;
         }
 
-        private void Save(Store store)
+        private bool Save(Store store)
         {
             string encoded = JsonUtility.ToJson(store);
-            if (encoded.Length > MaximumStoredCharacters)
-                throw new InvalidOperationException("Collection data limit exceeded");
+            if (encoded.Length > MaximumStoredCharacters) return false;
             PlayerPrefs.SetString(CollectionStorageKey, encoded);
             PlayerPrefs.Save();
+            return true;
         }
 
         public bool IsHealthy
@@ -220,7 +220,7 @@ namespace CrushX.LensEngine
             var folder = new LensUserCollection { id = newId, name = name };
             if (lensId != null) folder.lensIds.Add(lensId);
             loaded.entries.Add(folder);
-            Save(loaded);
+            if (!Save(loaded)) return false;
             id = newId;
             return true;
         }
@@ -249,7 +249,7 @@ namespace CrushX.LensEngine
             }
             if (target == null) return false;
             target.name = name;
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
@@ -259,7 +259,7 @@ namespace CrushX.LensEngine
             if (!IsCustomId(id) || !TryLoad(out loaded)) return false;
             int removed = loaded.entries.RemoveAll(item => item.id == id);
             if (removed != 1) return false;
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
@@ -274,7 +274,7 @@ namespace CrushX.LensEngine
             LensUserCollection temp = loaded.entries[from];
             loaded.entries[from] = loaded.entries[to];
             loaded.entries[to] = temp;
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
@@ -287,7 +287,7 @@ namespace CrushX.LensEngine
             if (entry == null || entry.lensIds.Count >= MaximumLenses ||
                 entry.lensIds.Contains(lensId)) return false;
             entry.lensIds.Add(lensId);
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
@@ -297,7 +297,7 @@ namespace CrushX.LensEngine
             if (!IsCustomId(id) || !TryLoad(out loaded)) return false;
             LensUserCollection entry = loaded.entries.Find(x => x.id == id);
             if (entry == null || !entry.lensIds.Remove(lensId)) return false;
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
@@ -314,7 +314,7 @@ namespace CrushX.LensEngine
             string temporary = entry.lensIds[from];
             entry.lensIds[from] = entry.lensIds[to];
             entry.lensIds[to] = temporary;
-            Save(loaded);
+            if (!Save(loaded)) return false;
             return true;
         }
 
