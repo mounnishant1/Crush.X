@@ -28,6 +28,21 @@ namespace CrushX.LensEngine
         private bool initializationAttempted;
         private volatile bool stopped;
         private bool started;
+        private int conversionEpoch;
+
+        public bool SetCameraAlignment(int rotationDegrees, bool mirrorPreview)
+        {
+            if (rotationDegrees != 0 && rotationDegrees != 90 &&
+                rotationDegrees != 180 && rotationDegrees != 270) return false;
+            if (RotationDegrees == rotationDegrees && MirrorForPreview == mirrorPreview)
+                return true;
+            RotationDegrees = rotationDegrees;
+            MirrorForPreview = mirrorPreview;
+            conversionEpoch++;
+            lock (gate) convertedFrame = null;
+            if (Engine != null) Engine.ClearAllTrackingFrames();
+            return true;
+        }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject native;
@@ -47,6 +62,8 @@ namespace CrushX.LensEngine
         private void StartNative()
         {
             stopped = false;
+            IsReady = false;
+            conversionEpoch++;
             initializationAttempted = false;
             if (CameraManager == null) CameraManager = FindFirstObjectByType<ARCameraManager>();
             if (Engine == null) Engine = FindFirstObjectByType<LensEngineBootstrap>();
@@ -150,7 +167,10 @@ namespace CrushX.LensEngine
                 };
                 conversionPending = true;
                 lastCaptureAt = Time.unscaledTime;
-                cpuImage.ConvertAsync(conversion, OnConverted);
+                int captureEpoch = conversionEpoch;
+                cpuImage.ConvertAsync(conversion,
+                    (status, parameters, data) =>
+                        OnConverted(captureEpoch, status, parameters, data));
             }
             catch (System.Exception error)
             {
@@ -160,19 +180,24 @@ namespace CrushX.LensEngine
             finally { cpuImage.Dispose(); }
         }
 
-        private void OnConverted(XRCpuImage.AsyncConversionStatus status,
+        private void OnConverted(int captureEpoch, XRCpuImage.AsyncConversionStatus status,
             XRCpuImage.ConversionParams parameters, NativeArray<byte> data)
         {
             try
             {
-                if (!stopped && status == XRCpuImage.AsyncConversionStatus.Ready &&
+                if (!stopped && captureEpoch == conversionEpoch &&
+                    status == XRCpuImage.AsyncConversionStatus.Ready &&
                     data.IsCreated && data.Length == 256 * 256 * 4)
                 {
                     var bytes = data.ToArray();
                     lock (gate) convertedFrame = bytes;
                 }
             }
-            finally { conversionPending = false; }
+            finally
+            {
+                if (captureEpoch == conversionEpoch)
+                    conversionPending = false;
+            }
         }
 
         private void OnDisable() { StopNative(); }
@@ -182,6 +207,8 @@ namespace CrushX.LensEngine
         {
             if (stopped) return;
             stopped = true;
+            conversionEpoch++;
+            conversionPending = false;
             initializationAttempted = false;
             lock (gate) convertedFrame = null;
             if (Engine != null) Engine.SetPreciseTrackingAvailable(false);
