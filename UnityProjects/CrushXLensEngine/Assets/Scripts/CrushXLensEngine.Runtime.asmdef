@@ -4,7 +4,8 @@
   "references": [
     "Unity.XR.ARFoundation",
     "Unity.XR.ARSubsystems",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.RenderPipelines.Universal.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
