@@ -79,7 +79,10 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
     'ON CONFLICT (subject) DO UPDATE SET can_read=EXCLUDED.can_read,'+
     'can_analyze=EXCLUDED.can_analyze,can_personalize=EXCLUDED.can_personalize,'+
     'topics=EXCLUDED.topics,updated_at=NOW()', [subject,read,analyze,personalize,interests]);
-   if(!personalize)await client.query('DELETE FROM cx_content_events WHERE subject=$1',[subject]);
+   if(!personalize){
+    await client.query('DELETE FROM cx_content_events WHERE subject=$1',[subject]);
+    await client.query('DELETE FROM cx_trusted_event_receipts WHERE subject=$1',[subject]);
+   }
    if(!read)await client.query('DELETE FROM cx_content_hides WHERE subject=$1',[subject]);
    return Object.freeze({read,analyze,personalize,topics:interests});
   });
@@ -88,6 +91,7 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
   checkSubject(subject);
   return transaction(async client=>{
    await client.query('DELETE FROM cx_content_events WHERE subject=$1',[subject]);
+   await client.query('DELETE FROM cx_trusted_event_receipts WHERE subject=$1',[subject]);
    await client.query('DELETE FROM cx_content_hides WHERE subject=$1',[subject]);
    await client.query("UPDATE cx_content_preferences SET topics='{}'::TEXT[],updated_at=NOW() WHERE subject=$1",[subject]);
    return Object.freeze({erased:true});
