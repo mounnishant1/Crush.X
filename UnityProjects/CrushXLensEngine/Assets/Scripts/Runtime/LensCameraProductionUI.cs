@@ -79,6 +79,7 @@ namespace CrushX.LensEngine
             multiTouchCancelled = false;
             browseOpen = false;
             customManagerOpen = false;
+            CloseQuickSave();
             IsReady = false;
         }
 
@@ -258,6 +259,10 @@ namespace CrushX.LensEngine
                 () => { if (Engine != null) Engine.ToggleFavorite(); });
             favoriteButton.style.flexGrow = 1;
             captureRow.Add(favoriteButton);
+            quickSaveOpenButton = MakeButton("Save to",
+                "Add this lens to a collection", OpenQuickSave);
+            quickSaveOpenButton.style.flexGrow = 1;
+            captureRow.Add(quickSaveOpenButton);
             var capture = MakeButton("Photo", "Capture photo with selected effects",
                 () => { if (Engine != null) CaptureManager.SavePhoto(Engine); });
             capture.style.flexGrow = 1;
@@ -268,6 +273,7 @@ namespace CrushX.LensEngine
             captureRow.Add(next);
 
             BuildCustomManager(tabsRow);
+            BuildQuickSaveSheet();
             RebuildCollectionButtons();
             IsReady = true;
             lastUiKey = null;
@@ -340,7 +346,7 @@ namespace CrushX.LensEngine
 
         private void OnPreviewDown(PointerDownEvent evt)
         {
-            if (customManagerOpen) return;
+            if (customManagerOpen || quickSaveOpen) return;
             if (browseOpen)
             {
                 ToggleBrowse();
@@ -364,7 +370,8 @@ namespace CrushX.LensEngine
             pointerId = -1;
             if (previewArea.HasPointerCapture(evt.pointerId))
                 previewArea.ReleasePointer(evt.pointerId);
-            if (Engine == null || browseOpen || multiTouchCancelled) return;
+            if (Engine == null || browseOpen || multiTouchCancelled ||
+                quickSaveOpen) return;
             Vector2 difference = new Vector2(evt.localPosition.x,
                 evt.localPosition.y) - swipeStart;
             float width = previewArea.resolvedStyle.width;
@@ -395,6 +402,13 @@ namespace CrushX.LensEngine
                 if (Engine == null) return;
             }
             UpdateSafeArea();
+            if (quickSaveOpen)
+            {
+                if (!IsQuickSaveTargetCurrent())
+                    CloseQuickSave();
+                else if (quickSaveCollectionRevision != Engine.CollectionRevision)
+                    RefreshQuickSaveOptions();
+            }
             if (lastCollectionRevision != Engine.CollectionRevision)
             {
                 RebuildCollectionButtons();
@@ -421,6 +435,8 @@ namespace CrushX.LensEngine
             browsePanel.style.top = topInset + 153f;
             browseList.style.maxHeight = Mathf.Max(100f,
                 root.resolvedStyle.height - topInset - bottomInset - 270f);
+            if (quickSaveSheet != null)
+                quickSaveSheet.style.paddingBottom = bottomInset + 12f;
         }
 
         private void RefreshVisualState(bool force)
@@ -440,6 +456,8 @@ namespace CrushX.LensEngine
                     entry.Value.style.backgroundColor =
                         entry.Key == Engine.ActiveCollection ? Selected : Neutral;
                 favoriteButton.text = favorite ? "♥" : "♡";
+                if (quickSaveOpenButton != null)
+                    quickSaveOpenButton.SetEnabled(LensCatalog.Find(active).HasValue);
                 favoriteButton.tooltip = favorite ?
                     "Remove lens from favorites" : "Add lens to favorites";
                 microphoneButton.text = Engine.VoicePreviewRunning ?

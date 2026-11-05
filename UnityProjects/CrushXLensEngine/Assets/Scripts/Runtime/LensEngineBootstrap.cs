@@ -32,6 +32,7 @@ namespace CrushX.LensEngine
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
         public int CollectionRevision { get; private set; }
+        public int AccountScopeRevision { get; private set; }
         public IReadOnlyList<LensUserCollection> UserCollections =>
             personalization != null ?
                 personalization.CustomCollections.All() :
@@ -70,6 +71,26 @@ namespace CrushX.LensEngine
             CollectionRevision++;
             RefreshVisible();
             return true;
+        }
+
+        // Used by the per-lens quick-save surface. Both folder creation
+        // and initial membership persist atomically under the active account.
+        public bool CreateCustomCollectionWithLens(
+            string name, string lensId, out string id)
+        {
+            id = null;
+            if (personalization == null ||
+                !personalization.CustomCollections.TryCreateWithLens(
+                    name, lensId, out id)) return false;
+            CollectionRevision++;
+            if (collection == id) RefreshVisible();
+            return true;
+        }
+
+        public bool IsLensInCustomCollection(string folderId, string lensId)
+        {
+            return personalization != null &&
+                personalization.CustomCollections.ContainsLens(folderId, lensId);
         }
 
         public bool RenameCustomCollection(string id, string name)
@@ -248,6 +269,7 @@ namespace CrushX.LensEngine
             if (!personalization.ConfigureAccountScope(authenticatedAccountId))
                 return false;
             collection = "All";
+            AccountScopeRevision++;
             CollectionRevision++;
             RefreshVisible();
             // Never auto-insert an unintended selection into a new account's
