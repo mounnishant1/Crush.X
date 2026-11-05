@@ -98,7 +98,7 @@ class LatestLensCollectionPort(unittest.TestCase):
         self.assertIn("ui.BlocksCameraGestures", gesture)
         self.assertIn("nativeUi.HidesCarousel", content("Scripts/Runtime/CrushXSmartCarousel.cs"))
         self.assertIn("Screen.safeArea", layout)
-        self.assertIn("NativeCameraLayout.Current", layout)
+        self.assertIn("public static NativeCameraLayout Current", layout)
 
     def test_unity_editmode_tests_and_metas_present(self):
         expected = [
