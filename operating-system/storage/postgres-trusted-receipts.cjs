@@ -78,9 +78,13 @@ function createPostgresReceiptStore({pool,validateReceipt,now=Date.now,maxAgeMs=
  }
  // The verifier uses read() inside its own backend authorization context.
  // No arbitrary lookups through public HTTP; never returns an expired receipt.
- async function read({subject,eventId}={}){
+ async function read({subject,eventId,db}={}){
   if(!valid(subject)||!valid(eventId))return null;
-  const rows=await pool.query('SELECT r.'+COLUMNS.split(',').join(',r.')+
+  // Reuse the caller's transaction for consent-locked verification; otherwise
+  // a pool with one connection (or saturated concurrent writers) can deadlock.
+  const queryable=db===undefined?pool:db;
+  if(typeof queryable?.query!=='function')throw Error('RECEIPT_DB_CLIENT_INVALID');
+  const rows=await queryable.query('SELECT r.'+COLUMNS.split(',').join(',r.')+
    ' FROM cx_trusted_event_receipts r '+
    'JOIN cx_content_preferences p ON p.subject=r.subject '+
    'AND p.can_read=TRUE AND p.can_personalize=TRUE '+
