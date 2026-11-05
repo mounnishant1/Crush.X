@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "purpose": "Crush.X free-first lens components; this is a review manifest, not a warranty of license clearance",
+  "ship_strategy": "original-first",
+  "providers": [
+    {
+      "id": "crushx-unity-lens-engine",
+      "role": "Original 3D masks, original comedy lenses, camera UI",
+      "license": "Crush.X project-owned source",
+      "state": "integrated-source-only",
+      "packaged": true,
+      "requires_legal_review": false,
+      "public_branding": false
+    },
+    {
+      "id": "unity-arfoundation-arcore",
+      "role": "Android front camera AR tracking and scene composition",
+      "license": "Unity subscription + Google API terms",
+      "state": "integrated-source-only",
+      "packaged": true,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "mediapipe-face-landmarker",
+      "role": "Eye/mouth landmarks, jaw/blink/smile for warping",
+      "license": "MediaPipe code Apache-2.0; each model/bundle separately verify",
+      "state": "source-wired-model-blocked",
+      "packaged": true,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "crushx-original-urp-shaders",
+      "role": "Face warp and eventual beauty/color processing",
+      "license": "Crush.X project-owned source",
+      "state": "prototype-source-only",
+      "packaged": true,
+      "requires_legal_review": false,
+      "public_branding": false
+    },
+    {
+      "id": "opencv",
+      "role": "Optional image utilities; not a face-lens engine",
+      "license": "Apache-2.0 (v4.5+)",
+      "state": "not-integrated-optional",
+      "packaged": false,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "gpupixel",
+      "role": "Optional beauty smoothing/color filters when binaries and subdependencies audited",
+      "license": "Repository Apache-2.0; bundled MarsFace binaries/models require clarification",
+      "state": "hold-third-party-license",
+      "packaged": false,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "polyhaven-cc0",
+      "role": "Offline import of approved 3D props, PBR and HDRI only",
+      "license": "CC0 per official asset library; trademarks are not licensed by CC0",
+      "state": "asset-import-optional",
+      "packaged": false,
+      "requires_legal_review": false,
+      "public_branding": false
+    },
+    {
+      "id": "kenney-cc0",
+      "role": "Offline import of approved lens-game icons/effects/SFX",
+      "license": "CC0 per official asset pages",
+      "state": "asset-import-optional",
+      "packaged": false,
+      "requires_legal_review": false,
+      "public_branding": false
+    },
+    {
+      "id": "banuba-face-ar-sdk",
+      "role": "Commercial turnkey SDK trial, non-free production",
+      "license": "Proprietary MAU-based after trial",
+      "state": "excluded-paid",
+      "packaged": false,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "deepar-sdk",
+      "role": "Commercial turnkey SDK 10 MAU free/watermarked development",
+      "license": "Proprietary commercial paid beyond limited free tier",
+      "state": "excluded-watermark-and-quota",
+      "packaged": false,
+      "requires_legal_review": true,
+      "public_branding": false
+    },
+    {
+      "id": "snap-camera-kit",
+      "role": "Third-party Snap Lens SDK; imitation restrictions",
+      "license": "Snap Camera Kit terms incl non-imitation and possible branding",
+      "state": "excluded-non-imitation",
+      "packaged": false,
+      "requires_legal_review": true,
+      "public_branding": false
+    }
+  ],
+  "release_gates": {
+    "model_bundle_digest_verified": false,
+    "model_distribution_rights_reviewed": false,
+    "generated_android_gradle_dependencies_audited": false,
+    "third_party_notices_bundled": false,
+    "unity_android_compile_passed": false,
+    "oneplus_device_camera_qa_passed": false,
+    "photo_mp4_preview_parity_passed": false
+  }
+}
