@@ -59,9 +59,9 @@ function createTrustedReceiptService({key,readSignedReceipt,now=Date.now,
  }
  // The receipt must be retrieved from an independent protected store, not from
  // client input; cryptographic verification is only one authorization layer.
- async function verifyTrustedEvent({subject,event}={}){
+ async function verifyTrustedEvent({subject,event,db}={}){
   if(!validId(subject)||!validEvent(event))return false;
-  const receipt=await readSignedReceipt({subject,eventId:event.eventId});
+  const receipt=await readSignedReceipt({subject,eventId:event.eventId,db});
   return verifyIssuedReceipt(receipt)&&receipt.subject===subject&&
     receipt.eventId===event.eventId&&receipt.contentId===event.contentId&&
     receipt.action===event.action&&receipt.at===event.at&&
