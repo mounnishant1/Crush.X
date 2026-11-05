@@ -41,7 +41,10 @@ namespace CrushX.LensEngine
             new LensManifest("funny-noodle-stache", "Noodle Mustache", LensCategory.Funny, false),
             new LensManifest("funny-bubble-pop", "Bubble Pop", LensCategory.Funny, true),
             new LensManifest("funny-goofy-glasses", "Goofy Glasses", LensCategory.Funny, false),
-            new LensManifest("funny-jelly-head", "Jelly Head Outline", LensCategory.Funny, false)
+            new LensManifest("funny-jelly-head", "Jelly Head Outline", LensCategory.Funny, false),
+            new LensManifest("funny-game-blinkpop", "Blink Pop", LensCategory.Funny, true),
+            new LensManifest("funny-game-mouthcatch", "Mouth Catch", LensCategory.Funny, true),
+            new LensManifest("funny-group-party", "Group Party", LensCategory.Funny, false)
         };
         public static IReadOnlyList<LensManifest> All { get { return all; } }
 
@@ -83,6 +86,9 @@ namespace CrushX.LensEngine
                 case "funny-bubble-pop": return typeof(FunnyBubblePopLens);
                 case "funny-goofy-glasses": return typeof(FunnyGoofyGlassesLens);
                 case "funny-jelly-head": return typeof(FunnyJellyHeadLens);
+                case "funny-game-blinkpop": return typeof(BlinkPopFunnyLens);
+                case "funny-game-mouthcatch": return typeof(MouthCatchFunnyLens);
+                case "funny-group-party": return typeof(GroupPartyFunnyLens);
                 default: throw new ArgumentException("Unknown lens ID: " + id);
             }
         }

@@ -1,0 +1,85 @@
+"""Static source checks only. Does not certify Unity compilation/device QA."""
+import json
+import re
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "Assets" / "Scripts"
+CAT = SRC / "Runtime" / "LensCatalog.cs"
+MODEL = ROOT / "Assets" / "StreamingAssets" / "CrushXModels" / "face_landmarker.task"
+
+
+class LensSafetyChecks(unittest.TestCase):
+    def test_catalog_has_37_unique_resolvable_original_lenses(self):
+        catalog = CAT.read_text(encoding="utf8")
+        ids = re.findall(r'new LensManifest\("([^"]+)"', catalog)
+        mappings = dict(re.findall(
+            r'case "([^"]+)": return typeof\((\w+)\)', catalog))
+        self.assertEqual(37, len(ids))
+        self.assertEqual(37, len(set(ids)))
+        self.assertEqual(set(ids), set(mappings))
+        sources = "\n".join(
+            file.read_text(encoding="utf8") for file in SRC.rglob("*.cs"))
+        for lens_name in mappings.values():
+            self.assertRegex(
+                sources, r"\bclass\s+" + re.escape(lens_name) + r"\b")
+
+    def test_own_camera_stack_has_no_paid_sdk_link(self):
+        config = json.loads((ROOT / "OpenLens" /
+                             "approved-providers.json").read_text())
+        for provider in config["providers"]:
+            if provider["id"] in (
+                "gpupixel", "snap-camera-kit", "deepar-sdk",
+                "banuba-face-ar-sdk"):
+                self.assertFalse(provider["packaged"], provider["id"])
+        self.assertFalse(all(config["release_gates"].values()),
+                         "Never mark unverified source as fully release-ready")
+
+    def test_native_pipeline_keeps_privacy_and_model_gate(self):
+        java = (ROOT / "Assets" / "AndroidNative" /
+                "CrushXFaceLandmarkerBridge.java").read_text()
+        self.assertIn(".setNumFaces(3)", java)
+        self.assertIn("latestFaces.set(", java)
+        self.assertIn("pollLatestFaces()", java)
+        self.assertIn("detectForVideo(", java)
+        gradle = (ROOT / "Assets" / "Editor" /
+                  "CrushXMediaPipeAndroidGradle.cs").read_text()
+        self.assertIn("SHA256.Create()", gradle)
+        self.assertIn("MODEL-LICENSE-APPROVED", gradle)
+        self.assertFalse(MODEL.exists(),
+                         "Do not commit unapproved face model in source.")
+
+    def test_render_graph_beauty_and_face_warp(self):
+        for shader in ("CrushXOriginalBeauty.shader",
+                       "CrushXFunnyFaceWarp.shader"):
+            self.assertTrue((ROOT / "Assets" / "Shaders" / shader).is_file())
+        for feature in ("CrushXBeautyRendererFeature.cs",
+                        "FunnyFaceWarpRendererFeature.cs"):
+            body = (SRC / "Runtime" / feature).read_text()
+            self.assertIn("RecordRenderGraph", body)
+            self.assertIn("requiresIntermediateTexture = true", body)
+        body = (SRC / "Runtime" / "FaceWarpFrameSource.cs").read_text()
+        self.assertIn("MaximumFrameAgeSeconds = .18f", body)
+        self.assertIn("incoming.sequence <= lastSequence", body)
+
+    def test_games_group_comedy_and_opt_in_voice(self):
+        data = (SRC / "Lenses" / "FunnyLensGames.cs").read_text()
+        self.assertIn("rearmed = false;", data)
+        self.assertIn("BlinkPopFunnyLens", data)
+        self.assertIn("MouthCatchFunnyLens", data)
+        self.assertIn("GroupPartyFunnyLens",
+                      (SRC / "Tracking" / "MultiFaceFunnyOverlay.cs").read_text())
+        voice = (SRC / "Runtime" / "FunnyVoiceEffects.cs").read_text()
+        self.assertIn("StartPreviewAfterConsent()", voice)
+        self.assertIn("Microphone.End", voice)
+        self.assertIn("RequestUserPermission", voice)
+
+    def test_runtime_scripts_and_meta_files_match(self):
+        for file in list(SRC.rglob("*.cs")) + list(
+                (ROOT / "Assets" / "Editor").rglob("*.cs")):
+            self.assertTrue(Path(str(file) + ".meta").is_file(), str(file))
+
+
+if __name__ == "__main__":
+    unittest.main()

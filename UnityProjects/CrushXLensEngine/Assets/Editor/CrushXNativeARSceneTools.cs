@@ -12,20 +12,37 @@ namespace CrushX.LensEngine.Editor
 {
     public static class CrushXNativeARSceneTools
     {
+        private static void ReportFailure(string title, string description)
+        {
+            if (Application.isBatchMode)
+                throw new InvalidOperationException(title + ": " + description);
+            EditorUtility.DisplayDialog(title, description, "OK");
+        }
+
+        // CI may generate this scene ONLY from an explicitly isolated checkout.
+        public static void CreateForIsolatedCI()
+        {
+            if (Environment.GetEnvironmentVariable("CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP") != "1")
+                throw new InvalidOperationException(
+                    "CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP=1 is required.");
+            CreateNativeAndroidScene();
+        }
+
         [MenuItem("CrushX/Lens Engine/Create Native Android AR Scene")]
         public static void CreateNativeAndroidScene()
         {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            if (!Application.isBatchMode &&
+                !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             // AR Foundation editor menu constructs XR Origin, camera, tracked-pose driver and AR background correctly.
             if (!EditorApplication.ExecuteMenuItem("GameObject/XR/AR Session"))
             {
-                EditorUtility.DisplayDialog("AR Foundation required", "Install Unity AR Foundation 6 and its XR scene-setup menus.", "OK");
+                ReportFailure("AR Foundation required", "Install Unity AR Foundation 6 and its XR scene-setup menus.");
                 return;
             }
             if (!EditorApplication.ExecuteMenuItem("GameObject/XR/XR Origin (Mobile AR)"))
             {
-                EditorUtility.DisplayDialog("XR Origin unavailable", "Add GameObject > XR > XR Origin (Mobile AR), then retry. Check AR Foundation installation.", "OK");
+                ReportFailure("XR Origin unavailable", "Add GameObject > XR > XR Origin (Mobile AR), then retry. Check AR Foundation installation.");
                 return;
             }
             var faceManager = UnityEngine.Object.FindFirstObjectByType<ARFaceManager>();
@@ -34,7 +51,7 @@ namespace CrushX.LensEngine.Editor
                 GameObject origin = GameObject.Find("XR Origin");
                 if (origin == null)
                 {
-                    EditorUtility.DisplayDialog("XR Origin missing", "AR scene setup didn't produce an XR Origin.", "OK");
+                    ReportFailure("XR Origin missing", "AR scene setup did not produce an XR Origin.");
                     return;
                 }
                 faceManager = origin.AddComponent<ARFaceManager>();
@@ -43,7 +60,7 @@ namespace CrushX.LensEngine.Editor
             ARCameraBackground background = UnityEngine.Object.FindFirstObjectByType<ARCameraBackground>();
             if (cameraManager == null || background == null)
             {
-                EditorUtility.DisplayDialog("AR camera missing", "XR Origin should include AR Camera Manager and AR Camera Background. Check the provider installation.", "OK");
+                ReportFailure("AR camera missing", "XR Origin should include AR Camera Manager and AR Camera Background. Check the provider installation.");
                 return;
             }
             cameraManager.requestedFacingDirection = CameraFacingDirection.User;
@@ -54,7 +71,7 @@ namespace CrushX.LensEngine.Editor
                 Shader shader = Shader.Find("CrushX/ARFaceDepthOnly");
                 if (shader == null)
                 {
-                    EditorUtility.DisplayDialog("Depth shader missing", "Assets/Shaders/CrushXFaceDepth.shader failed to import.", "OK");
+                    ReportFailure("Depth shader missing", "Assets/Shaders/CrushXFaceDepth.shader failed to import.");
                     return;
                 }
                 occlusion = new Material(shader);

@@ -9,6 +9,9 @@ namespace CrushX.LensEngine
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
         private FaceTrackingManager tracking;
+        private FunnyVoiceEffects voice;
+        private MultiFaceFunnyOverlay groupFaces;
+        private ARCameraMediaPipeRunner mediaPipeRunner;
         private FaceWarpFrameSource faceWarp;
         private readonly LiveFaceExpressionState expressions = new LiveFaceExpressionState();
         private bool preciseTrackingAvailable;
@@ -32,10 +35,18 @@ namespace CrushX.LensEngine
         public float BeautyIntensity { get { return faceWarp != null ? faceWarp.BeautyIntensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
         public bool PreciseTrackingActive { get { return preciseTrackingAvailable; } }
+        public bool VoicePreviewRunning => voice != null && voice.IsPreviewRunning;
+        public FunnyVoiceMode ActiveVoiceMode => voice != null ? voice.Mode : FunnyVoiceMode.Off;
+        public int ActiveGameScore => effect is IFunnyLensGame g ? g.Score : 0;
+        public float ActiveGameSeconds => effect is IFunnyLensGame g ? g.RemainingSeconds : 0f;
+        public bool HasActiveGame => effect is IFunnyLensGame;
 
         private void Awake()
         {
             personalization = new LensPersonalization();
+            voice = gameObject.AddComponent<FunnyVoiceEffects>();
+            groupFaces = gameObject.AddComponent<MultiFaceFunnyOverlay>();
+            groupFaces.Engine = this;
             faceWarp = gameObject.AddComponent<FaceWarpFrameSource>();
             trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
@@ -71,9 +82,9 @@ namespace CrushX.LensEngine
             // AR face subsystem. Keep 2D image-space beauty/warp available.
             if (frontCamera != null)
             {
-                var mediaPipe = gameObject.AddComponent<ARCameraMediaPipeRunner>();
-                mediaPipe.CameraManager = frontCamera;
-                mediaPipe.Engine = this;
+                mediaPipeRunner = gameObject.AddComponent<ARCameraMediaPipeRunner>();
+                mediaPipeRunner.CameraManager = frontCamera;
+                mediaPipeRunner.Engine = this;
             }
             if (Camera.main == null)
             {
@@ -150,6 +161,13 @@ namespace CrushX.LensEngine
             preciseTrackingAvailable = available;
             expressions.Invalidate();
             if (faceWarp != null) faceWarp.Invalidate();
+            if (groupFaces != null) groupFaces.Invalidate();
+        }
+
+        public bool PushMultiFaceResult(string json)
+        {
+            return preciseTrackingAvailable && groupFaces != null &&
+                groupFaces.Apply(json, Time.realtimeSinceStartup);
         }
 
         public bool PushMediaPipeResult(string json)
@@ -178,9 +196,38 @@ namespace CrushX.LensEngine
             if (faceWarp != null) faceWarp.SetBeautyIntensity(value);
         }
 
+        public void ClearAllTrackingFrames()
+        {
+            expressions.Invalidate();
+            if (faceWarp != null) faceWarp.Invalidate();
+            if (groupFaces != null) groupFaces.Invalidate();
+        }
+
+        public bool SetCameraAlignment(int rotation, bool mirror)
+        {
+            return mediaPipeRunner != null &&
+                mediaPipeRunner.SetCameraAlignment(rotation, mirror);
+        }
+
         public void ClearWarpTracking()
         {
             if (faceWarp != null) faceWarp.Invalidate();
+        }
+
+        public bool SetVoiceMode(string modeName)
+        {
+            return voice != null && voice.SetMode(modeName);
+        }
+
+        public bool ToggleVoicePreview()
+        {
+            if (voice == null) return false;
+            if (voice.IsPreviewRunning)
+            {
+                voice.StopPreview();
+                return false;
+            }
+            return voice.StartPreviewAfterConsent();
         }
 
         public bool SelectLens(string id)
@@ -191,6 +238,8 @@ namespace CrushX.LensEngine
                 collection = "All";
                 RefreshVisible();
             }
+            if (voice != null && !id.StartsWith("funny-", StringComparison.Ordinal))
+                voice.StopPreview();
             if (faceWarp != null) faceWarp.SetLens(id);
             if (effect != null) Destroy(effect.gameObject);
             var go = new GameObject("Lens-" + id);
