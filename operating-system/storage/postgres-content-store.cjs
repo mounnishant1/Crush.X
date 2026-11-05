@@ -90,6 +90,8 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
  async function eraseHistory({subject}={}){
   checkSubject(subject);
   return transaction(async client=>{
+   // Serialize reset with issuance and event writes for the same account.
+   await client.query('SELECT subject FROM cx_content_preferences WHERE subject=$1 FOR UPDATE',[subject]);
    await client.query('DELETE FROM cx_content_events WHERE subject=$1',[subject]);
    await client.query('DELETE FROM cx_trusted_event_receipts WHERE subject=$1',[subject]);
    await client.query('DELETE FROM cx_content_hides WHERE subject=$1',[subject]);
@@ -143,11 +145,14 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
     (event.watchFraction!==undefined&&(!Number.isFinite(event.watchFraction)||
      event.watchFraction<0||event.watchFraction>1)))
    throw Error('ENGAGEMENT_EVENT_INVALID');
-  if(await verifyTrustedEvent({subject,event})!==true)throw Error('TRUSTED_EVENT_PROOF_REQUIRED');
   return transaction(async client=>{
    const prefs=await client.query('SELECT can_read,can_personalize FROM cx_content_preferences WHERE subject=$1 FOR UPDATE',[subject]);
    if(prefs.rows?.[0]?.can_read!==true||prefs.rows?.[0]?.can_personalize!==true)
     throw Error('PERSONALIZATION_CONSENT_REQUIRED');
+   // Verify only after acquiring the consent-row lock: a reset/revoke that
+   // erased a receipt can no longer be followed by a stale event insertion.
+   if(await verifyTrustedEvent({subject,event})!==true)
+    throw Error('TRUSTED_EVENT_PROOF_REQUIRED');
    const prior=await client.query(
     'SELECT content_id,action FROM cx_content_events WHERE subject=$1 AND event_id=$2',
     [subject,event.eventId]);
