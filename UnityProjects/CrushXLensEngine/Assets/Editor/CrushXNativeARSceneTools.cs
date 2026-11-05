@@ -91,6 +91,12 @@ namespace CrushX.LensEngine.Editor
             var engine = new GameObject("CrushX Native 3D AR Runtime");
             engine.AddComponent<LensEngineBootstrap>();
             new GameObject("CrushX Native Lens UI").AddComponent<NativeLensUI>();
+            if (!CrushXLensProductionUISetup.EnsureInstalledForCurrentScene())
+            {
+                ReportFailure("Production camera UI setup incomplete",
+                    "UI Toolkit panel installation failed; the native IMGUI fallback was preserved.");
+                return;
+            }
             Directory.CreateDirectory("Assets/Scenes");
             const string scenePath = "Assets/Scenes/CrushXNativeAR.unity";
             EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scenePath);
