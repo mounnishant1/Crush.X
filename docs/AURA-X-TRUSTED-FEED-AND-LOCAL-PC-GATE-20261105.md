@@ -51,3 +51,13 @@ Optional database integration test requires an owner-approved temporary PostgreS
 - Local PostgreSQL / receipt store / session service not provisioned or verified.
 - Real player-event collector, provider-backed video understanding and mobile model startup pending.
 - No Unity/IL2CPP APK build, physical device test, production deploy or main-branch merge.
+
+## Read-only Windows source inventory (added in this PR)
+Run from the checkout containing this script on your Windows PC. The target is your current isolated working copy; it **does not** modify it:
+
+```powershell
+node operating-system/tools/scan-local-ai-source.cjs --root "F:\CrushX-Step259-Isolated\CrushX-Step249-Work\Windows-App-Work"
+```
+
+This lists sample source paths for AURA, OS, Feed, Media, Camera and Safety modules. It skips `node_modules`, `dist`, `build`, `.git` and other generated folders, and does not inspect source text, secrets, credentials or user content. The result is an inventory **only**; it does not prove successful inference, integration, backend connection or Android execution.
+
