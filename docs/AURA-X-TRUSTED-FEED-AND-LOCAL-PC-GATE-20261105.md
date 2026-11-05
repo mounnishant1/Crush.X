@@ -61,3 +61,51 @@ node operating-system/tools/scan-local-ai-source.cjs --root "F:\CrushX-Step259-I
 
 This lists sample source paths for AURA, OS, Feed, Media, Camera and Safety modules. It skips `node_modules`, `dist`, `build`, `.git` and other generated folders, and does not inspect source text, secrets, credentials or user content. The result is an inventory **only**; it does not prove successful inference, integration, backend connection or Android execution.
 
+
+## Production hardening implemented after first CI review
+
+The isolated branch now adds **PostgreSQL migration 002** and `createPostgresReceiptStore`:
+- Account-scoped, signed event receipts in `cx_trusted_event_receipts`, with expiring validity, protected duplicate IDs, and bounded expiry cleanup.
+- Signature verification is performed by the server before persistence. Recipient metadata, audience, event fields, and watch fraction must match exactly.
+- Database consent-row locking serializes receipt insertion, event writes, personalization withdrawal, and history erasure. Receipt verification occurs *after* event-write consent locking to eliminate stale-proof reinsert after reset.
+- Deleted catalog items cascade-delete associated receipts. Reset and personalization withdrawal remove their receipts and stored events.
+- `createVerifiedEngagementIngestor` takes only an event ID and a privileged worker credential; it reads a verified first-party event from protected server storage. It never trusts a caller-provided watch fraction or user account.
+
+**Migrations:** Apply `001_content_intelligence.sql` before `002_trusted_engagement_receipts.sql`. Run only after reviewing DB schema/backups; the revised content store now expects the second table.
+
+### Required production wiring (server only)
+
+```js
+const {createTrustedReceiptService}=require('./operating-system/engagement/trusted-receipts.cjs');
+const {createPostgresReceiptStore}=require('./operating-system/storage/postgres-trusted-receipts.cjs');
+const {createVerifiedEngagementIngestor}=require('./operating-system/engagement/verified-ingestor.cjs');
+let receiptStore;
+const receiptService=createTrustedReceiptService({
+  key:approvedServerSecretBuffer,
+  readSignedReceipt:({subject,eventId})=>receiptStore.read({subject,eventId})
+});
+receiptStore=createPostgresReceiptStore({
+  pool:trustedPostgresPool,
+  validateReceipt:receiptService.verifyIssuedReceipt
+});
+const ingestor=createVerifiedEngagementIngestor({
+  authenticateWorker:verifyPrivilegedServiceCredential, // implement securely
+  readAttestedEvent:readProtectedFirstPartyEvent,         // implement durably
+  verifyAttestation:verifyServerSignedPlaybackOrAction,   // never return true by default
+  checkActiveAccount:readProtectedAccountStatus,
+  consumeRateLimit:sharedAccountRateLimiter,
+  receiptService,receiptStore,
+  contentStore:trustedContentStore,
+  audit:durableAudit
+});
+// From a private trusted worker, not a public route:
+// await ingestor.ingest({workerCredential:privilegedCredential,eventId:trustedEventId});
+```
+
+Neither signed receipts nor the ingestor magically prove that a person actually watched a video. The independent playback/action collector, attestation signing, anti-replay protection, realistic durations, production identity and first-party event pipeline still need implementation and device evidence.
+
+### Verification
+- CI tests use a real temporary PostgreSQL 16 service. They verify receipt durability, idempotent insert, consent removal, reset behavior, stale-proof rejection, and TTL cleanup.
+- The OS unit suite tests worker authorization failures, missing/forged attestation, account revocation, limiting, and deterministic retries.
+- No local-PC server or app release is created by these GitHub commits. Keep PR draft until source reconciliation and Android/OnePlus tests are complete.
+
