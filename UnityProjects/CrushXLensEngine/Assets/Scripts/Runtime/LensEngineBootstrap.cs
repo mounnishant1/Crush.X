@@ -35,6 +35,9 @@ namespace CrushX.LensEngine
         public bool PreciseTrackingActive { get { return preciseTrackingAvailable; } }
         public bool VoicePreviewRunning => voice != null && voice.IsPreviewRunning;
         public FunnyVoiceMode ActiveVoiceMode => voice != null ? voice.Mode : FunnyVoiceMode.Off;
+        public int ActiveGameScore => effect is IFunnyLensGame g ? g.Score : 0;
+        public float ActiveGameSeconds => effect is IFunnyLensGame g ? g.RemainingSeconds : 0f;
+        public bool HasActiveGame => effect is IFunnyLensGame;
 
         private void Awake()
         {
