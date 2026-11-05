@@ -48,10 +48,16 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.equal((await store.readEngagementEvents({subject})).some(x=>x.action==='not_interested'),true);
   await store.eraseHistory({subject});
   assert.equal(await receiptStore.read({subject,eventId:like.eventId}),null);
+  await assert.rejects(store.recordTrustedEvent({subject,event:like}),/TRUSTED_EVENT_PROOF_REQUIRED/);
   assert.equal((await store.readEngagementEvents({subject})).length,0);
   assert.deepEqual(await store.readExplicitInterests({subject}),[]);
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),true);
   await record({...like,eventId:'extra_evt_'+suffix});
+  assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix})!==null,true);
+  await pool.query("UPDATE cx_trusted_event_receipts SET expires_at=NOW()-INTERVAL '1 second' "+
+   "WHERE subject=$1 AND event_id=$2",[subject,'extra_evt_'+suffix]);
+  assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix}),null);
+  assert.equal((await receiptStore.purgeExpired({limit:10})).deleted>=1,true);
   await store.setPreferences({subject,read:true,analyze:false,personalize:false,topics:[]});
   assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix}),null);
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM cx_content_events WHERE subject=$1',[subject])).rows[0].n,0);
