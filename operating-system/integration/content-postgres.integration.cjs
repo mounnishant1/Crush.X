@@ -3,13 +3,21 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const {randomUUID}=require('node:crypto');
 const fs=require('node:fs'),path=require('node:path');
 const {createPostgresContentStore}=require('../storage/postgres-content-store.cjs');
+const {createTrustedReceiptService}=require('../engagement/trusted-receipts.cjs');
 test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {skip:!process.env.POSTGRES_TEST_URL},async()=>{
  const {Pool}=require(process.env.PG_MODULE||'pg');
  const pool=new Pool({connectionString:process.env.POSTGRES_TEST_URL,max:2});
  const suffix=randomUUID().replaceAll('-','').slice(0,16),subject='qa_'+suffix;
  const ids=['recipe_','hidden_','other_'].map(x=>x+suffix),now=Date.now();
+ const signedReceipts=new Map();
+ const receiptService=createTrustedReceiptService({key:Buffer.alloc(32,64),now:()=>now,
+  readSignedReceipt:async({subject:who,eventId})=>signedReceipts.get(who+':'+eventId)});
  const store=createPostgresContentStore({pool,now:()=>now,
-  verifyTrustedEvent:async({subject:who,event})=>who===subject&&event.eventId!=='spoof_evt'});
+  verifyTrustedEvent:receiptService.verifyTrustedEvent});
+ const record=event=>{
+  signedReceipts.set(subject+':'+event.eventId,receiptService.signTrustedEvent({subject,event}));
+  return store.recordTrustedEvent({subject,event});
+ };
  try{
   await pool.query(fs.readFileSync(path.join(__dirname,'..','storage','migrations','001_content_intelligence.sql'),'utf8'));
   assert.equal(await store.checkConsent({subject,scope:'content:read'}),false);
@@ -24,23 +32,24 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.deepEqual(new Set((await store.loadAuthorizedContent({subject})).map(x=>x.id)),new Set([ids[0],ids[2]]));
   assert.equal(await store.authorizeContent({subject,id:ids[1],kind:'reel'}),false);
   const like={eventId:'like_evt_'+suffix,contentId:ids[0],action:'like',at:now};
-  assert.equal((await store.recordTrustedEvent({subject,event:like})).recorded,true);
-  assert.equal((await store.recordTrustedEvent({subject,event:like})).duplicate,true);
-  await assert.rejects(store.recordTrustedEvent({subject,event:{...like,action:'save'}}),/ENGAGEMENT_EVENT_CONFLICT/);
+  assert.equal((await record(like)).recorded,true);
+  await assert.rejects(store.recordTrustedEvent({subject,event:{...like,eventId:'spoof_evt_'+suffix}}),/TRUSTED_EVENT_PROOF_REQUIRED/);
+  assert.equal((await record(like)).duplicate,true);
+  await assert.rejects(record({...like,action:'save'}),/ENGAGEMENT_EVENT_CONFLICT/);
   assert.deepEqual((await store.readEngagementEvents({subject}))[0].topics,['cooking']);
   const hide={eventId:'hide_evt_'+suffix,contentId:ids[0],action:'not_interested',at:now};
-  assert.equal((await store.recordTrustedEvent({subject,event:hide})).recorded,true);
-  assert.equal((await store.recordTrustedEvent({subject,event:hide})).duplicate,true);
+  assert.equal((await record(hide)).recorded,true);
+  assert.equal((await record(hide)).duplicate,true);
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),false);
   assert.equal((await store.readEngagementEvents({subject})).some(x=>x.action==='not_interested'),true);
   await store.eraseHistory({subject});
   assert.equal((await store.readEngagementEvents({subject})).length,0);
   assert.deepEqual(await store.readExplicitInterests({subject}),[]);
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),true);
-  await store.recordTrustedEvent({subject,event:{...like,eventId:'extra_evt_'+suffix}});
+  await record({...like,eventId:'extra_evt_'+suffix});
   await store.setPreferences({subject,read:true,analyze:false,personalize:false,topics:[]});
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM cx_content_events WHERE subject=$1',[subject])).rows[0].n,0);
-  await assert.rejects(store.recordTrustedEvent({subject,event:{...like,eventId:'third_evt_'+suffix}}),/PERSONALIZATION_CONSENT_REQUIRED/);
+  await assert.rejects(record({...like,eventId:'third_evt_'+suffix}),/PERSONALIZATION_CONSENT_REQUIRED/);
   await assert.rejects(store.setPreferences({subject,read:true,analyze:true,personalize:true,topics:['religion']}),/TOPICS_INVALID/);
  }finally{
   try{
