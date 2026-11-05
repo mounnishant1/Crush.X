@@ -7,12 +7,12 @@ const {createTrustedReceiptService}=require('../engagement/trusted-receipts.cjs'
 const {createPostgresReceiptStore}=require('../storage/postgres-trusted-receipts.cjs');
 test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {skip:!process.env.POSTGRES_TEST_URL},async()=>{
  const {Pool}=require(process.env.PG_MODULE||'pg');
- const pool=new Pool({connectionString:process.env.POSTGRES_TEST_URL,max:2});
+ const pool=new Pool({connectionString:process.env.POSTGRES_TEST_URL,max:1,connectionTimeoutMillis:1800});
  const suffix=randomUUID().replaceAll('-','').slice(0,16),subject='qa_'+suffix;
  const ids=['recipe_','hidden_','other_'].map(x=>x+suffix),now=Date.now();
  let receiptStore;
  const receiptService=createTrustedReceiptService({key:Buffer.alloc(32,64),now:()=>now,
-  readSignedReceipt:({subject:who,eventId})=>receiptStore.read({subject:who,eventId})});
+  readSignedReceipt:({subject:who,eventId,db})=>receiptStore.read({subject:who,eventId,db})});
  receiptStore=createPostgresReceiptStore({pool,now:()=>now,
   validateReceipt:receiptService.verifyIssuedReceipt});
  const store=createPostgresContentStore({pool,now:()=>now,
