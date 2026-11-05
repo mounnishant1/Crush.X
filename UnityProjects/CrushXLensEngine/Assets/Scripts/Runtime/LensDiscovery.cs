@@ -81,7 +81,7 @@ namespace CrushX.LensEngine
         public static bool IsCollection(string name)
         {
             return name == "All" || name == "Beauty" ||
-                   name == "Alien" || name == "Trending";
+                   name == "Alien" || name == "Funny" || name == "Trending";
         }
 
         public static List<LensManifest> Browse(string name,
@@ -104,7 +104,8 @@ namespace CrushX.LensEngine
             {
                 if (name == "All" ||
                     (name == "Beauty" && item.Category == LensCategory.Beauty) ||
-                    (name == "Alien" && item.Category == LensCategory.Alien))
+                    (name == "Alien" && item.Category == LensCategory.Alien) ||
+                    (name == "Funny" && item.Category == LensCategory.Funny))
                     output.Add(item);
             }
             return output;
