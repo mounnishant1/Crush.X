@@ -7,9 +7,9 @@ namespace CrushX.LensEngine.Tests
     public class LensCatalogTests
     {
         [Test]
-        public void Catalog_HasThirtySixUniqueRunnableEffects()
+        public void Catalog_HasThirtySevenUniqueRunnableEffects()
         {
-            Assert.AreEqual(36, LensCatalog.All.Count);
+            Assert.AreEqual(37, LensCatalog.All.Count);
             var ids = new HashSet<string>();
             foreach (LensManifest lens in LensCatalog.All)
             {
@@ -89,7 +89,7 @@ namespace CrushX.LensEngine.Tests
             var ranked = new List<LensManifest>(LensCatalog.All);
             var feed = new LensTrendFeed();
             var funny = LensDiscovery.Browse("Funny", ranked, feed, System.DateTimeOffset.UtcNow);
-            Assert.AreEqual(15, funny.Count);
+            Assert.AreEqual(16, funny.Count);
             int newFunny = 0;
             foreach (var lens in funny)
             {
@@ -98,7 +98,7 @@ namespace CrushX.LensEngine.Tests
                 if (lens.Id.StartsWith("funny-", System.StringComparison.Ordinal))
                     newFunny++;
             }
-            Assert.AreEqual(14, newFunny);
+            Assert.AreEqual(15, newFunny);
             Assert.IsTrue(LensDiscovery.IsCollection("Funny"));
             Assert.IsFalse(LensDiscovery.IsCollection("FunnyFake"));
         }
