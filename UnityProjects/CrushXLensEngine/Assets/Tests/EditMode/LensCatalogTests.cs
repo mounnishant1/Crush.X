@@ -7,9 +7,9 @@ namespace CrushX.LensEngine.Tests
     public class LensCatalogTests
     {
         [Test]
-        public void Catalog_HasTwentyTwoUniqueRunnableEffects()
+        public void Catalog_HasThirtyFourUniqueRunnableEffects()
         {
-            Assert.AreEqual(22, LensCatalog.All.Count);
+            Assert.AreEqual(34, LensCatalog.All.Count);
             var ids = new HashSet<string>();
             foreach (LensManifest lens in LensCatalog.All)
             {
@@ -81,6 +81,44 @@ namespace CrushX.LensEngine.Tests
                 "A rejected feed must not discard a previously validated snapshot");
             Assert.AreEqual("trend-hearts", feed.CurrentIds(now.AddDays(2))[0],
                 "Expired rankings must fall back to curated local picks");
+        }
+
+        [Test]
+        public void FunnyCollection_IncludesTwelveNewOriginalEffectsAndTheExistingPixelLook()
+        {
+            var ranked = new List<LensManifest>(LensCatalog.All);
+            var feed = new LensTrendFeed();
+            var funny = LensDiscovery.Browse("Funny", ranked, feed, System.DateTimeOffset.UtcNow);
+            Assert.AreEqual(13, funny.Count);
+            int newFunny = 0;
+            foreach (var lens in funny)
+            {
+                Assert.AreEqual(LensCategory.Funny, lens.Category);
+                Assert.IsTrue(typeof(LensEffect).IsAssignableFrom(LensCatalog.ResolveType(lens.Id)));
+                if (lens.Id.StartsWith("funny-", System.StringComparison.Ordinal))
+                    newFunny++;
+            }
+            Assert.AreEqual(12, newFunny);
+            Assert.IsTrue(LensDiscovery.IsCollection("Funny"));
+            Assert.IsFalse(LensDiscovery.IsCollection("FunnyFake"));
+        }
+
+        [Test]
+        public void SwipeGesture_OneIntentEqualsOneStepAndExcludesControls()
+        {
+            Vector2 center = new Vector2(220, 400);
+            Assert.AreEqual(1, LensSwipeGesture.Direction(
+                center, new Vector2(100, 410), 440, 900, 1));
+            Assert.AreEqual(-1, LensSwipeGesture.Direction(
+                center, new Vector2(350, 410), 440, 900, 1));
+            Assert.AreEqual(0, LensSwipeGesture.Direction(
+                center, new Vector2(190, 410), 440, 900, 1));
+            Assert.AreEqual(0, LensSwipeGesture.Direction(
+                center, new Vector2(100, 650), 440, 900, 1));
+            Assert.AreEqual(0, LensSwipeGesture.Direction(
+                new Vector2(200, 820), new Vector2(90, 820), 440, 900, 1));
+            Assert.AreEqual(0, LensSwipeGesture.Direction(
+                new Vector2(200, 85), new Vector2(90, 85), 440, 900, 1));
         }
 
         [Test]
