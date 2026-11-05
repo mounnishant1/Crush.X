@@ -52,6 +52,14 @@ namespace CrushX.LensEngine
             GUI.Label(new Rect(w*.2f, 20, w*.6f,45), "Crush.X   3D AR", header);
             if (GUI.Button(new Rect(14,20,78,48), "←", button)) NativeLensLifecycle.ExitToCrushX();
             GUI.Label(new Rect(20,74,w-40,34), engine.TrackingActive ? "Face tracking active" : "Face tracking unavailable", status);
+            string[] tabs = { "All", "Beauty", "Alien", "Trending" };
+            float tabGap = 5f, tabX = 14f, tabWidth = (w - 28f - tabGap * 3f) / 4f;
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                string title = engine.ActiveCollection == tabs[i] ? "[" + tabs[i] + "]" : tabs[i];
+                if (GUI.Button(new Rect(tabX + (tabWidth + tabGap) * i, 116f, tabWidth, 48f), title, button))
+                    engine.SetCollection(tabs[i]);
+            }
             if (GUI.Button(new Rect(16,h-138,82,68), "‹",button)) engine.Step(-1);
             if (GUI.Button(new Rect(w-98,h-138,82,68), "›",button)) engine.Step(1);
             if (GUI.Button(new Rect(w/2-120,h-144,96,80), "♡",button)) engine.ToggleFavorite();
