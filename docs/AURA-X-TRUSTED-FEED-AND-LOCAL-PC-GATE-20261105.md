@@ -109,3 +109,30 @@ Neither signed receipts nor the ingestor magically prove that a person actually 
 - The OS unit suite tests worker authorization failures, missing/forged attestation, account revocation, limiting, and deterministic retries.
 - No local-PC server or app release is created by these GitHub commits. Keep PR draft until source reconciliation and Android/OnePlus tests are complete.
 
+
+## Local-PC AURA-X durable advice storage — PostgreSQL option
+
+The branch also contains a **PostgreSQL alternative to the earlier DynamoDB-specific adapters**:
+- `operating-system/storage/migrations/003_local_aura_advice.sql` — encrypted-job envelope rows and shared rate buckets.
+- `operating-system/durable/postgres-advice-store.cjs` — PostgreSQL-backed `insert/get/claim/settle/cancel/purge` with atomic `SKIP LOCKED` leasing, lease-token fencing, idempotent IDs and no plaintext prompts.
+- `operating-system/http/postgres-rate-limiter.cjs` — atomic HMAC-scoped per-account counters with DB-error fail-closed behavior.
+- `operating-system/integration/aura-postgres.integration.cjs` — real PostgreSQL 16 integration covering the encrypted AURA-X advisory queue, concurrent worker claims, cancellation/purge contracts and account-rate controls.
+
+Apply migrations **001, then 002, then 003**, only after reviewing a backed-up isolated staging DB. Example server-side wiring (no server is started by these snippets):
+
+```js
+const {createPostgresAdviceStore}=require('./operating-system/durable/postgres-advice-store.cjs');
+const {createPostgresRateLimiter}=require('./operating-system/http/postgres-rate-limiter.cjs');
+const adviceStore=createPostgresAdviceStore({pool:trustedPostgresPool});
+const rateLimiter=createPostgresRateLimiter({
+  pool:trustedPostgresPool,
+  secret:independentServerOnly32ByteRateSecret
+});
+// Pass adviceStore to createDurableAdvisoryQueue({store:adviceStore, ...});
+// Pass rateLimiter to createAIHttpHandler({rateLimiter, ...}).
+// Real identity, role, consent, audit, model and TLS adapters are mandatory.
+// Do NOT use the loopback staging host as an Internet-facing service.
+```
+
+**Unresolved production obligations:** key custody/rotation, proper HTTPS server, real user sessions, active-account verification, audited first-party feed event collection, durable backup restore tests, queue capacity/recovery monitoring, user deletion across backups, model-provider credentials/quotas, Android React/Unity integration and physical device QA. The PostgreSQL integration test uses mocked provider responses; it does not establish live AI inference.
+
