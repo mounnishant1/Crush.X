@@ -31,6 +31,96 @@ namespace CrushX.LensEngine
 
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
+        public IReadOnlyList<LensUserCollection> UserCollections =>
+            personalization != null ?
+                personalization.CustomCollections.All() :
+                new List<LensUserCollection>();
+
+        public List<string> CollectionKeys()
+        {
+            var options = new List<string>(LensDiscovery.Collections);
+            if (personalization != null)
+                foreach (LensUserCollection folder in personalization.CustomCollections.All())
+                    options.Add(folder.id);
+            return options;
+        }
+
+        public string CollectionLabel(string id)
+        {
+            if (LensDiscovery.IsCollection(id)) return id;
+            if (personalization == null) return "";
+            var folder = personalization.CustomCollections.Get(id);
+            return folder != null ? folder.name : "";
+        }
+
+        public bool IsCustomCollection(string id)
+        {
+            return personalization != null &&
+                LensCustomCollections.IsCustomId(id) &&
+                personalization.CustomCollections.Get(id) != null;
+        }
+
+        public bool CreateCustomCollection(string name, out string id)
+        {
+            id = null;
+            if (personalization == null ||
+                !personalization.CustomCollections.TryCreate(name, out id))
+                return false;
+            RefreshVisible();
+            return true;
+        }
+
+        public bool RenameCustomCollection(string id, string name)
+        {
+            if (personalization == null ||
+                !personalization.CustomCollections.Rename(id, name)) return false;
+            RefreshVisible();
+            return true;
+        }
+
+        public bool DeleteCustomCollection(string id)
+        {
+            if (personalization == null ||
+                !personalization.CustomCollections.Delete(id)) return false;
+            if (collection == id) collection = "All";
+            RefreshVisible();
+            return true;
+        }
+
+        public bool ReorderCustomCollection(string id, int direction)
+        {
+            return personalization != null &&
+                personalization.CustomCollections.MoveCollection(id, direction);
+        }
+
+        public bool AddLensToCustomCollection(string folderId, string lensId)
+        {
+            if (personalization == null ||
+                !personalization.CustomCollections.AddLens(folderId, lensId))
+                return false;
+            if (collection == folderId) RefreshVisible();
+            return true;
+        }
+
+        public bool RemoveLensFromCustomCollection(string folderId, string lensId)
+        {
+            if (personalization == null ||
+                !personalization.CustomCollections.RemoveLens(folderId, lensId))
+                return false;
+            if (collection == folderId) RefreshVisible();
+            return true;
+        }
+
+        public bool ReorderLensInCustomCollection(
+            string folderId, string lensId, int direction)
+        {
+            if (personalization == null ||
+                !personalization.CustomCollections.MoveLens(folderId, lensId, direction))
+                return false;
+            if (collection == folderId) RefreshVisible();
+            return true;
+        }
+
         public int VisibleLensCount => visible != null ? visible.Count : 0;
         public bool IsCurrentFavorite => personalization != null &&
             !string.IsNullOrEmpty(activeId) && personalization.IsFavorite(activeId);
@@ -152,7 +242,7 @@ namespace CrushX.LensEngine
 
         public bool SetCollection(string name)
         {
-            if (!LensDiscovery.IsCollection(name)) return false;
+            if (!LensDiscovery.IsCollection(name, personalization)) return false;
             collection = name;
             RefreshVisible();
             if (visible.Count == 0)
@@ -165,7 +255,7 @@ namespace CrushX.LensEngine
                 return true;
             }
             if (visible.FindIndex(l => l.Id == activeId) < 0)
-                SelectLens(visible[0].Id);
+                SelectLensInternal(visible[0].Id, false);
             return true;
         }
 
