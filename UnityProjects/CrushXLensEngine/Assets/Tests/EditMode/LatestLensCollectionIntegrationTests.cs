@@ -85,7 +85,8 @@ namespace CrushX.LensEngine.Tests
             Assert.IsFalse(collections.TryCreate("Unsafe\u202Elabel", out a));
             Assert.IsTrue(collections.TryCreate("Best Funny", out a));
             Assert.IsTrue(collections.TryCreate("Party Lenses", out b));
-            Assert.IsFalse(collections.TryCreate("best funny", out b));
+            string duplicate;
+            Assert.IsFalse(collections.TryCreate("best funny", out duplicate));
             Assert.IsTrue(collections.MoveCollection(b, -1));
             Assert.AreEqual(b, collections.All()[0].id);
             Assert.IsTrue(collections.AddLens(a, "puppy"));
