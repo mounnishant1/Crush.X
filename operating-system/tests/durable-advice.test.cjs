@@ -141,6 +141,15 @@ test('queued cancellation, erase and disabled account',async()=>{
  // Auth can no longer view the job for this disabled account.
  await assert.rejects(f.queue.inspect({credential:'alice',subject:'alice',jobId:second.jobId}),/ACCESS_DENIED/);
 });
+test('completed advice becomes unreadable at expiry even without TTL cleanup',async()=>{
+ const f=fixture();
+ const r=await f.queue.submit(args());
+ assert.equal((await f.queue.runOne()).status,'completed');
+ assert.equal((await f.queue.inspect({credential:'alice',subject:'alice',jobId:r.jobId})).result.suggestion,
+  'Explain Reel pacing only');
+ nowRef.now+=86400001;
+ assert.equal((await f.queue.inspect({credential:'alice',subject:'alice',jobId:r.jobId})).result,null);
+});
 test('queue rejects missing atomic adapters or weak secrets',()=>{
  assert.throws(()=>createDurableAdvisoryQueue({}),/DURABLE_ADVISORY_TRUSTED_CONFIG_REQUIRED/);
 });
