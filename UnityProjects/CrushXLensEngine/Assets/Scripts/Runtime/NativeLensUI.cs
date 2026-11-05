@@ -31,6 +31,8 @@ namespace CrushX.LensEngine
         private bool mousePressed;
         private GUIStyle header, status, button, tabButton;
         private Texture2D dark;
+        private Vector2 collectionScroll;
+        private bool browseMenuOpen;
 
         private void OnEnable() { EnhancedTouchSupport.Enable(); }
         private void OnDisable() { EnhancedTouchSupport.Disable(); }
@@ -85,6 +87,9 @@ namespace CrushX.LensEngine
 
         private void AdvanceIfSwipe(Vector2 start, Vector2 end)
         {
+            // The expanded category panel owns gestures; don't advance a
+            // lens when the user swipes its options or closes the panel.
+            if (browseMenuOpen) return;
             float scale = Mathf.Max(.6f, Mathf.Min(Screen.width / 440f, Screen.height / 900f));
             int direction = LensSwipeGesture.Direction(start, end, Screen.width, Screen.height, scale);
             if (direction != 0) engine.Step(direction);
@@ -124,16 +129,75 @@ namespace CrushX.LensEngine
             GUI.Label(new Rect(20, 74, w - 40, 34),
                 engine.TrackingActive ? "Face tracking active" : "Face tracking unavailable", status);
 
-            string[] tabs = { "All", "Beauty", "Alien", "Funny", "Trending" };
-            float gap = 4f, tabX = 12f;
-            float tabWidth = (w - 24f - gap * (tabs.Length - 1)) / tabs.Length;
-            for (int i = 0; i < tabs.Length; i++)
+            // Horizontal strip contains ALL seven source categories plus
+            // All, Trending, Favorites, Recent. It can scroll independently
+            // of the camera's one-swipe-one-lens preview gesture.
+            var tabs = LensDiscovery.Collections;
+            const float tabGap = 5f;
+            const float tabWidth = 104f;
+            float stripWidth = w - 126f;
+            float contentWidth = tabs.Count * (tabWidth + tabGap);
+            collectionScroll = GUI.BeginScrollView(
+                new Rect(12, 116, stripWidth, 51),
+                collectionScroll, new Rect(0, 0, contentWidth, 46),
+                false, false);
+            for (int i = 0; i < tabs.Count; i++)
             {
                 bool selected = engine.ActiveCollection == tabs[i];
                 string label = selected ? "• " + tabs[i] : tabs[i];
-                if (GUI.Button(new Rect(tabX + i * (tabWidth + gap), 116, tabWidth, 46),
-                    label, tabButton))
+                if (GUI.Button(new Rect(i * (tabWidth + tabGap), 0,
+                    tabWidth, 43), label, tabButton))
+                {
                     engine.SetCollection(tabs[i]);
+                    browseMenuOpen = false;
+                }
+            }
+            GUI.EndScrollView();
+
+            // Browse is always visible even when a category chip is off-screen.
+            if (GUI.Button(new Rect(w - 107, 116, 95, 43),
+                browseMenuOpen ? "Close" : "Browse ▾", tabButton))
+                browseMenuOpen = !browseMenuOpen;
+
+            if (engine.VisibleLensCount == 0)
+            {
+                GUI.Label(new Rect(15, 171, w - 30, 29),
+                    engine.ActiveCollection == "Favorites" ?
+                        "No favorites yet. Open All, then tap ♡" :
+                    engine.ActiveCollection == "Recent" ?
+                        "No recent lenses yet. Select a lens in All" :
+                        "No lenses in this collection", status);
+            }
+            else if (!browseMenuOpen && !engine.HasActiveGame)
+            {
+                GUI.Label(new Rect(15, 170, w - 30, 27),
+                    engine.ActiveCollection + "  •  " + engine.VisibleLensCount +
+                    " lenses", status);
+            }
+
+            if (browseMenuOpen)
+            {
+                const float gap = 5f;
+                float panelTop = 172f;
+                int columns = w >= 385f ? 3 : 2;
+                float entryWidth = (w - 28f - (columns - 1) * gap) / columns;
+                int rows = (tabs.Count + columns - 1) / columns;
+                float panelHeight = 42f + rows * 44f;
+                GUI.Box(new Rect(10, panelTop, w - 20f,
+                    panelHeight), "Collections");
+                for (int i = 0; i < tabs.Count; i++)
+                {
+                    int col = i % columns;
+                    int row = i / columns;
+                    bool selected = engine.ActiveCollection == tabs[i];
+                    if (GUI.Button(new Rect(14 + col * (entryWidth + gap),
+                        panelTop + 32 + row * 44, entryWidth, 39),
+                        selected ? "• " + tabs[i] : tabs[i], tabButton))
+                    {
+                        engine.SetCollection(tabs[i]);
+                        browseMenuOpen = false;
+                    }
+                }
             }
 
             if (engine.ActiveId == "funny-big-eyes" ||
@@ -156,7 +220,7 @@ namespace CrushX.LensEngine
                     engine.SetBeautyIntensity(strength);
             }
 
-            if (engine.HasActiveGame)
+            if (engine.HasActiveGame && !browseMenuOpen)
             {
                 GUI.Label(new Rect(16, 172, w - 32, 34),
                     "GAME | Score " + engine.ActiveGameScore +
@@ -181,7 +245,8 @@ namespace CrushX.LensEngine
 
             if (GUI.Button(new Rect(16, h - 138, 82, 68), "‹", button)) engine.Step(-1);
             if (GUI.Button(new Rect(w - 98, h - 138, 82, 68), "›", button)) engine.Step(1);
-            if (GUI.Button(new Rect(w / 2 - 120, h - 144, 96, 80), "♡", button))
+            if (GUI.Button(new Rect(w / 2 - 120, h - 144, 96, 80),
+                engine.IsCurrentFavorite ? "♥" : "♡", button))
                 engine.ToggleFavorite();
             if (GUI.Button(new Rect(w / 2 + 24, h - 144, 96, 80), "●", button))
                 CaptureManager.SavePhoto(engine);
