@@ -146,6 +146,16 @@ namespace CrushX.LensEngine
                     engine.SetWarpIntensity(desired);
             }
 
+            if (engine.ActiveId == "beauty-glow" ||
+                engine.ActiveId == "beauty-blush")
+            {
+                GUI.Label(new Rect(16, h - 217, 100, 23), "Beauty", status);
+                float strength = GUI.HorizontalSlider(new Rect(119, h - 205,
+                    w - 136, 26), engine.BeautyIntensity, 0f, 1f);
+                if (Mathf.Abs(strength - engine.BeautyIntensity) > .001f)
+                    engine.SetBeautyIntensity(strength);
+            }
+
             if (GUI.Button(new Rect(16, h - 138, 82, 68), "‹", button)) engine.Step(-1);
             if (GUI.Button(new Rect(w - 98, h - 138, 82, 68), "›", button)) engine.Step(1);
             if (GUI.Button(new Rect(w / 2 - 120, h - 144, 96, 80), "♡", button))
