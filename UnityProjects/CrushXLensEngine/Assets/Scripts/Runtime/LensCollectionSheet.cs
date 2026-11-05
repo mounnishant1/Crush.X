@@ -125,8 +125,12 @@ namespace CrushX.LensEngine
             float formArea = managementMode ? 150 : 132;
             float listHeight = Mathf.Max(85, panelHeight - formArea - 144);
             var folders = collections.All();
+            LensUserCollection selectedForOrder =
+                managementMode ? collections.Get(selectedFolder) : null;
             var listRect = new Rect(x, listTop, innerWidth, listHeight);
-            float total = 7 + folders.Count * 54;
+            float total = 7 + folders.Count * 54 +
+                (selectedForOrder != null ?
+                    48 + selectedForOrder.lensIds.Count * 54 : 0);
             scroll = GUI.BeginScrollView(listRect, scroll,
                 new Rect(0, 0, Mathf.Max(1, innerWidth - 19), Mathf.Max(listHeight, total)));
             if (folders.Count == 0)
@@ -177,6 +181,34 @@ namespace CrushX.LensEngine
                         saved ? "✓ Saved" : full ? "Full" : "+ Add", button))
                         ToggleMembership(folder.id);
                     GUI.enabled = oldEnabled;
+                }
+            }
+            if (selectedForOrder != null)
+            {
+                float headingY = 7 + folders.Count * 54;
+                GUI.Label(new Rect(5, headingY, innerWidth - 22, 44),
+                    "Reorder lenses in " + selectedForOrder.name, status);
+                for (int i = 0; i < selectedForOrder.lensIds.Count; i++)
+                {
+                    string savedId = selectedForOrder.lensIds[i];
+                    LensManifest? known = LensCatalog.Find(savedId);
+                    float rowY = headingY + 48 + i * 54;
+                    float labelWidth = Mathf.Max(70, innerWidth - 169);
+                    GUI.Label(new Rect(5, rowY, labelWidth, 46),
+                        known.HasValue ? known.Value.DisplayName :
+                        "Unavailable lens", status);
+                    if (GUI.Button(new Rect(labelWidth + 3, rowY, 46, 46),
+                        "↑", button))
+                        collections.MoveLens(selectedFolder, savedId, -1);
+                    if (GUI.Button(new Rect(labelWidth + 53, rowY, 46, 46),
+                        "↓", button))
+                        collections.MoveLens(selectedFolder, savedId, 1);
+                    if (GUI.Button(new Rect(labelWidth + 103, rowY, 46, 46),
+                        "×", button))
+                    {
+                        if (collections.RemoveLens(selectedFolder, savedId))
+                            notice = "Removed from folder; original lens preserved.";
+                    }
                 }
             }
             GUI.EndScrollView();
