@@ -156,6 +156,14 @@ namespace CrushX.LensEngine
                     engine.SetBeautyIntensity(strength);
             }
 
+            if (engine.HasActiveGame)
+            {
+                GUI.Label(new Rect(16, 172, w - 32, 34),
+                    "GAME | Score " + engine.ActiveGameScore +
+                    " | " + Mathf.CeilToInt(engine.ActiveGameSeconds) + "s",
+                    header);
+            }
+
             if (engine.ActiveId != null &&
                 engine.ActiveId.StartsWith("funny-", System.StringComparison.Ordinal))
             {
