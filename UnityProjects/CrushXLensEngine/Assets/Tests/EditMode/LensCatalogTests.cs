@@ -68,9 +68,9 @@ namespace CrushX.LensEngine.Tests
             var future = now.AddHours(12).ToString("yyyy-MM-ddTHH:mm:ssZ",
                 System.Globalization.CultureInfo.InvariantCulture);
             var feed = new LensTrendFeed();
-            string trusted = "{\\\"expiresUtc\\\":\\\"" + future +
-                "\\\",\\\"items\\\":[{\\\"id\\\":\\\"alien-classic\\\",\\\"score\\\":90}," +
-                "{\\\"id\\\":\\\"beauty-glow\\\",\\\"score\\\":100}]}";
+            string trusted = "{\"expiresUtc\":\"" + future +
+                "\",\"items\":[{\"id\":\"alien-classic\",\"score\":90}," +
+                "{\"id\":\"beauty-glow\",\"score\":100}]}";
             Assert.IsTrue(feed.TryApplyTrustedSnapshot(trusted, now));
             Assert.AreEqual("beauty-glow", feed.CurrentIds(now)[0]);
             Assert.AreEqual("alien-classic", feed.CurrentIds(now)[1]);
