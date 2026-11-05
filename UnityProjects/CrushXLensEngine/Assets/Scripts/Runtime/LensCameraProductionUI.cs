@@ -5,6 +5,21 @@ using UnityEngine.UIElements;
 
 namespace CrushX.LensEngine
 {
+    public static class LensPreviewSwipe
+    {
+        // UI Toolkit top-left coordinates. The rule is equivalent to the
+        // legacy camera swipe and always returns at most one step.
+        public static int Direction(Vector2 start, Vector2 end, float width)
+        {
+            if (width <= 0f || float.IsNaN(width)) return 0;
+            Vector2 delta = end - start;
+            if (Mathf.Abs(delta.x) < width * .16f ||
+                Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * .70f)
+                return 0;
+            return delta.x < 0f ? 1 : -1;
+        }
+    }
+
     /// <summary>
     /// Unity 6 runtime UI Toolkit lens camera controls. Configure a dedicated
     /// UIDocument + PanelSettings via the editor menu. The legacy IMGUI UI
@@ -30,6 +45,7 @@ namespace CrushX.LensEngine
             new Dictionary<string, Button>(StringComparer.Ordinal);
         private bool browseOpen;
         private int pointerId = -1;
+        private bool multiTouchCancelled;
         private Vector2 swipeStart;
         private float nextRefresh;
         private string lastUiKey;
@@ -52,6 +68,7 @@ namespace CrushX.LensEngine
         private void OnDisable()
         {
             pointerId = -1;
+            multiTouchCancelled = false;
             browseOpen = false;
             IsReady = false;
         }
@@ -330,8 +347,14 @@ namespace CrushX.LensEngine
                 ToggleBrowse();
                 return;
             }
-            if (pointerId != -1 || Engine == null) return;
+            if (pointerId != -1)
+            {
+                multiTouchCancelled = true;
+                return;
+            }
+            if (Engine == null) return;
             pointerId = evt.pointerId;
+            multiTouchCancelled = false;
             swipeStart = new Vector2(evt.localPosition.x, evt.localPosition.y);
             previewArea.CapturePointer(evt.pointerId);
         }
@@ -342,21 +365,20 @@ namespace CrushX.LensEngine
             pointerId = -1;
             if (previewArea.HasPointerCapture(evt.pointerId))
                 previewArea.ReleasePointer(evt.pointerId);
-            if (Engine == null || browseOpen) return;
+            if (Engine == null || browseOpen || multiTouchCancelled) return;
             Vector2 difference = new Vector2(evt.localPosition.x,
                 evt.localPosition.y) - swipeStart;
             float width = previewArea.resolvedStyle.width;
-            // UI Toolkit coordinates originate at top-left.
-            if (width <= 0 || Mathf.Abs(difference.x) < width * .16f ||
-                Mathf.Abs(difference.y) > Mathf.Abs(difference.x) * .70f)
-                return;
-            Engine.Step(difference.x < 0f ? 1 : -1);
+            int direction = LensPreviewSwipe.Direction(Vector2.zero,
+                difference, width);
+            if (direction != 0) Engine.Step(direction);
         }
 
         private void OnPreviewCancelled(PointerCancelEvent evt)
         {
             if (evt.pointerId != pointerId) return;
             pointerId = -1;
+            multiTouchCancelled = true;
             if (previewArea.HasPointerCapture(evt.pointerId))
                 previewArea.ReleasePointer(evt.pointerId);
         }
