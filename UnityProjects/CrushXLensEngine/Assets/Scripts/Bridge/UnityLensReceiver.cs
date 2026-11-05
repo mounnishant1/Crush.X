@@ -23,6 +23,17 @@ namespace CrushX.LensEngine
             LensEngineBootstrap e = GetEngine();
             if (e != null) e.SelectLens(id);
         }
+        // Host must authenticate stable user identity before calling this
+        // on sign-in/account switch, and send "" on sign-out. Not a
+        // substitute for verification in the Android authentication layer.
+        public void SetLensAccountScope(string authenticatedAccountId)
+        {
+            LensEngineBootstrap current = GetEngine();
+            if (current != null &&
+                !current.ConfigureLensCollectionAccountScope(authenticatedAccountId))
+                Debug.LogWarning("Rejected lens account scope");
+        }
+
         public void TakePhoto(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
