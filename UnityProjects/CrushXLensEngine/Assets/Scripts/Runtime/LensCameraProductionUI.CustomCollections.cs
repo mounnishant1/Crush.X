@@ -13,6 +13,7 @@ namespace CrushX.LensEngine
         private Label customStatus, currentFolderLabel;
         private Button deleteFolderButton, addCurrentButton, removeCurrentButton;
         private string selectedFolderId;
+        private bool customManagerOpen;
         private string pendingDeleteId;
         private int lastCollectionRevision = -1;
 
@@ -159,7 +160,8 @@ namespace CrushX.LensEngine
         private void ToggleCustomManager()
         {
             if (customManagerOverlay == null) return;
-            bool show = customManagerOverlay.style.display == DisplayStyle.None;
+            customManagerOpen = !customManagerOpen;
+            bool show = customManagerOpen;
             customManagerOverlay.style.display = show ?
                 DisplayStyle.Flex : DisplayStyle.None;
             if (show)
@@ -180,6 +182,7 @@ namespace CrushX.LensEngine
 
         private void CloseCustomManager()
         {
+            customManagerOpen = false;
             if (customManagerOverlay != null)
                 customManagerOverlay.style.display = DisplayStyle.None;
             pendingDeleteId = null;
