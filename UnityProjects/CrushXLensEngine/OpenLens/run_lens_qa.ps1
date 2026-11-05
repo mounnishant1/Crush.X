@@ -7,6 +7,7 @@ param(
     [string]$UnityExe = "F:\6000.0.30f1\Editor\Unity.exe",
     [string]$AndroidSdk = "F:\Android\Sdk",
     [switch]$ConfigureURP,
+    [switch]$GenerateNativeARScene,
     [switch]$RunTests,
     [switch]$RunDevGate,
     [switch]$RunReleaseGate,
@@ -44,7 +45,7 @@ function Run-Unity([string[]]$unityArguments, [string]$label) {
     }
 }
 
-if (($ConfigureURP -or $ExportAndroid -or $BuildGradleApk -or $InstallDeviceApk) -and
+if (($ConfigureURP -or $GenerateNativeARScene -or $ExportAndroid -or $BuildGradleApk -or $InstallDeviceApk) -and
     -not $ConfirmIsolatedSource) {
     throw "Use -ConfirmIsolatedSource with a separate checkout. Never mutate a production working directory."
 }
@@ -52,6 +53,14 @@ if ($ConfigureURP) {
     $env:CRUSHX_ALLOW_DEBUG_URP_SETUP = "1"
     try { Run-Unity @("-executeMethod","CrushX.LensEngine.Editor.CrushXIsolatedURPSetup.CreateForCI") "configure-urp" }
     finally { Remove-Item Env:\CRUSHX_ALLOW_DEBUG_URP_SETUP -ErrorAction SilentlyContinue }
+}
+if ($GenerateNativeARScene) {
+    $env:CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP = "1"
+    try {
+        Run-Unity @("-executeMethod","CrushX.LensEngine.Editor.CrushXNativeARSceneTools.CreateForIsolatedCI") "create-native-ar-scene"
+    } finally {
+        Remove-Item Env:\CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP -ErrorAction SilentlyContinue
+    }
 }
 if ($RunDevGate) {
     Run-Unity @("-executeMethod","CrushX.LensEngine.Editor.CrushXLensReleasePreflight.RunDevCI") "dev-gates"
