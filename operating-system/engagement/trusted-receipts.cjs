@@ -40,26 +40,33 @@ function createTrustedReceiptService({key,readSignedReceipt,now=Date.now,
   return Object.freeze({...receipt,
    signature:mac(payload(subject,event,issuer,audience,issuedAt)).toString('hex')});
  }
- // This function is suitable as createPostgresContentStore.verifyTrustedEvent.
- // Proof is fetched from a separate protected server-side receipt store by ID,
- // NOT accepted from user-supplied JSON, a client boolean, or a bearer token.
- async function verifyTrustedEvent({subject,event}={}){
-  if(!validId(subject)||!validEvent(event))return false;
-  const receipt=await readSignedReceipt({subject,eventId:event.eventId});
+ // Validate a previously minted receipt without fetching it from storage.
+ // This is only a cryptographic check; a protected DB + collector are still required.
+ function verifyIssuedReceipt(receipt){
   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||
      Object.keys(receipt).length!==RECEIPT_FIELDS.length||
      RECEIPT_FIELDS.some(k=>!Object.hasOwn(receipt,k))||
      receipt.version!==1||receipt.issuer!==issuer||receipt.audience!==audience||
-     receipt.subject!==subject||receipt.eventId!==event.eventId||
-     receipt.contentId!==event.contentId||receipt.action!==event.action||
-     receipt.at!==event.at||receipt.watchFraction!==(event.watchFraction===undefined?0:event.watchFraction)||
+     !validId(receipt.subject)||!validEvent(receipt)||
+     !Number.isSafeInteger(receipt.at)||!Number.isSafeInteger(receipt.issuedAt)||
      !ageOkay(receipt.at,receipt.issuedAt)||
+     typeof receipt.watchFraction!=='number'||
      typeof receipt.signature!=='string'||!SIGNATURE.test(receipt.signature))
    return false;
   const supplied=Buffer.from(receipt.signature,'hex');
-  const expected=mac(payload(subject,event,issuer,audience,receipt.issuedAt));
+  const expected=mac(payload(receipt.subject,receipt,issuer,audience,receipt.issuedAt));
   return supplied.length===expected.length&&timingSafeEqual(supplied,expected);
  }
- return Object.freeze({signTrustedEvent,verifyTrustedEvent});
+ // The receipt must be retrieved from an independent protected store, not from
+ // client input; cryptographic verification is only one authorization layer.
+ async function verifyTrustedEvent({subject,event}={}){
+  if(!validId(subject)||!validEvent(event))return false;
+  const receipt=await readSignedReceipt({subject,eventId:event.eventId});
+  return verifyIssuedReceipt(receipt)&&receipt.subject===subject&&
+    receipt.eventId===event.eventId&&receipt.contentId===event.contentId&&
+    receipt.action===event.action&&receipt.at===event.at&&
+    receipt.watchFraction===(event.watchFraction===undefined?0:event.watchFraction);
+ }
+ return Object.freeze({signTrustedEvent,verifyIssuedReceipt,verifyTrustedEvent});
 }
 module.exports=Object.freeze({createTrustedReceiptService});
