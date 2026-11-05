@@ -48,6 +48,7 @@ test('reject invalid receipt requests and invalid or missing signing keys',async
  assert.throws(()=>createTrustedReceiptService({key:Buffer.alloc(32)}),/CONFIG_REQUIRED/);
  assert.throws(()=>service.signTrustedEvent({subject:'alice',event:{...event,at:now-400000}}),/INPUT_INVALID/);
  assert.throws(()=>service.signTrustedEvent({subject:'alice',event:{...event,watchFraction:100}}),/INPUT_INVALID/);
+ assert.throws(()=>service.signTrustedEvent({subject:'alice',event:{...event,at:now-0.5}}),/INPUT_INVALID/);
  assert.equal(await service.verifyTrustedEvent({subject:'alice',event:{...event,action:'unknown'}}),false);
 });
 test('verification rejects a different HMAC key or signed context',async()=>{
