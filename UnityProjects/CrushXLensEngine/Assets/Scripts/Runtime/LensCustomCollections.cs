@@ -169,7 +169,7 @@ namespace CrushX.LensEngine
             string encoded = JsonUtility.ToJson(store);
             if (encoded.Length > MaximumStoredCharacters)
                 throw new InvalidOperationException("Collection data limit exceeded");
-            PlayerPrefs.SetString(owner.CollectionStorageKey, encoded);
+            PlayerPrefs.SetString(CollectionStorageKey, encoded);
             PlayerPrefs.Save();
         }
 
@@ -321,7 +321,7 @@ namespace CrushX.LensEngine
         // Explicit destructive action only; never called from ranking reset.
         public void ClearAllCurrentAccountCollections()
         {
-            PlayerPrefs.DeleteKey(owner.CollectionStorageKey);
+            PlayerPrefs.DeleteKey(CollectionStorageKey);
             PlayerPrefs.Save();
         }
     }
