@@ -17,10 +17,33 @@ namespace CrushX.LensEngine
             PlayerPrefs.SetInt(Prefix + "fav." + id, IsFavorite(id) ? 0 : 1);
             PlayerPrefs.Save();
         }
+        private const string RecentKey = Prefix + "recent";
+        private const int MaximumRecent = 12;
+
+        public List<string> RecentIds()
+        {
+            var result = new List<string>(MaximumRecent);
+            string raw = PlayerPrefs.GetString(RecentKey, "");
+            if (string.IsNullOrEmpty(raw)) return result;
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string id in raw.Split('|'))
+            {
+                if (result.Count == MaximumRecent) break;
+                if (LensCatalog.Find(id).HasValue && seen.Add(id)) result.Add(id);
+            }
+            return result;
+        }
+
         public void RecordUsage(string id)
         {
             if (!LensCatalog.Find(id).HasValue) return;
             PlayerPrefs.SetInt(Prefix + "usage." + id, Math.Min(100000, UsageCount(id) + 1));
+            var recent = RecentIds();
+            recent.Remove(id);
+            recent.Insert(0, id);
+            if (recent.Count > MaximumRecent)
+                recent.RemoveRange(MaximumRecent, recent.Count - MaximumRecent);
+            PlayerPrefs.SetString(RecentKey, string.Join("|", recent.ToArray()));
             PlayerPrefs.Save();
         }
         public List<LensManifest> Ranked()
@@ -36,6 +59,7 @@ namespace CrushX.LensEngine
                 PlayerPrefs.DeleteKey(Prefix + "fav." + lens.Id);
                 PlayerPrefs.DeleteKey(Prefix + "usage." + lens.Id);
             }
+            PlayerPrefs.DeleteKey(RecentKey);
             PlayerPrefs.Save();
         }
     }
