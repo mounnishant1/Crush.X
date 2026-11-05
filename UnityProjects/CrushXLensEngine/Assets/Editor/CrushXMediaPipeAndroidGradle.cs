@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using UnityEditor.Android;
 using UnityEngine;
@@ -39,7 +40,28 @@ namespace CrushX.LensEngine.Editor
             // to enable inference. Do not fetch models from random URLs at build.
             string source = Path.Combine(Application.dataPath,
                 "StreamingAssets/CrushXModels/face_landmarker.task");
-            if (File.Exists(source) && new FileInfo(source).Length > 1024 * 1024)
+            // Both owner-reviewed licensing and integrity manifest are required
+            // before an ML binary is silently included in a distributable APK.
+            string shaPath = source + ".sha256";
+            string approvalPath = Path.Combine(Application.dataPath,
+                "StreamingAssets/CrushXModels/approval.txt");
+            bool approved = File.Exists(approvalPath) &&
+                File.ReadAllText(approvalPath).Trim() == "MODEL-LICENSE-APPROVED";
+            bool integrityOk = false;
+            if (approved && File.Exists(source) &&
+                new FileInfo(source).Length > 1024 * 1024 && File.Exists(shaPath))
+            {
+                using (var input = File.OpenRead(source))
+                using (var digest = SHA256.Create())
+                {
+                    string actual = System.BitConverter
+                        .ToString(digest.ComputeHash(input)).Replace("-", "");
+                    integrityOk = string.Equals(actual,
+                        File.ReadAllText(shaPath).Trim(),
+                        System.StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            if (approved && integrityOk)
             {
                 string assets = Path.Combine(path, "src/main/assets");
                 Directory.CreateDirectory(assets);
@@ -49,7 +71,7 @@ namespace CrushX.LensEngine.Editor
             else
             {
                 Debug.LogWarning("[CrushX Face AI] Approved face_landmarker.task missing or " +
-                    "too small: native inference will remain disabled; existing AR fallback stays.");
+                    "not approved or SHA-verified: native inference disabled; existing fallback stays.");
             }
         }
     }
