@@ -39,7 +39,7 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.equal((await record(like)).recorded,true);
   await assert.rejects(store.recordTrustedEvent({subject,event:{...like,eventId:'spoof_evt_'+suffix}}),/TRUSTED_EVENT_PROOF_REQUIRED/);
   assert.equal((await record(like)).duplicate,true);
-  await assert.rejects(record({...like,action:'save'}),/ENGAGEMENT_EVENT_CONFLICT/);
+  await assert.rejects(record({...like,action:'save'}),/RECEIPT_ID_CONFLICT/);
   assert.deepEqual((await store.readEngagementEvents({subject}))[0].topics,['cooking']);
   const hide={eventId:'hide_evt_'+suffix,contentId:ids[0],action:'not_interested',at:now};
   assert.equal((await record(hide)).recorded,true);
