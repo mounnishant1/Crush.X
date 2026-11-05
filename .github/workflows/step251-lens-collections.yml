@@ -1,0 +1,28 @@
+name: Step251 per-lens collection integration source QA
+
+on:
+  pull_request:
+    paths:
+      - "UnityProjects/CrushXLensEngine/Assets/Scripts/**"
+      - "UnityProjects/CrushXLensEngine/Assets/Tests/**"
+      - "tools/test_latest_lens_collection_integration.py"
+      - ".github/workflows/step251-lens-collections.yml"
+  push:
+    branches:
+      - "integration/step251-per-lens-collection-port-20261105"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify latest camera/capture/consent preservation and private collections
+        run: python3 -B tools/test_latest_lens_collection_integration.py -v
+      - name: Confirm Unity/device release work remains open
+        run: |
+          echo "SOURCE CHECK ONLY. Do not claim Unity Editor compile, Android APK or OnePlus camera QA."
