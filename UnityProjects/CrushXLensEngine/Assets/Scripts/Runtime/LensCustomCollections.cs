@@ -166,19 +166,40 @@ namespace CrushX.LensEngine
 
         public bool TryCreate(string name, out string id)
         {
+            return TryCreateWithLens(name, null, out id);
+        }
+
+        // Create folder + save first lens in ONE write, so a failed create
+        // cannot leave a misleading empty folder from the quick-save sheet.
+        public bool TryCreateWithLens(string name, string lensId, out string id)
+        {
             id = null;
             name = NormalizeName(name);
             Store loaded;
-            if (name == null || !TryLoad(out loaded) ||
+            if (name == null || (lensId != null &&
+                    !LensCatalog.Find(lensId).HasValue) ||
+                !TryLoad(out loaded) ||
                 loaded.entries.Count >= MaximumCollections) return false;
             foreach (var entry in loaded.entries)
                 if (string.Equals(entry.name, name,
                     StringComparison.OrdinalIgnoreCase)) return false;
+
             string newId = IdentifierPrefix + Guid.NewGuid().ToString("N");
-            loaded.entries.Add(new LensUserCollection { id = newId, name = name });
+            var folder = new LensUserCollection { id = newId, name = name };
+            if (lensId != null) folder.lensIds.Add(lensId);
+            loaded.entries.Add(folder);
             Save(loaded);
             id = newId;
             return true;
+        }
+
+        public bool ContainsLens(string id, string lensId)
+        {
+            Store loaded;
+            if (!IsCustomId(id) || !LensCatalog.Find(lensId).HasValue ||
+                !TryLoad(out loaded)) return false;
+            LensUserCollection entry = loaded.entries.Find(x => x.id == id);
+            return entry != null && entry.lensIds.Contains(lensId);
         }
 
         public bool Rename(string id, string name)
