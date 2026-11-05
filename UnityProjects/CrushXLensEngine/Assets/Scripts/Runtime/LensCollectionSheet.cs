@@ -93,7 +93,7 @@ namespace CrushX.LensEngine
         // Draw only while the native UI blocks camera and carousel swipe owners.
         public void Draw(NativeCameraLayout layout, string currentLensId,
             int scopeEpoch, GUIStyle header, GUIStyle status,
-            GUIStyle button, GUIStyle input)
+            GUIStyle button, GUIStyle input, Action<string> openFolder)
         {
             if (!Matches(currentLensId, scopeEpoch)) { Close(); return; }
             var lens = LensCatalog.Find(lensId);
@@ -155,8 +155,13 @@ namespace CrushX.LensEngine
                         collections.MoveCollection(folder.id, 1);
                     if (GUI.Button(new Rect(labelWidth + 96, y, 65, 46), "Open", button))
                     {
-                        selectedFolder = folder.id;
-                        notice = "Tap Close, then open the folder from camera.";
+                        if (openFolder != null)
+                        {
+                            openFolder(folder.id);
+                            Close();
+                            GUI.EndScrollView();
+                            return;
+                        }
                     }
                 }
                 else
