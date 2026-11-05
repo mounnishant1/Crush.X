@@ -13,7 +13,7 @@ namespace CrushX.LensEngine
         {
             if (screenWidth <= 0 || screenHeight <= 0 || scale <= 0) return 0;
             // Input touch coordinates start at lower-left, IMGUI starts at upper-left.
-            if (start.y < 175f * scale ||
+            if (start.y < 215f * scale ||
                 start.y > screenHeight - 185f * scale) return 0;
             Vector2 delta = end - start;
             if (Mathf.Abs(delta.x) < screenWidth * .16f ||
@@ -134,6 +134,16 @@ namespace CrushX.LensEngine
                 if (GUI.Button(new Rect(tabX + i * (tabWidth + gap), 116, tabWidth, 46),
                     label, tabButton))
                     engine.SetCollection(tabs[i]);
+            }
+
+            if (engine.ActiveId == "funny-big-eyes" ||
+                engine.ActiveId == "funny-jumbo-mouth")
+            {
+                GUI.Label(new Rect(16, h - 217, 100, 23), "Warp", status);
+                float desired = GUI.HorizontalSlider(
+                    new Rect(119, h - 205, w - 136, 26), engine.WarpIntensity, 0f, 1f);
+                if (Mathf.Abs(desired - engine.WarpIntensity) > .001f)
+                    engine.SetWarpIntensity(desired);
             }
 
             if (GUI.Button(new Rect(16, h - 138, 82, 68), "‹", button)) engine.Step(-1);

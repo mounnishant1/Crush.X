@@ -9,6 +9,7 @@ namespace CrushX.LensEngine
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
         private FaceTrackingManager tracking;
+        private FaceWarpFrameSource faceWarp;
         private LensEffect effect;
         private Transform effectRoot;
         private LensPersonalization personalization;
@@ -25,11 +26,13 @@ namespace CrushX.LensEngine
 
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
+        public float WarpIntensity { get { return faceWarp != null ? faceWarp.Intensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
 
         private void Awake()
         {
             personalization = new LensPersonalization();
+            faceWarp = gameObject.AddComponent<FaceWarpFrameSource>();
             trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
@@ -42,6 +45,13 @@ namespace CrushX.LensEngine
                 if (frontCamera != null)
                     frontCamera.requestedFacingDirection = UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
                 tracking.SetProvider(deviceProvider);
+                // Coarse on-device ARCore face-mesh fallback for image warping.
+                // A precise MediaPipe landmark source can replace this later.
+                var warpDriver = gameObject.AddComponent<ARFaceMeshWarpDriver>();
+                warpDriver.FaceManager = faceManager;
+                warpDriver.PreviewCamera = frontCamera != null ?
+                    frontCamera.GetComponent<Camera>() : Camera.main;
+                warpDriver.Engine = this;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
             else
@@ -120,6 +130,22 @@ namespace CrushX.LensEngine
             return true;
         }
 
+        public bool PushFaceWarpFrame(string json)
+        {
+            return faceWarp != null &&
+                faceWarp.TryApplyJson(json, Time.realtimeSinceStartup);
+        }
+
+        public void SetWarpIntensity(float value)
+        {
+            if (faceWarp != null) faceWarp.SetIntensity(value);
+        }
+
+        public void ClearWarpTracking()
+        {
+            if (faceWarp != null) faceWarp.Invalidate();
+        }
+
         public bool SelectLens(string id)
         {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
@@ -128,6 +154,7 @@ namespace CrushX.LensEngine
                 collection = "All";
                 RefreshVisible();
             }
+            if (faceWarp != null) faceWarp.SetLens(id);
             if (effect != null) Destroy(effect.gameObject);
             var go = new GameObject("Lens-" + id);
             go.transform.SetParent(effectRoot, false);
@@ -165,6 +192,8 @@ namespace CrushX.LensEngine
         {
             bool showing = TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
+            // Keep fallback procedural effects visible until the actual URP
+            // renderer pass and camera alignment have been device verified.
             if (!showing) return;
             FaceSample face = tracking.Current;
             effectRoot.position = face.Position;
