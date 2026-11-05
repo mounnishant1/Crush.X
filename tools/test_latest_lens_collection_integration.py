@@ -57,6 +57,8 @@ class LatestLensCollectionPort(unittest.TestCase):
         self.assertIn("TryCreateWithLens", source)
         self.assertIn("ContainsLens", source)
         self.assertIn("PlayerPrefs.SetString(CollectionStorageKey", source)
+        self.assertIn("if (!Save(loaded)) return false;", source)
+        self.assertNotIn("owner.CollectionStorageKey", source)
 
     def test_per_lens_button_and_modal_block_swipes(self):
         ui = content("Scripts/Runtime/NativeLensUI.cs")
@@ -70,6 +72,8 @@ class LatestLensCollectionPort(unittest.TestCase):
         self.assertIn("TryCreateWithLens(newName, lensId", sheet)
         self.assertIn('saved ? "✓ Saved"', sheet)
         self.assertIn("Open(", sheet)
+        self.assertIn("collections.MoveLens(selectedFolder", sheet)
+        self.assertIn("collections.RemoveLens(selectedFolder", sheet)
         self.assertIn("currentAccountEpoch", sheet)
 
     def test_same_native_carousel_supports_private_folder(self):
