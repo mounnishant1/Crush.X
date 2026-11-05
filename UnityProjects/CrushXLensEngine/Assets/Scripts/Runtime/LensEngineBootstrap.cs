@@ -11,6 +11,7 @@ namespace CrushX.LensEngine
         private FaceTrackingManager tracking;
         private FunnyVoiceEffects voice;
         private MultiFaceFunnyOverlay groupFaces;
+        private ARCameraMediaPipeRunner mediaPipeRunner;
         private FaceWarpFrameSource faceWarp;
         private readonly LiveFaceExpressionState expressions = new LiveFaceExpressionState();
         private bool preciseTrackingAvailable;
@@ -81,9 +82,9 @@ namespace CrushX.LensEngine
             // AR face subsystem. Keep 2D image-space beauty/warp available.
             if (frontCamera != null)
             {
-                var mediaPipe = gameObject.AddComponent<ARCameraMediaPipeRunner>();
-                mediaPipe.CameraManager = frontCamera;
-                mediaPipe.Engine = this;
+                mediaPipeRunner = gameObject.AddComponent<ARCameraMediaPipeRunner>();
+                mediaPipeRunner.CameraManager = frontCamera;
+                mediaPipeRunner.Engine = this;
             }
             if (Camera.main == null)
             {
@@ -193,6 +194,19 @@ namespace CrushX.LensEngine
         public void SetBeautyIntensity(float value)
         {
             if (faceWarp != null) faceWarp.SetBeautyIntensity(value);
+        }
+
+        public void ClearAllTrackingFrames()
+        {
+            expressions.Invalidate();
+            if (faceWarp != null) faceWarp.Invalidate();
+            if (groupFaces != null) groupFaces.Invalidate();
+        }
+
+        public bool SetCameraAlignment(int rotation, bool mirror)
+        {
+            return mediaPipeRunner != null &&
+                mediaPipeRunner.SetCameraAlignment(rotation, mirror);
         }
 
         public void ClearWarpTracking()
