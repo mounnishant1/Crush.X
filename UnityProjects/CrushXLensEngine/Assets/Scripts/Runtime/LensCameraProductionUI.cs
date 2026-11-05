@@ -78,6 +78,7 @@ namespace CrushX.LensEngine
             pointerId = -1;
             multiTouchCancelled = false;
             browseOpen = false;
+            customManagerOpen = false;
             IsReady = false;
         }
 
@@ -339,9 +340,7 @@ namespace CrushX.LensEngine
 
         private void OnPreviewDown(PointerDownEvent evt)
         {
-            if (customManagerOverlay != null &&
-                customManagerOverlay.style.display != DisplayStyle.None)
-                return;
+            if (customManagerOpen) return;
             if (browseOpen)
             {
                 ToggleBrowse();
@@ -399,9 +398,7 @@ namespace CrushX.LensEngine
             if (lastCollectionRevision != Engine.CollectionRevision)
             {
                 RebuildCollectionButtons();
-                if (customManagerOverlay != null &&
-                    customManagerOverlay.style.display != DisplayStyle.None)
-                    RefreshCustomManager();
+                if (customManagerOpen) RefreshCustomManager();
             }
             if (Time.unscaledTime < nextRefresh) return;
             nextRefresh = Time.unscaledTime + .12f;
