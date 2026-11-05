@@ -93,6 +93,9 @@ namespace CrushX.LensEngine
                 string result = native.Call<string>("pollLatest");
                 if (!string.IsNullOrEmpty(result))
                     Engine.PushMediaPipeResult(result);
+                string faces = native.Call<string>("pollLatestFaces");
+                if (!string.IsNullOrEmpty(faces))
+                    Engine.PushMultiFaceResult(faces);
             }
             catch (AndroidJavaException error)
             {
