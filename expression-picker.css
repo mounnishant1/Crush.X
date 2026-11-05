@@ -1,0 +1,88 @@
+/* Shared Crush.X expression sheet: scalable native emoji; no raster blur or overlapping menus. */
+.cx-expression-trigger {
+  flex: 0 0 36px; width: 36px; height: 36px; margin: 1px 2px;
+  border: 1px solid rgba(169, 85, 247, .25); border-radius: 50%;
+  background: rgba(244, 235, 255, .88); color: #9333ea;
+  font-size: 27px; line-height: 1; display: inline-flex;
+  align-items: center; justify-content: center; cursor: pointer;
+  vertical-align: middle; -webkit-tap-highlight-color: transparent;
+}
+.cx-expression-trigger:focus-visible { outline: 3px solid #ec4899; outline-offset: 2px; }
+.cx-expression-textarea + .cx-expression-trigger { display: inline-flex; margin: 7px 0 6px; }
+.cx-expression-backdrop {
+  position: fixed; inset: 0; z-index: 2147483000;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(15, 23, 42, .45); backdrop-filter: blur(4px);
+}
+.cx-expression-sheet {
+  width: min(100%, 520px); max-height: min(72dvh, 610px);
+  padding: 18px 18px max(18px, env(safe-area-inset-bottom));
+  background: #fff; color: #172033;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -12px 48px rgba(27, 16, 52, .2);
+  display: flex; flex-direction: column; gap: 12px;
+  font-family: inherit;
+}
+.cx-expression-top { display: flex; justify-content: space-between; align-items: center; font-size: 17px; }
+.cx-expression-top button {
+  width: 35px; height: 35px; border: 0; border-radius: 50%; background: #f3f4f6;
+  font-size: 25px; line-height: 1;
+}
+.cx-expression-search {
+  min-height: 43px; width: 100%; border: 1px solid #e9d5ff; border-radius: 16px;
+  background: #faf8fd; color: #172033; padding: 0 14px; outline-offset: 2px;
+}
+.cx-expression-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.cx-expression-tabs button {
+  border-radius: 12px; border: 1px solid #ece8f6; padding: 10px 2px; color: #64748b;
+  font-weight: 650; background: #fff; font-size: 13px;
+}
+.cx-expression-tabs button.is-active { background: #fce7f3; color: #be185d; border-color: #f9a8d4; }
+.cx-expression-content { min-height: 130px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 1px 6px; }
+.cx-expression-content h3 { margin: 13px 0 8px; font-size: 12px; color: #64748b; font-weight: 700; }
+.cx-expression-grid { display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); gap: 4px; }
+.cx-expression-cell {
+  min-width: 0; aspect-ratio: 1; border-radius: 12px; border: 0;
+  font-family: system-ui,'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif;
+  font-size: clamp(23px, 6.3vw, 33px); background: transparent; cursor: pointer;
+}
+.cx-expression-cell:active,.cx-expression-sticker:active { background: #fce7f3; transform: scale(.96); }
+.cx-expression-stickers { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.cx-expression-sticker {
+  min-height: 105px; border: 1px solid #f4d9ee; border-radius: 17px;
+  background: linear-gradient(140deg,#fff7fc,#f5f3ff); display: flex;
+  flex-direction: column; justify-content: center; align-items: center; gap: 8px;
+}
+.cx-expression-sticker > span {
+  font-size: 33px; line-height: 1.3; animation: cx-expression-float 2.4s ease-in-out infinite;
+  font-family: system-ui,'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif;
+}
+.cx-expression-sticker small { font-size: 11px; color: #475569; }
+.cx-expression-hint,.cx-expression-empty { margin: 4px 0 14px; text-align: center; color: #64748b; font-size: 12px; }
+.cx-expression-gif { margin: auto; max-width: 330px; text-align: center; padding: 20px 8px; }
+.cx-expression-gif h3 { color: #172033; font-size: 17px; }
+.cx-expression-gif p { color: #64748b; font-size: 13px; line-height: 1.5; }
+.cx-expression-gif-icon {
+  width: 70px; height: 60px; margin: 0 auto 6px;
+  display: grid; place-items: center; border-radius: 18px; background: #fce7f3;
+  color: #be185d; font-weight: 900; font-size: 23px;
+}
+.cx-expression-gif-cta {
+  border: 0; border-radius: 20px; background: #be185d; padding: 12px 26px;
+  color: #fff; font-weight: 700; margin-top: 8px;
+}
+.cx-expression-status { min-height: 16px; margin: 0; font-size: 12px; color: #be185d; }
+.cx-expression-cell:focus-visible,.cx-expression-sticker:focus-visible,
+.cx-expression-tabs button:focus-visible { outline: 3px solid #be185d; outline-offset: 2px; }
+@keyframes cx-expression-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+@media (max-width:360px) { .cx-expression-grid { grid-template-columns:repeat(7,minmax(0,1fr)); } }
+@media (prefers-reduced-motion:reduce) { .cx-expression-sticker > span { animation:none; } }
+@media (prefers-color-scheme:dark) {
+  .dark .cx-expression-sheet { background:#1e2030;color:#f8fafc; }
+  .dark .cx-expression-top button { background:#30354a;color:#f8fafc; }
+  .dark .cx-expression-search { background:#2a2e42;color:#f8fafc;border-color:#544064; }
+  .dark .cx-expression-tabs button { background:#292d42;color:#e2e8f0;border-color:#4c4860; }
+  .dark .cx-expression-tabs button.is-active { background:#6d214e;color:#fce7f3; }
+  .dark .cx-expression-sticker { background:#292538;border-color:#64415f; }
+  .dark .cx-expression-gif h3 { color:#fff; }
+}

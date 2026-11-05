@@ -1,0 +1,17 @@
+/* Step 9 — one consistent AURA-X entry, session-only permissions and memory. */
+.cx-aura-float { position:fixed; z-index:55; bottom:calc(82px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); min-height:48px; min-width:94px; border-radius:999px; background:linear-gradient(120deg,#d946ef,#7c3aed); border:1px solid #ffffff88; color:#fff; font-size:13px; font-weight:850; padding:12px 15px; box-shadow:0 7px 24px #4b166c4b; }
+.cx-aura-float[hidden] { display:none !important; }
+.cx-aura-float:focus-visible,.cx-aura-permissions button:focus-visible,.cx-aura-memory button:focus-visible { outline:3px solid #db2777; outline-offset:3px; }
+.cx-aura-permissions { display:grid; gap:11px; padding:13px; border:1px solid var(--line); border-radius:13px; background:var(--card); }
+.cx-aura-permissions [role=status] { font-size:12px; color:var(--muted); line-height:1.5; }
+.cx-aura-permission-actions,.cx-aura-memory-actions { display:flex; flex-wrap:wrap; gap:7px; }
+.cx-aura-permission-actions button,.cx-aura-memory button { min-height:44px; border-radius:11px; border:1px solid var(--line); padding:10px 11px; background:var(--strong); font-size:12px; font-weight:750; }
+.cx-aura-memory { margin-top:16px; padding:11px 13px; border:1px solid var(--line); border-radius:13px; }
+.cx-aura-memory summary { font-weight:850; cursor:pointer; min-height:38px; }
+.cx-aura-memory p,.cx-aura-memory [role=status] { font-size:12px; color:var(--muted); margin:8px 0; }
+.cx-aura-memory label { display:block; font-size:12px; font-weight:750; margin:12px 0 5px; }
+.cx-aura-memory textarea { display:block; width:100%; min-height:95px; padding:10px; border:1px solid var(--line); background:var(--strong); color:var(--text); border-radius:11px; resize:vertical; }
+.cx-aura-memory [data-ax-memory-output] { white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; font-size:12px; }
+@media(min-width:1280px){ .cx-aura-float {bottom:24px;right:22px;} }
+@media(max-width:380px){ .cx-aura-float {bottom:calc(78px + env(safe-area-inset-bottom)); right:8px; min-width:83px; padding:10px 12px;} }
+@media(prefers-reduced-motion:reduce){.cx-aura-float {transition:none;}}

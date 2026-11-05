@@ -1,0 +1,315 @@
+{
+  "repository": "mounnishant1/Crush.X",
+  "initialBranch": "work",
+  "initialCommit": "a4135f99987601e3fbcf6bbaa0b5af8c7598e8e1",
+  "selectedBranch": "origin/fix/reel-swipe-no-ghost-audio-20261028",
+  "selectedCommit": "da22abcbc2d4ec1a39380f57567566683aedb3d3",
+  "featureBranch": "feature/crushx-advanced-ar-lens-engine",
+  "v402CompleteSourceAvailable": false,
+  "filesInspected": [
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/CrushX/ImportedLenses/FoxMask/Scripts/Editor/FoxMaskInstaller.cs",
+      "sha256": "92f2c444d713ce744a24db5540271f5e4de4bc3db7136fddd44e80403b35d31b"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/CrushX/ImportedLenses/FoxMask/Scripts/FoxMaskARLens.cs",
+      "sha256": "97593f5af6dd701ad02fd5d936c04ffffb810062596e476b3ecda6c785038804"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/CrushXSnapAR/Runtime/CrushXFaceEffect.cs",
+      "sha256": "faf2a7a52dd3dd5cbdd94550050c157399faae794c20cd18d3062e17b5290e7d"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Editor/CrushXAndroidBuild.cs",
+      "sha256": "6feadc0322ed70e960cc992c33064f501929dbc7c7a26bdf101b229625e299a3"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Editor/CrushXNativeARSceneTools.cs",
+      "sha256": "dbd68db7f2a580c4c1880e20a2f86262392e3af02e632fcd225bc98d62e03e5e"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Editor/CrushXSceneTools.cs",
+      "sha256": "8d4059bf4abf3d8ab482d966614eeaa642f89df305bc577dfb660c631b5ace5d"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Plugins/Android/CrushXMediaCapture.androidlib/src/in/crushx/lens/capture/CrushXMediaRecorder.java",
+      "sha256": "dd5128439d26d4c9bd5096406f141fc8215a346718e0ba3014d8c2d87a86e001"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Bridge/LensNaturalLanguage.cs",
+      "sha256": "2e7c9c8afbe20db426a65f3086b33bcdc24c8d65cabb174d605f07700c540565"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Bridge/LensWorkflowBridge.cs",
+      "sha256": "f5cd5480879c89382b16f2ccf43e93fddd078deb3fbeea0e1a8efa0b72735a77"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Bridge/NativeLensLifecycle.cs",
+      "sha256": "9804c9f40c10773420014fa77bd035ce54ccd39972e26f7c9c02319ce93520be"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Bridge/UnityLensReceiver.cs",
+      "sha256": "2a4b2a443b65046f75cb6d7a28bf5a6a74f613d4b267426628cd6c6116a9d523"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/CaptureManager.cs",
+      "sha256": "444b32d86d8ae2ee1b533914155d0d40b99d9789d92f3c402b83e74f552517ca"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/MediaCaptureResult.cs",
+      "sha256": "72beacb0bbd62623e7250e2dc58bcbf384224e92336d88d5ea1b2226c22e693c"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Capture/NativeMediaCapture.cs",
+      "sha256": "b42f5b8fb0f5f40a89c3eea3ac757eceac0f7c8bdf6c2530582cac76d6580965"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Core/ILensEngine.cs",
+      "sha256": "04e826acece675f7c54cd49a51cbf92b37b92e850ff17a84bc9b7fb9bb42cd0c"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/CrushXLensEngine.Runtime.asmdef",
+      "sha256": "8561934e41ca535efbdc12b4e117512ac63685310322c63cc9cac225aa3a6c3e"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/CompatibleLensMaterials.cs",
+      "sha256": "7c4200e19bc7512c41641377979ed7dd508048739d335a1219e28fb39c080b2f"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/LensEffects.cs",
+      "sha256": "5621d42f055a4f96ffdce16bbe506529bada95f51a8d71afebfc59a8f72140ca"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/LensGeometry.cs",
+      "sha256": "f37eb3a58251a3a1a85a98cf42ec5b1e2bea0cec17c352768f5ea12f5e98bf97"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Lenses/TrackedFaceAttachments.cs",
+      "sha256": "abfd6074a05ba9d5a580e01693ce98fab21ed6d419cc725a2ca8cc699754bfa6"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraPermissionGate.cs",
+      "sha256": "6562f60959c920ef957e1f7899952c95eb3fc048159959d3d0607cc4c5469ba8"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXCameraSwipe.cs",
+      "sha256": "9e9bf499f828aeada4ec45c8dda3e25dbb16d5e5998ab9adcb1a4d2220588bac"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/CrushXSmartCarousel.cs",
+      "sha256": "7c9ef30dd5093c463c792bc928010fd4cef044108e9dd0b64fc25fd4a4b173db"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensCatalog.cs",
+      "sha256": "a4df50c68711083544f751f039de938f69543fc3f58755be92799790457ea4e8"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensCompatibility.cs",
+      "sha256": "454c48d67eaa7d6aa3c069946057e03f41fdfd3f1ca35a13637ac3fd48573d06"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensEngineBootstrap.cs",
+      "sha256": "63f365ea05e71f7d585b3c447b1d11cbb083553af42ba1fb3d14e5523c1d3426"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensPerformanceMonitor.cs",
+      "sha256": "d3c58023709f3e58e209ddcc58c8b9c404ddb1713b1b809f0386d596c705d182"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensPersonalization.cs",
+      "sha256": "6e66fe1a12593f51edb4a7262c26ed17e99dc2d4132925a8d61c0f4507d7fae6"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensQualitySettings.cs",
+      "sha256": "8fd359c7b6d3a8048273fdf749d57c8d4fb7e6b17951d3dbf8960c5b04c15ba0"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/LensRuntimeEntry.cs",
+      "sha256": "21619efd5ee6f8a8367a6527b4585d2e1749bb77078c28072e444d340a2f953f"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/NativeCameraLayout.cs",
+      "sha256": "18dfa567a6819360cd7dc6bad44dae11f9d2c5cb864434d5df9d0ea32cd271fb"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Runtime/NativeLensUI.cs",
+      "sha256": "ee27e78940192caeee0261016341589772c3db7b00b754a61666df252b51f6d1"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/ARDiagnosticClassifier.cs",
+      "sha256": "b0b6cbdb21222a2a8636b12d5b0bb00e237d2b27ab60aca5cc9f9679691214f6"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/ARFoundationFaceProvider.cs",
+      "sha256": "b9a03d2e037853db4b585bd6d735d71e202aacbc1af760593b6790edd27232f4"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/ARTrackingDiagnostics.cs",
+      "sha256": "6025ad20807354cc19426fc86708e0202115c692f8fdc058c6c2d442774b3104"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/FaceTrackingManager.cs",
+      "sha256": "2ddab50df3c777b0a0b37e859c6e73d880be551686047276d3018130e1ed575e"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Scripts/Tracking/MockTrackingProvider.cs",
+      "sha256": "07c2fd92029df3e3d221b08bbb3ccb4b45fc3acb10fde3adade0002721ba8620"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Shaders/CrushXFaceDepth.shader",
+      "sha256": "585cdb1e9e0bb06abfe68013b9ac4761477dcc1505b8d6c917d6e206fbe75e2a"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/ARDiagnosticClassifierTests.cs",
+      "sha256": "3636eb05d266093bc560424e90b4189bf55aa2f89aab63073550b7e3e8306390"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CompatibleLensMaterialsTests.cs",
+      "sha256": "9582228f56b630f28d9c4b85acdaa60ea20ac40c2c8b2526e729c1822c503742"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/CrushXLensEngine.EditMode.asmdef",
+      "sha256": "48f8879e65cf01770ba6d8d2791736c2885f3e0648e17fe1f60434ed5e3d0226"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensCatalogTests.cs",
+      "sha256": "b3d336cdc2779b955d6a19711ca01b33cedca4c2d4e85ee123ab76ed0e843b22"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensCompatibilityTests.cs",
+      "sha256": "f57047f12e81dba08aeaf06c602f0738bc4e29f223bfe6da283e20594083bfb8"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/LensWorkflowTests.cs",
+      "sha256": "bec04938e7bbffd3f808508d82596a25fc7f54fc42290279b03600763e6263b5"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/MediaCaptureTests.cs",
+      "sha256": "c38df0ef3c0af05bccc61fd611a1d3e52e76f456c12beb886fd4ab8c4560d0c2"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/NativeCameraInteractionTests.cs",
+      "sha256": "77b482dffd1666bbfa2f8e89caa930788d79faed263b22ed09cf8066bec0f6c9"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/EditMode/TrackedFaceAttachmentsTests.cs",
+      "sha256": "ba1c7f5f3cb184b1ade2a6097de6b1eee92d0e2b3db9e2cdfd8abd33d877a898"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/PlayMode/CrushXLensEngine.PlayMode.asmdef",
+      "sha256": "23e142c4f9c50bf765c0c29a5e41a9ea69507d67b11644d18f35e8800fdf13f0"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Assets/Tests/PlayMode/TrackingLifecyclePlayModeTests.cs",
+      "sha256": "3befe7fc4cfa4bae0351305d062448db4be0b3c59a433eeb698a09053378cda5"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Packages/manifest.json",
+      "sha256": "7637ced4e51605ede67fd317380258ea57d43db960031630b15e5ecb071223ac"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/Packages/packages-lock.json",
+      "sha256": "5f0e08c02661d2ac324604f5dfb42ba48b2e529f9f9a6c9cf9299f1fe2bdbb6b"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/ProjectSettings/EditorBuildSettings.asset",
+      "sha256": "21c8103408c4a994612295eb3345102c8d078410b412f6f66ad552157ac5748e"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/ProjectSettings/GraphicsSettings.asset",
+      "sha256": "e5d71c2b9e3a792dc4997b148acbc92384bd33a8a9bc6bdfcb0dc9f00f6d112b"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/ProjectSettings/ProjectSettings.asset",
+      "sha256": "187a2bdb475223662d72c10ee866ed3d7dd9256a9b853730c34f8a5e7ad3b705"
+    },
+    {
+      "path": "UnityProjects/CrushXLensEngine/ProjectSettings/ProjectVersion.txt",
+      "sha256": "331307556110e6b06367fca1d6d21252f29d23b049c09aeb130bf85dbab0f29f"
+    },
+    {
+      "path": "app-improvements.js",
+      "sha256": "914c5e6bdbc9048a14c8fe261e13d2b1d974d5d97ca098ad41fc260f6cb0fed7"
+    },
+    {
+      "path": "aura-x-assistant.js",
+      "sha256": "a80502e63a55e26261d0236f4179fa26a9fe387a543a2554aef390c37ab1e8ec"
+    },
+    {
+      "path": "aura-x-core.js",
+      "sha256": "d45e0a45f2b993e3384e5bb122242f37e00901bba19d339d6a54761d226d912f"
+    },
+    {
+      "path": "aura-x-policy.js",
+      "sha256": "21b368dfca1d0f33f31433e74971101f39d1f28a304eb0e55a37fca12a932c83"
+    },
+    {
+      "path": "coins-ledger-sandbox.js",
+      "sha256": "a1c5a75e07d78a52bf8cdf6e6af7d49dd6640eafff865696739712c9fd0f3a88"
+    },
+    {
+      "path": "expression-picker.js",
+      "sha256": "59bd7209a22fb8f5ce528dabcc39392a61d51578d04fa7c19aae2d2d1ee529a2"
+    },
+    {
+      "path": "heads-up-notifications.js",
+      "sha256": "2b8bd4ff91e6d29952a5683a6cb05880ae0a19622aa70a55d0542171d531337c"
+    },
+    {
+      "path": "index.html",
+      "sha256": "25bd3fda9261b830e12e3a813c58ec1b4f68476706efe49740eef6d5540993af"
+    },
+    {
+      "path": "live-gifting-preview.js",
+      "sha256": "592fbee4ae25a263ca99579f50943967f636811c32cbed7a229e641fd28644c1"
+    },
+    {
+      "path": "message-presence-indicators.js",
+      "sha256": "6efd7983f3a4091bd4976182ffe39a41598323b5a81923607e4be708ebe570ab"
+    },
+    {
+      "path": "music-library.js",
+      "sha256": "d28f2896098501dc6d4f331551f8689fbd400ce752e558641f6c059049b23f85"
+    },
+    {
+      "path": "notes-model.js",
+      "sha256": "88604fa5f598210a584c9c87ecd75c2596625eea2965b71eafb2727f1181c5d0"
+    },
+    {
+      "path": "notes-system.js",
+      "sha256": "9b88acf23f133c741f76f198a9991ae4d18ad2a94068618355a74bfe1fd4a813"
+    },
+    {
+      "path": "permissions-center.js",
+      "sha256": "abe26769d5b41c3addcf330afd45340afcc611cf8df3672692e59b3cc92742a7"
+    },
+    {
+      "path": "social-advanced.js",
+      "sha256": "34225f3e8d60f23c90f7fcded6442fb9fcf57a6102747eeb2f54d88856d651b3"
+    },
+    {
+      "path": "social-interactions.js",
+      "sha256": "a04c34329a56c20e8725acd0be6bd67cc439514f8446fef0954df5cd54906e1b"
+    },
+    {
+      "path": "social-notifications.js",
+      "sha256": "4ea5b824016ff9cf11bc66632440839ea2905723383ec9771bf4bad2bf770e49"
+    },
+    {
+      "path": "story-editor.js",
+      "sha256": "68b3ef72b84dec8e464c7d906e5c56641bb54a0f5bb894a0aefdb507533ada4f"
+    },
+    {
+      "path": "tests/native_media/CrushXMediaRecorderTests.java",
+      "sha256": "7511d7eed8136c051190161d8e1afd4e6c1bba557cb2470597fdbfb3accaefaa"
+    },
+    {
+      "path": "tests/notes-harness.html",
+      "sha256": "0b492c6278443800dc188ec2ba098f2b259e842d947c48f246f0efeb7c832170"
+    },
+    {
+      "path": "tests/notes-system.test.js",
+      "sha256": "d7f7fabac332848a8bebec4d0e3f82be4d1b95a63ffddd8da7c4b937872228e4"
+    }
+  ]
+}

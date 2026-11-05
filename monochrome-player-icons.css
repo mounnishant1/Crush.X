@@ -1,0 +1,74 @@
+/* Explore/Search/Profile cards: real paused video cover + only corner Reel/views overlays. */
+.cx-mono-video-tile {
+  position:relative !important;
+  overflow:hidden;
+  isolation:isolate;
+  background:#16171b !important;
+  cursor:pointer;
+}
+.cx-mono-video-tile .cx-mono-video-preview {
+  display:block;
+  position:relative;
+  width:100%;
+  height:100%;
+  aspect-ratio:inherit;
+  object-fit:cover;
+  visibility:hidden;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 180ms ease;
+}
+.cx-mono-video-tile.cx-mono-has-frame .cx-mono-video-preview {
+  visibility:visible;
+  opacity:1;
+}
+.cx-mono-video-tile .cx-mono-play-mark { display:none !important; }
+.cx-mono-video-tile > span:not(.cx-reel-mark):not(.cx-view-badge) { display:none !important; }
+.cx-mono-video-tile > .cx-reel-mark {
+  position:absolute !important;
+  z-index:4;
+  top:8px !important; right:8px !important; left:auto !important; bottom:auto !important;
+  padding:0 !important;
+  width:23px; height:23px;
+  display:grid; place-items:center;
+  color:#fff !important;
+  background:transparent !important;
+  border-radius:0 !important;
+  filter:drop-shadow(0 1px 2px #000);
+  pointer-events:none;
+}
+.cx-mono-video-tile > .cx-view-badge {
+  position:absolute !important;
+  z-index:4;
+  bottom:7px !important; right:6px !important; top:auto !important; left:auto !important;
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-height:24px;
+  width:auto;
+  max-width:calc(100% - 12px);
+  padding:3px 7px !important;
+  color:#fff !important;
+  background:rgba(0,0,0,.68) !important;
+  border-radius:11px !important;
+  font:600 12px/1.2 system-ui,sans-serif !important;
+  text-shadow:0 1px 2px #0008;
+  white-space:nowrap;
+  pointer-events:none;
+}
+.cx-mono-video-tile > .cx-view-badge > svg {flex-shrink:0;width:16px;height:16px;}
+.cx-mono-video-tile > .cx-view-badge > .cx-view-number {
+  position:static !important;
+  display:inline !important;
+  padding:0 !important;
+  color:inherit !important;
+  background:none !important;
+  font:inherit !important;
+}
+.cx-mono-video-tile:focus-visible {outline:2px solid #fff;outline-offset:-3px;}
+.cx-mono-video-tile:active {filter:brightness(.92);}
+@media(prefers-reduced-motion:reduce) {
+  .cx-mono-video-tile .cx-mono-video-preview {transition:none;}
+}
+/* Normal player/fullscreen controls remain available outside thumbnail grids. */

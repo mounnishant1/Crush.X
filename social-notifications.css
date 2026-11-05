@@ -1,0 +1,18 @@
+.social-notif-bell{position:relative}
+.social-notif-badge{position:absolute;top:0;right:0;min-width:19px;height:19px;display:grid;place-items:center;border-radius:999px;color:#fff;background:#e11d48;border:2px solid #fff;font-size:10px;font-weight:900;padding:0 2px;font-variant-numeric:tabular-nums}
+.social-desktop-activity{min-height:44px;border:1px solid rgba(140,140,150,.35);border-radius:999px;padding:8px 12px;font-weight:700;font-size:.85rem;white-space:nowrap}
+.social-notif-tabs{display:flex;gap:7px;overflow-x:auto;margin:12px 0;padding:4px 0;scrollbar-width:thin}
+.social-notif-tabs button{border-radius:99px;border:1px solid rgba(140,140,150,.3);padding:8px 12px;min-height:40px;white-space:nowrap;font-size:.82rem;font-weight:700}
+.social-notif-tabs [aria-pressed="true"]{background:linear-gradient(130deg,#db2777,#7c3aed);color:#fff}
+.social-notif-summary{font-size:.86rem;font-weight:700;margin:10px 0}
+.social-notif-demo{display:block;width:100%;text-align:center;min-height:44px;border-radius:12px;padding:10px;margin:10px 0;border:1px solid #ec4899;color:#be185d;font-weight:700}
+.social-notif-items{display:grid;gap:5px;max-height:min(50vh,420px);overflow-y:auto}
+.social-notif-event{width:100%;display:flex;gap:12px;align-items:center;padding:12px 10px;text-align:left;min-height:66px;border-radius:12px}
+.social-notif-event.is-unread{background:rgba(236,72,153,.08)}
+.social-notif-event img{flex:none;width:42px;height:42px;object-fit:cover;border-radius:50%}
+.social-notif-event span{min-width:0;flex:1;overflow-wrap:anywhere;font-size:.87rem}
+.social-notif-event small{display:block;opacity:.74;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.77rem}
+.social-notif-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#db2777}
+.social-notif-target{outline:2px solid #ec4899;outline-offset:2px;background:rgba(236,72,153,.13);transition:background .2s}
+.social-notif-tabs button:focus-visible,.social-notif-event:focus-visible,.social-notif-demo:focus-visible{outline:3px solid #8b5cf6;outline-offset:2px}
+@media(max-width:430px){.social-notif-event img{width:36px;height:36px}.social-notif-event{gap:8px}}

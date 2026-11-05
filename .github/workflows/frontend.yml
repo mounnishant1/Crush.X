@@ -1,0 +1,154 @@
+name: Frontend regression tests
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'app-improvements.js'
+      - 'unified-player.js'
+      - 'unified-player.css'
+      - 'monochrome-player-icons.js'
+      - 'monochrome-player-icons.css'
+      - 'publishing-status.js'
+      - 'publishing-status.css'
+      - 'app-ai-workflows.js'
+      - 'aura-x-assistant.js'
+      - 'aura-remote-client.js'
+      - 'aura-remote-ui.js'
+      - 'aura-remote.css'
+      - 'content-intelligence.js'
+      - 'app-content-intelligence.js'
+      - 'aura-x-policy.js'
+      - 'app-os-integration.js'
+      - 'app-os-integration.css'
+      - 'operating-system/**'
+      - 'music-library.js'
+      - 'music-library.css'
+      - 'coins-ledger-sandbox.js'
+      - 'live-gifting-preview.js'
+      - 'live-gifting-preview.css'
+      - 'story-editor.js'
+      - 'social-interactions.js'
+      - 'social-interactions.css'
+      - 'social-advanced.js'
+      - 'social-advanced.css'
+      - 'social-notifications.js'
+      - 'social-notifications.css'
+      - 'UnityProjects/CrushXLensEngine/**'
+      - 'tools/**'
+      - 'tests/**'
+      - 'aura-owner-coding.cjs'
+      - 'docs/**'
+      - '.github/workflows/frontend.yml'
+  push:
+    branches: ['repair/p0-frontend', 'review/all-app-improvements-20261015', 'main']
+    paths:
+      - 'index.html'
+      - 'app-improvements.js'
+      - 'app-os-integration.js'
+      - 'app-os-integration.css'
+      - 'operating-system/**'
+      - 'UnityProjects/CrushXLensEngine/**'
+      - 'tools/**'
+      - 'tests/**'
+      - 'aura-owner-coding.cjs'
+      - 'docs/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/crushx-tests" --no-save --package-lock=false playwright@1.58.2
+          "$RUNNER_TEMP/crushx-tests/node_modules/.bin/playwright" install --with-deps chromium
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run Unity source and tool regressions (not Unity compilation)
+        run: |
+          python -m pip install -r tests/requirements-source.txt
+          python -m unittest discover -s tests -p 'test_*.py'
+          node --check app-improvements.js
+          node --check search-reference-flow.js
+          node --check unified-player.js
+          node --test tests/unified-player.test.cjs
+          node --check monochrome-player-icons.js
+          node --test tests/monochrome-player-icons.test.cjs
+          node --check publishing-status.js
+          node --test tests/publishing-status.test.cjs
+          node --check coins-ledger-sandbox.js
+          node --check live-gifting-preview.js
+          node --test tests/coins-ledger.cjs
+          node --check music-library.js
+          node --test tests/music-library.cjs
+          node --check social-interactions.js
+          node --check social-advanced.js
+          node --check social-notifications.js
+          node tests/home-ui.cjs
+          node tests/experience-flows.cjs
+          node --test tests/story-pointer-ownership-step252.test.cjs
+          node --test tests/navigation-touch-step254.test.cjs
+          node --test tests/story-focus-step255.test.cjs
+          node --test tests/repost-local-step252.test.cjs
+          node --check story-reference-enhancement.js
+          node tests/story-reference-enhancement.cjs
+          node --check operating-system/stories/story-service.cjs
+          node --check operating-system/stories/dynamo-story-store.cjs
+          node --check operating-system/http/story-handler.cjs
+          node --test operating-system/tests/story-service.test.cjs
+          node --check story-api-client.js
+          node --test operating-system/tests/story-api-client.test.cjs
+          node --test operating-system/tests/dynamo-story-store.test.cjs
+          node tests/social-interactions.cjs
+          node tests/social-advanced.cjs
+          node tests/social-notifications.cjs
+          node --check permissions-center.js
+          node --check aura-x-core.js
+          node --check aura-x-policy.js
+          node --check aura-x-assistant.js
+          node --check content-intelligence.js
+          node --check app-content-intelligence.js
+          node --check content-api-client.js
+          node --test tests/content-api-client.test.cjs
+          node --test tests/content-intelligence-integration.test.cjs
+          node --test tests/aura-x-core.test.cjs
+          node --test tests/aura-x-policy.test.cjs
+          node --check aura-owner-coding.cjs
+          node --check app-ai-workflows.js
+          node --check aura-remote-client.js
+          node --check aura-remote-ui.js
+          node --test tests/aura-remote-client.test.cjs
+          node --test tests/ai-workflows.test.cjs
+          node --check app-os-integration.js
+          node --test tests/aura-owner-coding.test.cjs
+      - name: Start local application server
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/crushx-http.log" 2>&1 &
+          curl --retry 10 --retry-delay 1 --retry-connrefused --fail --silent --show-error http://127.0.0.1:8000/ -o /dev/null
+      - name: Run frontend regressions
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-tests/node_modules/playwright
+        run: |
+          node tests/frontend.cjs
+          node tests/monochrome-player-icons-browser.cjs
+          node tests/navigation-touch-step254-browser.cjs
+          node tests/story-studio-navigation-step255-browser.cjs
+          node tests/search-reference-step261-browser.cjs
+          node tests/aura-ui-browser.cjs
+          node tests/content-ui-browser.cjs
+          node tests/content-connected-ui-browser.cjs
+          node tests/aura-remote-browser.cjs
+          node tests/os-feature-browser.cjs
+      # cloud-onboarding/crushx/smoke.cjs is intentionally separate: it needs
+      # the managed cloud's SDK/proxy/CA setup and /usr/bin/chromium.

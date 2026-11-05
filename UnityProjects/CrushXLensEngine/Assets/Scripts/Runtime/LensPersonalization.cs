@@ -9,8 +9,19 @@ namespace CrushX.LensEngine
     public sealed class LensPersonalization
     {
         private const string Prefix = "crushx.lens.v02.";
+        public bool UsageEnabled { get { return PlayerPrefs.GetInt(Prefix + "remember", 0) == 1; } }
+        public void SetUsageEnabled(bool enabled)
+        {
+            PlayerPrefs.SetInt(Prefix + "remember", enabled ? 1 : 0);
+            if (!enabled)
+            {
+                PlayerPrefs.DeleteKey(Prefix + "recent");
+                foreach (LensManifest lens in LensCatalog.All) PlayerPrefs.DeleteKey(Prefix + "usage." + lens.Id);
+            }
+            PlayerPrefs.Save();
+        }
         public bool IsFavorite(string id) { return PlayerPrefs.GetInt(Prefix + "fav." + id, 0) == 1; }
-        public int UsageCount(string id) { return PlayerPrefs.GetInt(Prefix + "usage." + id, 0); }
+        public int UsageCount(string id) { return UsageEnabled ? Math.Max(0, PlayerPrefs.GetInt(Prefix + "usage." + id, 0)) : 0; }
         public void ToggleFavorite(string id)
         {
             if (!LensCatalog.Find(id).HasValue) return;
@@ -19,9 +30,22 @@ namespace CrushX.LensEngine
         }
         public void RecordUsage(string id)
         {
-            if (!LensCatalog.Find(id).HasValue) return;
+            if (!UsageEnabled || !LensCatalog.Find(id).HasValue) return;
             PlayerPrefs.SetInt(Prefix + "usage." + id, Math.Min(100000, UsageCount(id) + 1));
+            List<string> recent = RecentIds();
+            recent.Remove(id);
+            recent.Insert(0, id);
+            if (recent.Count > 16) recent.RemoveRange(16, recent.Count - 16);
+            PlayerPrefs.SetString(Prefix + "recent", string.Join("|", recent));
             PlayerPrefs.Save();
+        }
+        public List<string> RecentIds()
+        {
+            var recent = new List<string>();
+            if (!UsageEnabled) return recent;
+            foreach (string id in PlayerPrefs.GetString(Prefix + "recent", string.Empty).Split('|'))
+                if (LensCatalog.Find(id).HasValue && !recent.Contains(id) && recent.Count < 16) recent.Add(id);
+            return recent;
         }
         public List<LensManifest> Ranked()
         {
@@ -36,6 +60,7 @@ namespace CrushX.LensEngine
                 PlayerPrefs.DeleteKey(Prefix + "fav." + lens.Id);
                 PlayerPrefs.DeleteKey(Prefix + "usage." + lens.Id);
             }
+            PlayerPrefs.DeleteKey(Prefix + "recent");
             PlayerPrefs.Save();
         }
     }

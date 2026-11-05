@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../notes-system.css"></head><body>
+<div id="authOverlay" style="display:none"></div>
+<div id="app"></div><p id="appStatus"></p>
+<script>
+  const sample={
+    activeTab:'messages',chatUserId:null,currentUserId:'me',
+    users:[
+      {id:'me',username:'nishant',fullName:'Nishant',avatar:'https://example.com/me.jpg',following:false},
+      {id:'user_1',username:'aanya',fullName:'Aanya',avatar:'https://example.com/aanya.jpg',following:true},
+      {id:'user_2',username:'noah',fullName:'Noah',avatar:'https://example.com/noah.jpg',following:false}
+    ]
+  };
+  function getState(){return structuredClone(sample);}
+  function currentUser(s){return s.users[0];}
+  function safeMediaUrl(raw){try{const u=new URL(raw);return u.protocol==='https:'?u.href:'';}catch{return '';}}
+  function escapeHTML(value){return String(value).replace(/[&<>"']/g,part=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[part]));}
+  function renderMessages(){return '<main><h1>Messages</h1></main>';}
+  function renderApp(){document.getElementById('app').innerHTML=renderMessages(getState());}
+  function logout(){}
+</script>
+<script src="../notes-model.js"></script><script src="../notes-system.js"></script>
+<script>renderApp();</script>
+</body></html>

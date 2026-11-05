@@ -1,0 +1,84 @@
+/* Crush.X OS Step 7 — accessible, full-screen user navigation. */
+.cx-os-open {
+ display:inline-flex;align-items:center;justify-content:center;
+ margin-inline-start:.65rem;padding:.35rem .8rem;border-radius:999px;
+ background:#35144e;color:#fff;border:1px solid rgba(255,255,255,.24);
+ font:inherit;font-weight:700;min-height:38px;cursor:pointer;
+}
+.cx-os-open:focus-visible,.cx-os-feature-page button:focus-visible {
+ outline:3px solid #ed3f9d;outline-offset:3px;
+}
+.cx-os-feature-page{
+ position:fixed;inset:0;z-index:900;
+ min-height:100dvh;max-height:100dvh;
+ background:#f9f6fb;color:#171b2e;
+ display:flex;flex-direction:column;overflow:hidden;
+ padding-top:env(safe-area-inset-top);
+ padding-bottom:env(safe-area-inset-bottom);
+}
+.dark .cx-os-feature-page{background:#0d1020;color:#f4f6fc;}
+.cx-os-feature-head{
+ display:flex;align-items:center;gap:1.1rem;flex-shrink:0;
+ padding:1rem max(1rem,env(safe-area-inset-right)) 1rem max(1rem,env(safe-area-inset-left));
+ border-bottom:1px solid rgba(100,100,130,.25);
+ background:inherit;font-size:1.05rem;
+}
+.cx-os-feature-page button{font:inherit;cursor:pointer;}
+.cx-os-back{
+ min-height:44px;padding:.55rem .85rem;
+ border:1px solid rgba(100,100,130,.3);border-radius:1rem;
+}
+.cx-os-feature-main{
+ overflow-y:auto;overscroll-behavior:contain;flex:1;
+ padding:1rem max(1rem,env(safe-area-inset-right)) 3rem max(1rem,env(safe-area-inset-left));
+}
+.cx-os-feature-disclaimer{
+ border:1px solid rgba(190,90,160,.35);
+ background:rgba(236,70,150,.075);
+ padding:1rem;border-radius:1rem;line-height:1.5;
+ max-width:900px;margin:0 auto 1.2rem;
+}
+.cx-os-feature-grid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:.9rem;max-width:900px;margin:0 auto;
+}
+.cx-os-feature-tile{
+ min-width:0;min-height:145px;text-align:start;
+ border:1px solid rgba(110,110,155,.3);
+ border-radius:1.2rem;background:rgba(130,110,190,.09);
+ padding:1rem;display:flex;flex-direction:column;gap:.55rem;
+}
+.cx-os-feature-tile:hover{border-color:#c026d3;}
+.cx-os-feature-tile strong{font-weight:800;font-size:1rem;}
+.cx-os-feature-tile span{font-size:.83rem;line-height:1.45;opacity:.85;flex:1;}
+.cx-os-feature-tile em{font-size:.75rem;font-style:normal;font-weight:650;color:#a42b79;}
+.dark .cx-os-feature-tile em{color:#ffa6e5;}
+.cx-os-aura-zone{
+ max-width:900px;margin:1.3rem auto 0;padding:1rem;
+ border:1px solid rgba(100,100,130,.25);border-radius:1.1rem;
+ display:flex;gap:.8rem;align-items:center;justify-content:space-between;
+}
+.cx-os-aura-zone p{font-size:.86rem;line-height:1.5;}
+.cx-os-aura-zone button{
+ flex-shrink:0;min-height:44px;border:0;border-radius:999px;
+ background:#7c3aed;color:#fff;font-weight:700;padding:.65rem 1rem;
+}
+@media (max-width:540px){
+ .cx-os-feature-grid{grid-template-columns:1fr;}
+ .cx-os-feature-tile{min-height:116px;}
+ .cx-os-aura-zone{align-items:stretch;flex-direction:column;}
+}
+@media(prefers-reduced-motion:reduce){
+ .cx-os-feature-page *{scroll-behavior:auto!important;animation:none!important;}
+}
+
+/* Whole-app guidance stays inside the existing full-screen controls page. */
+.cx-os-ai-section{max-width:900px;margin:1.4rem auto 0;}
+.cx-os-ai-section h2{font-size:1.05rem;font-weight:800;margin:0 0 .35rem;}
+.cx-os-ai-section p{font-size:.84rem;line-height:1.5;opacity:.85;margin:0 0 .9rem;}
+.cx-os-ai-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;}
+.cx-os-ai-tile{min-height:44px;text-align:left;padding:.75rem .8rem;border-radius:.8rem;
+ border:1px solid rgba(110,110,155,.3);background:rgba(130,110,190,.09);font-weight:650;}
+.cx-os-ai-tile:hover{border-color:#c026d3;}
+@media(max-width:540px){.cx-os-ai-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:345px){.cx-os-ai-grid{grid-template-columns:1fr;}}

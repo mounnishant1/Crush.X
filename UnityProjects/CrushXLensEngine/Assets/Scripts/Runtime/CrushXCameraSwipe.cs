@@ -1,0 +1,170 @@
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+namespace CrushX.LensEngine
+{
+    /// <summary>Single owner for camera, carousel and shutter touches. IMGUI only owns ordinary buttons.</summary>
+    [DisallowMultipleComponent]
+    public sealed class CrushXCameraSwipe : MonoBehaviour
+    {
+        private enum GestureOwner { None, Camera, Carousel, Shutter, Game }
+        private LensEngineBootstrap engine;
+        private NativeLensUI ui;
+        private CrushXSmartCarousel carousel;
+        private Vector2 startPosition;
+        private GestureOwner owner;
+        private bool waitForAllReleased;
+        private int gestureWidth, gestureHeight;
+        private Rect gestureSafeArea;
+        private int activeTouchId = -1;
+
+        private void Awake() { Resolve(); }
+        private void Resolve()
+        {
+            if (engine == null) engine = FindFirstObjectByType<LensEngineBootstrap>();
+            if (ui == null) ui = GetComponent<NativeLensUI>();
+            if (carousel == null) carousel = GetComponent<CrushXSmartCarousel>();
+        }
+
+        private void OnDisable() { Cancel(); }
+        private void OnApplicationPause(bool paused) { if (paused) Cancel(); }
+        private void OnApplicationFocus(bool focused) { if (!focused) Cancel(); }
+
+        public static int SwipeStep(Vector2 start, Vector2 end, float screenWidth)
+        {
+            return LensSwipePolicy.Step((double)end.x - start.x, (double)end.y - start.y, screenWidth);
+        }
+
+        public static bool IsTap(Vector2 start, Vector2 end, float scale)
+        {
+            return LensSwipePolicy.IsTap((double)end.x - start.x, (double)end.y - start.y, scale);
+        }
+
+        private void Cancel()
+        {
+            if (owner == GestureOwner.Shutter && ui != null) ui.EndShutter(true);
+            if (owner == GestureOwner.Game && ui != null) ui.CancelGameCut();
+            if (carousel != null) carousel.CancelDrag();
+            owner = GestureOwner.None;
+            activeTouchId = -1;
+        }
+
+        private void Begin(Vector2 position, int touchId = -1)
+        {
+            Cancel();
+            if (waitForAllReleased) return;
+            Resolve();
+            if (ui != null && ui.GameIsOpen)
+            {
+                if (ui.BeginGameCut(position)) owner = GestureOwner.Game;
+            }
+            else if (ui != null && ui.BeginShutter(position)) owner = GestureOwner.Shutter;
+            else if (ui == null || !ui.BlocksCameraGestures)
+            {
+                NativeCameraLayout layout = NativeCameraLayout.Current;
+                Vector2 point = layout.ToGui(position, Screen.height);
+                if (carousel != null && layout.Carousel.Contains(point))
+                { owner = GestureOwner.Carousel; carousel.BeginDrag(); }
+                else if ((ui != null ? ui.CameraGestureRect : layout.CameraGesture(false)).Contains(point))
+                    owner = GestureOwner.Camera;
+            }
+            activeTouchId = touchId;
+            startPosition = position;
+            gestureWidth = Screen.width;
+            gestureHeight = Screen.height;
+            gestureSafeArea = Screen.safeArea;
+        }
+
+        private void Move(Vector2 position, int touchId = -1)
+        {
+            if (owner != GestureOwner.None && activeTouchId != touchId)
+            { Cancel(); waitForAllReleased = true; return; }
+            if (LayoutChanged()) { Cancel(); waitForAllReleased = true; return; }
+            if (owner == GestureOwner.Game && ui != null) ui.MoveGameCut(position);
+            if (owner == GestureOwner.Carousel && carousel != null)
+                carousel.Drag((position.x - startPosition.x) / NativeCameraLayout.Current.Scale);
+            if (owner == GestureOwner.Shutter &&
+                (position - startPosition).sqrMagnitude > 80f * 80f * NativeCameraLayout.Current.Scale * NativeCameraLayout.Current.Scale)
+                Cancel();
+        }
+
+        private void End(Vector2 position, bool canceled, int touchId = -1)
+        {
+            if (owner != GestureOwner.None && activeTouchId != touchId)
+            { Cancel(); waitForAllReleased = true; return; }
+            GestureOwner completed = owner;
+            owner = GestureOwner.None;
+            activeTouchId = -1;
+            if (completed == GestureOwner.Shutter) { if (ui != null) ui.EndShutter(canceled); return; }
+            if (completed == GestureOwner.Game) { if (ui != null) ui.EndGameCut(position, canceled); return; }
+            if (carousel != null) carousel.EndDrag();
+            if (canceled) { if (carousel != null) carousel.CancelDrag(); return; }
+            if (ui != null && ui.BlocksCameraGestures) return;
+            if (LayoutChanged()) { if (carousel != null) carousel.CancelDrag(); return; }
+            int step = SwipeStep(startPosition, position, Screen.width);
+            if (completed == GestureOwner.Carousel && carousel != null)
+            {
+                if (step != 0) carousel.StepVisible(step);
+                else if (IsTap(startPosition, position, NativeCameraLayout.Current.Scale))
+                    carousel.Tap(NativeCameraLayout.Current.ToGui(position, Screen.height));
+            }
+            else if (completed == GestureOwner.Camera && step != 0)
+            {
+                if (carousel != null) carousel.StepVisible(step);
+                else if (engine != null) engine.Step(step);
+            }
+        }
+
+        private bool LayoutChanged() => gestureWidth != Screen.width || gestureHeight != Screen.height ||
+            gestureSafeArea != Screen.safeArea;
+
+        private void Update()
+        {
+            Resolve();
+            if (engine == null) return;
+#if ENABLE_INPUT_SYSTEM
+            Touchscreen screen = Touchscreen.current;
+            if (screen != null)
+            {
+                int pressed = 0;
+                foreach (var point in screen.touches) if (point.press.isPressed) pressed++;
+                if (pressed > 1) { Cancel(); waitForAllReleased = true; return; }
+                if (waitForAllReleased) { if (pressed == 0) waitForAllReleased = false; return; }
+                var touch = screen.primaryTouch;
+                if (touch.press.wasPressedThisFrame) Begin(touch.position.ReadValue(), touch.touchId.ReadValue());
+                if (touch.press.isPressed) Move(touch.position.ReadValue(), touch.touchId.ReadValue());
+                if (touch.press.wasReleasedThisFrame)
+                    End(touch.position.ReadValue(), touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled, touch.touchId.ReadValue());
+                if (touch.press.isPressed || touch.press.wasReleasedThisFrame) return;
+            }
+#if UNITY_EDITOR || UNITY_STANDALONE
+            if (Mouse.current != null)
+            {
+                if (Mouse.current.leftButton.wasPressedThisFrame) Begin(Mouse.current.position.ReadValue());
+                if (Mouse.current.leftButton.isPressed) Move(Mouse.current.position.ReadValue());
+                if (Mouse.current.leftButton.wasReleasedThisFrame) End(Mouse.current.position.ReadValue(), false);
+            }
+#endif
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.touchCount > 1) { Cancel(); waitForAllReleased = true; return; }
+            if (waitForAllReleased) { if (Input.touchCount == 0) waitForAllReleased = false; return; }
+            if (Input.touchCount == 1)
+            {
+                Touch touch = Input.GetTouch(0);
+                if (touch.phase == TouchPhase.Began) Begin(touch.position, touch.fingerId);
+                if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary) Move(touch.position, touch.fingerId);
+                if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                    End(touch.position, touch.phase == TouchPhase.Canceled, touch.fingerId);
+                return;
+            }
+#if UNITY_EDITOR || UNITY_STANDALONE
+            if (Input.GetMouseButtonDown(0)) Begin(Input.mousePosition);
+            if (Input.GetMouseButton(0)) Move(Input.mousePosition);
+            if (Input.GetMouseButtonUp(0)) End(Input.mousePosition, false);
+#endif
+#endif
+        }
+    }
+}

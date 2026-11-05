@@ -1,66 +1,409 @@
 using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace CrushX.LensEngine
 {
-    /// <summary>Full-screen native scene controls: swipe horizontally to browse; buttons work without WebView.</summary>
+    /// <summary>Native camera controls. Face loss never hides camera navigation or lens browsing.</summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(CrushXCameraSwipe))]
     public sealed class NativeLensUI : MonoBehaviour
     {
         private LensEngineBootstrap engine;
-        private Vector2 pointerDown;
-        private bool touching;
-        private GUIStyle header, status, button;
-        private Texture2D dark;
+        private CrushXCameraPermissionGate cameraPermission;
+        private CrushXSmartCarousel carousel;
+        private NativeMediaCapture capture;
+        private LensCollectionSheet collectionSheet;
+        private GUIStyle header, status, button, small, input;
+        private Texture2D dark, shutter;
+        private bool searchVisible, microphone;
+        private readonly ShutterGesture shutterGesture = new ShutterGesture();
+        private readonly LensMiniGamePanel gamePanel = new LensMiniGamePanel();
+        private float captureAt = -1;
+        private int timerSeconds;
 
-        private void Start() { engine = FindFirstObjectByType<LensEngineBootstrap>(); }
+        public bool SearchVisible { get { return searchVisible; } }
+        public bool GameIsOpen { get { return gamePanel.IsOpen; } }
+        public bool BeginGameCut(Vector2 position) { return gamePanel.BeginCut(position); }
+        public void MoveGameCut(Vector2 position) { gamePanel.MoveCut(position); }
+        public void EndGameCut(Vector2 position, bool canceled) { gamePanel.EndCut(position, canceled); }
+        public void CancelGameCut() { gamePanel.CancelCut(); }
+        public Rect CameraGestureRect
+        {
+            get
+            {
+                NativeCameraLayout layout = NativeCameraLayout.Current;
+                Rect area = layout.CameraGesture(searchVisible);
+                if (carousel != null && carousel.Filter == LensBrowseFilter.Recent)
+                {
+                    float consentTop = searchVisible ? layout.Search.y - 44 : layout.Tabs.y - 44;
+                    area.height = Mathf.Max(0, consentTop - area.y - 10);
+                }
+                return area;
+            }
+        }
+        public bool HidesCarousel { get { return (collectionSheet != null && collectionSheet.IsOpen) || capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
+        public bool BlocksCameraGestures
+        {
+            get { return (collectionSheet != null && collectionSheet.IsOpen) || gamePanel.IsOpen || (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+        }
+
+        private void Start() { ResolveDependencies(); }
+
+        // A Unity scene can register its AR rig and engine after this UI is enabled.
+        // A one-shot Start lookup previously left the entire control surface invisible.
+        private void ResolveDependencies()
+        {
+            if (engine == null) engine = FindFirstObjectByType<LensEngineBootstrap>();
+            if (cameraPermission == null) cameraPermission = GetComponent<CrushXCameraPermissionGate>() ?? gameObject.AddComponent<CrushXCameraPermissionGate>();
+            // RequireComponent does not retrofit already serialized scene components.
+            if (GetComponent<CrushXCameraSwipe>() == null) gameObject.AddComponent<CrushXCameraSwipe>();
+            if (carousel == null) carousel = GetComponent<CrushXSmartCarousel>();
+            if (carousel == null) carousel = gameObject.AddComponent<CrushXSmartCarousel>();
+            if (engine != null && capture == null) capture = NativeMediaCapture.GetOrCreate(engine);
+            if (engine != null && engine.CollectionStore != null && collectionSheet == null)
+                collectionSheet = new LensCollectionSheet(engine.CollectionStore);
+        }
 
         private void Update()
         {
+            if (engine == null || capture == null || carousel == null) ResolveDependencies();
             if (engine == null) return;
-            if (Input.GetKeyDown(KeyCode.Escape)) { NativeLensLifecycle.ExitToCrushX(); return; }
-            if (Input.touchCount != 1) { touching = false; return; }
-            Touch t = Input.GetTouch(0);
-            if (t.phase == TouchPhase.Began) { pointerDown = t.position; touching = true; }
-            if (touching && t.phase == TouchPhase.Ended)
+            gamePanel.Update(Time.realtimeSinceStartupAsDouble, engine);
+            if (collectionSheet != null && collectionSheet.IsOpen &&
+                !collectionSheet.Matches(engine.ActiveId,
+                    engine.CollectionAccountEpoch)) collectionSheet.Close();
+            bool back = false;
+#if ENABLE_INPUT_SYSTEM
+            back = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            back = Input.GetKeyDown(KeyCode.Escape);
+#endif
+            if (back) Back();
+            if (captureAt >= 0 && Time.unscaledTime >= captureAt)
             {
-                Vector2 delta = t.position - pointerDown;
-                if (Mathf.Abs(delta.x) > Screen.width * .16f && Mathf.Abs(delta.y) < Mathf.Abs(delta.x) * .7f)
-                    engine.Step(delta.x < 0 ? 1 : -1);
-                touching = false;
+                captureAt = -1;
+                if (capture != null) capture.RequestPhoto();
             }
+            ApplyShutterAction(shutterGesture.Poll(Time.realtimeSinceStartupAsDouble, capture != null && capture.SupportsVideo));
         }
+
+        public bool BeginShutter(Vector2 screenPosition)
+        {
+            if (capture == null || BlocksCameraGestures) return false;
+            if (engine != null && engine.CameraSession != null && !engine.CameraSession.PreviewReady) return false;
+            NativeCameraLayout layout = NativeCameraLayout.Current;
+            if (!layout.Shutter.Contains(layout.ToGui(screenPosition, Screen.height))) return false;
+            return shutterGesture.Begin(Time.realtimeSinceStartupAsDouble);
+        }
+
+        public void EndShutter(bool canceled)
+        {
+            ApplyShutterAction(shutterGesture.End(Time.realtimeSinceStartupAsDouble, canceled, capture != null && capture.SupportsVideo));
+        }
+
+        private void ApplyShutterAction(ShutterAction action)
+        {
+            if (capture == null || action == ShutterAction.None) return;
+            if ((action & ShutterAction.StartVideo) != 0) capture.StartVideo(microphone);
+            if ((action & ShutterAction.CancelVideo) != 0 && CaptureLifecyclePolicy.CanCancelShutter(capture.CurrentState)) capture.Retry();
+            if ((action & ShutterAction.StopVideo) != 0) capture.StopVideo();
+            if ((action & ShutterAction.Photo) != 0)
+            {
+                if (timerSeconds == 0) capture.RequestPhoto();
+                else captureAt = Time.unscaledTime + timerSeconds;
+            }
+            if ((action & ShutterAction.VideoUnavailable) != 0 && engine != null) engine.Say(capture.VideoCapabilityReason);
+        }
+
+        private void Back()
+        {
+            if (collectionSheet != null && collectionSheet.IsOpen)
+            { collectionSheet.Close(); return; }
+            if (gamePanel.Back()) return;
+            if (shutterGesture.IsHeld) { EndShutter(true); return; }
+            if (captureAt >= 0) { captureAt = -1; return; }
+            // Completed drafts have already been persisted; leaving preview must not silently discard them.
+            if (capture != null && capture.CurrentState == MediaCaptureState.Preview) { NativeLensLifecycle.ExitToCrushX(); return; }
+            if (capture != null && (capture.CurrentState == MediaCaptureState.Recording || capture.CurrentState == MediaCaptureState.Preparing))
+            { capture.StopVideo(); return; }
+            if (searchVisible) { searchVisible = false; carousel.SetQuery(string.Empty); return; }
+            NativeLensLifecycle.ExitToCrushX();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            gamePanel.FocusChanged(!paused, Time.realtimeSinceStartupAsDouble);
+            if (!paused) return;
+            if (collectionSheet != null) collectionSheet.Close();
+            if (capture != null && capture.WaitingForMicrophonePermission) return;
+            captureAt = -1;
+            EndShutter(true);
+        }
+
+        private void OnDisable() { captureAt = -1; EndShutter(true); gamePanel.ClosePanel(); if (collectionSheet != null) collectionSheet.Close(); }
+        private void OnApplicationFocus(bool focused) { gamePanel.FocusChanged(focused, Time.realtimeSinceStartupAsDouble); if (!focused) { captureAt = -1; EndShutter(true); if (collectionSheet != null) collectionSheet.Close(); } }
 
         private void EnsureStyles()
         {
             if (button != null) return;
-            dark = new Texture2D(1,1); dark.SetPixel(0,0,new Color(.02f,.035f,.08f,.8f)); dark.Apply();
-            button = new GUIStyle(GUI.skin.button) { fontSize=22, fontStyle=FontStyle.Bold };
+            dark = new Texture2D(1, 1);
+            dark.SetPixel(0, 0, new Color(.025f, .035f, .065f, .82f)); dark.Apply();
+            button = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold, wordWrap = true };
             button.normal.background = dark;
             button.normal.textColor = Color.white;
-            header = new GUIStyle(GUI.skin.label) { fontSize=25, fontStyle=FontStyle.Bold, alignment=TextAnchor.MiddleCenter };
+            header = new GUIStyle(GUI.skin.label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             header.normal.textColor = Color.white;
-            status = new GUIStyle(header) { fontSize=18, fontStyle=FontStyle.Normal };
+            status = new GUIStyle(header) { fontSize = 16, fontStyle = FontStyle.Normal, wordWrap = true };
+            small = new GUIStyle(status) { fontSize = 14 };
+            input = new GUIStyle(GUI.skin.textField) { fontSize = 18, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(12, 12, 5, 5) };
+            shutter = new Texture2D(96, 96, TextureFormat.RGBA32, false);
+            var pixels = new Color[96 * 96];
+            for (int y = 0; y < 96; y++) for (int x = 0; x < 96; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(47.5f, 47.5f));
+                pixels[y * 96 + x] = distance > 47 ? Color.clear : distance > 41 || distance < 36 ? Color.white : Color.clear;
+            }
+            shutter.SetPixels(pixels); shutter.Apply();
         }
 
         private void OnGUI()
         {
-            if (engine == null) return;
+            if (engine == null || capture == null || carousel == null) ResolveDependencies();
+            if (capture != null && capture.SuppressUi) return;
             EnsureStyles();
-            float u = Mathf.Max(.6f, Mathf.Min(Screen.width/440f, Screen.height/900f));
-            Matrix4x4 old = GUI.matrix;
-            GUI.matrix = Matrix4x4.Scale(Vector3.one*u);
-            float w=Screen.width/u, h=Screen.height/u;
-            GUI.Label(new Rect(w*.2f, 20, w*.6f,45), "Crush.X   3D AR", header);
-            if (GUI.Button(new Rect(14,20,78,48), "←", button)) NativeLensLifecycle.ExitToCrushX();
-            GUI.Label(new Rect(20,74,w-40,34), engine.TrackingActive ? "Face tracking active" : "Face tracking unavailable", status);
-            if (GUI.Button(new Rect(16,h-138,82,68), "‹",button)) engine.Step(-1);
-            if (GUI.Button(new Rect(w-98,h-138,82,68), "›",button)) engine.Step(1);
-            if (GUI.Button(new Rect(w/2-120,h-144,96,80), "♡",button)) engine.ToggleFavorite();
-            if (GUI.Button(new Rect(w/2+24,h-144,96,80), "●",button)) CaptureManager.SavePhoto(engine);
-            var selected=LensCatalog.Find(engine.ActiveId);
-            GUI.Label(new Rect(18,h-68,w-36,40),selected.HasValue?selected.Value.DisplayName:"Original",header);
-            GUI.matrix=old;
+            NativeCameraLayout layout = NativeCameraLayout.Current;
+            Matrix4x4 oldMatrix = GUI.matrix;
+            Color oldColor = GUI.color;
+            bool oldEnabled = GUI.enabled;
+            GUI.matrix = layout.Matrix;
+            GUI.color = Color.white;
+            if (engine == null || capture == null || carousel == null)
+                GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (collectionSheet != null && collectionSheet.IsOpen)
+            {
+                collectionSheet.Draw(layout, engine.ActiveId,
+                    engine.CollectionAccountEpoch, header, status,
+                    button, input, id =>
+                    {
+                        if (carousel != null && carousel.SetCustomCollection(id))
+                            engine.Say("Opened your lens collection");
+                    });
+            }
+            else if (gamePanel.IsOpen)
+                gamePanel.Draw(layout, header, status, button, small, engine != null && engine.TrackingActive);
+            else if (cameraPermission != null && !cameraPermission.Granted)
+            {
+                GUI.Label(new Rect(20, 60, layout.Width - 40, 70),
+                    "Camera access is needed for photos, video and AR lenses.", status);
+                GUI.Label(new Rect(20, 150, layout.Width - 40, 60),
+                    cameraPermission.RequestPending ? "Waiting for Android permission…" :
+                    !cameraPermission.CanAskAgain ? "Camera access is off. Enable it in Android app settings." :
+                    "Choose Allow to see the Android permission options.", small);
+                if (!cameraPermission.RequestPending)
+                {
+                    if (cameraPermission.CanAskAgain)
+                    {
+                        if (GUI.Button(new Rect(24, 230, layout.Width - 48, 58), "Allow Camera", button))
+                            cameraPermission.AskFromUserAction();
+                    }
+                    else if (GUI.Button(new Rect(24, 230, layout.Width - 48, 58), "Open App Settings", button))
+                        cameraPermission.OpenAndroidSettings();
+                }
+                if (GUI.Button(new Rect(24, 310, layout.Width - 48, 56), "Back", button)) Back();
+                if (GUI.Button(new Rect(24, 380, layout.Width - 48, 56), "Play games without camera", button))
+                    gamePanel.OpenPanel();
+            }
+            else if (capture.CurrentState == MediaCaptureState.Preview) DrawPreview(layout);
+            else DrawCamera(layout);
+            GUI.enabled = oldEnabled;
+            GUI.color = oldColor;
+            GUI.matrix = oldMatrix;
         }
 
-        private void OnDestroy() { if (dark != null) Destroy(dark); }
+        private void DrawCamera(NativeCameraLayout layout)
+        {
+            GUI.Label(new Rect(186, 12, layout.Width - 278, 44), "Crush.X", header);
+            if (GUI.Button(new Rect(12, 12, 78, 44), "Back", button)) Back();
+            GUI.enabled = !BlocksCameraGestures;
+            if (GUI.Button(new Rect(100, 12, 80, 44), "Games", button)) gamePanel.OpenPanel();
+            if (GUI.Button(new Rect(layout.Width - 90, 12, 78, 44), searchVisible ? "Close" : "Search", button))
+            {
+                searchVisible = !searchVisible;
+                if (!searchVisible) { carousel.SetQuery(string.Empty); GUI.FocusControl(null); }
+            }
+            GUI.enabled = true;
+            GUI.Box(new Rect(12, 62, layout.Width - 24, 46), GUIContent.none);
+            var session = engine.CameraSession;
+            GUI.Label(new Rect(18, 62, layout.Width - (session != null ? 126 : 36), 46),
+                session != null && !session.PreviewReady ? session.StatusMessage : engine.TrackingStatus, status);
+            if (session != null)
+            {
+                GUI.enabled = !BlocksCameraGestures;
+                bool retry = session.State == CameraSessionState.Unavailable;
+                if (GUI.Button(new Rect(layout.Width - 100, 63, 82, 44), retry ? "Retry" : "Switch", button))
+                {
+                    if (retry) session.Retry();
+                    else if (!session.SwitchCamera()) engine.Say(session.StatusMessage);
+                }
+                GUI.enabled = true;
+            }
+            string notice = !string.IsNullOrEmpty(engine.Notice) ? engine.Notice : capture.StatusMessage;
+            if (!string.IsNullOrEmpty(notice)) GUI.Label(new Rect(18, 112, layout.Width - (capture.SupportsVideo ? 174 : 36), 40), notice, status);
+
+            GUI.enabled = !BlocksCameraGestures;
+            DrawVisualControls(layout);
+            if (GUI.Button(new Rect(12, 207, 132, 36),
+                capture.ExportMirrorMode == CaptureMirrorMode.MatchPreview ? "Save: preview" : "Save: flipped", button))
+                capture.ExportMirrorMode = capture.ExportMirrorMode == CaptureMirrorMode.MatchPreview
+                    ? CaptureMirrorMode.FlipHorizontally : CaptureMirrorMode.MatchPreview;
+            if (searchVisible)
+            {
+                GUI.SetNextControlName("CrushXLensSearch");
+                carousel.SetQuery(GUI.TextField(layout.Search, carousel.Query, 80, input));
+            }
+            Rect tabs = layout.Tabs;
+            float tabWidth = (tabs.width - 8) / 3f;
+            DrawTab(new Rect(tabs.x, tabs.y, tabWidth, tabs.height), LensBrowseFilter.All, "All");
+            DrawTab(new Rect(tabs.x + tabWidth + 4, tabs.y, tabWidth, tabs.height), LensBrowseFilter.Favorites, "Favorites");
+            DrawTab(new Rect(tabs.x + (tabWidth + 4) * 2, tabs.y, tabWidth, tabs.height), LensBrowseFilter.Recent, "Recent");
+            Rect categories = layout.Categories;
+            if (GUI.Button(new Rect(categories.x, categories.y, 50, categories.height), "‹", button)) carousel.CycleCategory(-1);
+            GUI.Box(new Rect(categories.x + 54, categories.y, categories.width - 108, categories.height), GUIContent.none);
+            GUI.Label(new Rect(categories.x + 58, categories.y, categories.width - 116, categories.height),
+                carousel.CategoryLabel + " · " + carousel.VisibleCount, status);
+            if (GUI.Button(new Rect(categories.xMax - 50, categories.y, 50, categories.height), "›", button)) carousel.CycleCategory(1);
+            if (carousel.Filter == LensBrowseFilter.Recent)
+            {
+                Rect consent = new Rect(tabs.x, searchVisible ? layout.Search.y - 44 : tabs.y - 44, tabs.width, 38);
+                bool remember = GUI.Toggle(consent, engine.PersonalizationEnabled, "Remember recent lenses on this device", button);
+                if (remember != engine.PersonalizationEnabled) { engine.SetPersonalizationEnabled(remember); carousel.Refresh(); }
+            }
+            LensManifest? selected = LensCatalog.Find(engine.ActiveId);
+            Rect nameRect = layout.LensTitle;
+            nameRect.width = Mathf.Max(50f, nameRect.width - 116f);
+            GUI.Label(nameRect,
+                selected.HasValue ? selected.Value.DisplayName : "Choose a lens", header);
+            if (selected.HasValue && collectionSheet != null &&
+                GUI.Button(new Rect(layout.LensTitle.xMax - 110,
+                    layout.LensTitle.y - 5, 108, 44), "Save to", button))
+            {
+                carousel.CancelDrag();
+                if (!collectionSheet.Open(engine.ActiveId, engine.CollectionAccountEpoch))
+                    engine.Say("Collection storage unavailable");
+            }
+            if (GUI.Button(layout.Favorite, engine.IsFavorite(engine.ActiveId) ? "★ Saved" : "☆ Favorite", button))
+            { engine.ToggleFavorite(); carousel.Refresh(); }
+            if (GUI.Button(layout.Timer, timerSeconds == 0 ? "Timer off" : "Timer " + timerSeconds + "s", button))
+                timerSeconds = timerSeconds == 0 ? 3 : timerSeconds == 3 ? 10 : 0;
+            GUI.enabled = true;
+
+            bool recording = capture.CurrentState == MediaCaptureState.Recording;
+            GUI.color = recording ? new Color(1f, .18f, .35f) : BlocksCameraGestures ? new Color(.65f, .65f, .65f) : Color.white;
+            GUI.DrawTexture(layout.Shutter, shutter, ScaleMode.ScaleToFit);
+            GUI.color = Color.white;
+            if (captureAt >= 0)
+            {
+                GUI.Label(new Rect(layout.Width * .5f - 70, layout.Height * .4f, 140, 90), Mathf.CeilToInt(captureAt - Time.unscaledTime).ToString(), header);
+                if (GUI.Button(layout.Hint, "Cancel timer", button)) captureAt = -1;
+            }
+            else if (recording)
+            {
+                GUI.Label(layout.Hint, capture.RecordingSeconds.ToString("0.0") + "s / " + NativeMediaCapture.MaxRecordingSeconds + "s · release to stop", status);
+                float fraction = Mathf.Clamp01(capture.RecordingSeconds / NativeMediaCapture.MaxRecordingSeconds);
+                GUI.DrawTexture(new Rect(layout.Shutter.x, layout.Shutter.yMax + 4, layout.Shutter.width * fraction, 3), Texture2D.whiteTexture);
+                DrawRecordingRing(layout.Shutter, fraction);
+            }
+            else GUI.Label(layout.Hint, capture.SupportsVideo ? "Tap for photo · hold for video" : "Tap for photo", small);
+            if (capture.SupportsVideo && !BlocksCameraGestures)
+            {
+                Rect micRect = new Rect(layout.Width - 140, 112, 122, 38);
+                if (GUI.Button(micRect, microphone && capture.MicrophoneGranted ? "Mic on" : "Mic off", button))
+                {
+                    if (microphone) microphone = false;
+                    else
+                    {
+                        microphone = true;
+                        if (!capture.MicrophoneGranted) capture.RequestMicrophoneAccess();
+                    }
+                }
+            }
+        }
+
+        private void DrawVisualControls(NativeCameraLayout layout)
+        {
+            var effects = engine.VisualEffects;
+            if (effects == null || !effects.enabled || !effects.Supported) return;
+            string grade = effects.ColorGrade == CameraColorGrade.None ? "Original" :
+                effects.ColorGrade == CameraColorGrade.WarmCinema ? "Warm Cinema" :
+                effects.ColorGrade == CameraColorGrade.Noir ? "Noir" : "Neon Duotone";
+            if (GUI.Button(new Rect(12, 156, layout.Width - 140, 44), "Color · " + grade, button))
+                effects.ColorGrade = VisualEffectPolicy.NextGrade(effects.ColorGrade);
+            if (GUI.Button(new Rect(layout.Width - 120, 156, 108, 44), LensQualitySettings.Current.ToString(), button))
+            {
+                var next = (LensQualityTier)(((int)LensQualitySettings.Current + 1) % 3);
+                LensQualitySettings.Set(next);
+                effects.SetQuality(next);
+            }
+            if (effects.SkinMaskReady)
+            {
+                GUI.Label(new Rect(154, 207, 68, 36), "Beauty", status);
+                effects.BeautyIntensity = GUI.HorizontalSlider(new Rect(226, 218, layout.Width - 242, 24), effects.BeautyIntensity, 0, 1);
+            }
+        }
+
+        private static void DrawRecordingRing(Rect shutterBounds, float progress)
+        {
+            Matrix4x4 previous = GUI.matrix;
+            Color color = GUI.color;
+            GUI.color = new Color(1, .2f, .45f, 1);
+            const int segments = 60;
+            int count = Mathf.CeilToInt(Mathf.Clamp01(progress) * segments);
+            for (int i = 0; i < count; i++)
+            {
+                GUI.matrix = previous;
+                GUIUtility.RotateAroundPivot(i * 360f / segments, shutterBounds.center);
+                GUI.DrawTexture(new Rect(shutterBounds.center.x - 2, shutterBounds.y - 5, 4, 7), Texture2D.whiteTexture);
+            }
+            GUI.matrix = previous;
+            GUI.color = color;
+        }
+
+        private void DrawTab(Rect rect, LensBrowseFilter value, string title)
+        {
+            Color old = GUI.backgroundColor;
+            if (carousel.Filter == value) GUI.backgroundColor = new Color(.95f, .22f, .61f);
+            if (GUI.Button(rect, title, button)) carousel.SetFilter(value);
+            GUI.backgroundColor = old;
+        }
+
+        private void DrawPreview(NativeCameraLayout layout)
+        {
+            GUI.DrawTexture(layout.Bounds, dark);
+            GUI.Label(new Rect(12, 12, layout.Width - 24, 44), "Preview", header);
+            Rect preview = new Rect(12, 64, layout.Width - 24, layout.Height - 190);
+            if (capture.DisplayPreviewTexture != null) GUI.DrawTexture(preview, capture.DisplayPreviewTexture, ScaleMode.ScaleToFit);
+            else GUI.Label(preview, "Video draft ready. Save to keep the MP4.", status);
+            if (capture.PreviewPlaybackReady && GUI.Button(new Rect(16, 70, 104, 44), capture.PreviewPlaying ? "Pause" : "Play", button))
+                capture.TogglePreviewPlayback();
+            GUI.Label(new Rect(12, layout.Height - 120, layout.Width - 24, 32), capture.StatusMessage, small);
+            int actions = capture.SupportsGalleryExport ? 3 : 2;
+            float width = (layout.Width - 32 - (actions - 1) * 8) / actions;
+            if (GUI.Button(new Rect(16, layout.Height - 80, width, 56), "Retry", button)) capture.Retry();
+            if (GUI.Button(new Rect(24 + width, layout.Height - 80, width, 56), "Save", button)) capture.SavePreview();
+            if (actions == 3 && GUI.Button(new Rect(32 + width * 2, layout.Height - 80, width, 56), "Gallery", button))
+            {
+                capture.SavePreview();
+                if (capture.CurrentState == MediaCaptureState.Idle) capture.ExportLastSavedToGallery();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (dark != null) Destroy(dark);
+            if (shutter != null) Destroy(shutter);
+            gamePanel.Dispose();
+        }
     }
 }

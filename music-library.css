@@ -1,0 +1,40 @@
+/* Crush.X reusable music picker — respects mobile safe areas and light/dark surfaces. */
+.cXmusic-placeholder{display:none}
+.cXmusic-trigger,.cxmusic-ghost,.cxmusic-primary{border:1px solid #dbd6e2;border-radius:14px;padding:11px 15px;font-weight:700}
+.cXmusic-trigger{width:100%;text-align:left;background:linear-gradient(110deg,#fdf2f8,#eff6ff);color:#831843}
+.cXmusic-trigger:focus-visible,.cxmusic-modal button:focus-visible,.cxmusic-search:focus-visible{outline:3px solid #a855f7;outline-offset:2px}
+.cXmusic-trigger::before{content:"♫ ";font-size:1.2em}
+.cxmusic-modal{color:#151326;background:#fff;border:0;border-radius:24px;padding:0;width:min(560px,calc(100vw - 18px));max-width:560px;max-height:min(92dvh,900px);box-shadow:0 24px 72px #09001a55;overscroll-behavior:contain}
+.cxmusic-modal::backdrop{background:#080216bf;backdrop-filter:blur(4px)}
+.cxmusic-modal button{cursor:pointer}
+.cxmusic-head{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 9px;gap:12px}
+.cxmusic-head h2{font-size:24px;font-weight:800;margin:0}
+.cxmusic-head p,.cxmusic-meta,.cxmusic-trackinfo span{color:#5e6170;font-size:12px}
+.cxmusic-close{background:#f4eff7;border:0;border-radius:50%;width:36px;height:36px;font-size:25px}
+.cxmusic-search{display:block;width:calc(100% - 36px);margin:11px 18px;padding:13px 15px;background:#f8f8fc;border:1px solid #e0dce9;border-radius:14px;color:#151326}
+.cxmusic-filters{display:flex;align-items:center;gap:9px;padding:3px 16px 11px}
+.cxmusic-genres{display:flex;overflow-x:auto;gap:8px;flex:1;scrollbar-width:thin}
+.cxmusic-genres button,.cxmusic-saved,.cxmusic-lengths button{flex:none;border:1px solid #dedbe6;background:#fff;border-radius:22px;padding:8px 12px;font-size:12px}
+.cxmusic-genres .cxmusic-active,.cxmusic-lengths .cxmusic-active,.cxmusic-saved[aria-pressed="true"]{background:#e90079;color:#fff;border-color:#e90079}
+.cxmusic-list{max-height:clamp(130px,27dvh,280px);overflow:auto;border-block:1px solid #ebe7ef;padding:6px 16px}
+.cxmusic-track{display:flex;align-items:center;gap:10px;padding:8px;border-radius:14px}
+.cxmusic-track.is-selected{background:#fff0f8}
+.cxmusic-cover{display:grid;place-items:center;width:43px;height:43px;border-radius:12px;background:linear-gradient(130deg,#ff6a98,#7857dd);color:white;font-size:24px;flex:none}
+.cxmusic-trackinfo{min-width:0;flex:1;display:flex;flex-direction:column}
+.cxmusic-trackname{text-align:left;font-weight:700;border:0;background:transparent;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cxmusic-fav{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:#d62481;font-size:24px}
+.cxmusic-detail{padding:14px 19px;display:grid;gap:10px}
+.cxmusic-title{font-size:19px;font-weight:800;margin:0}
+.cxmusic-control{display:grid;gap:7px;color:#34303a;font-size:13px}
+.cxmusic-control input{width:100%;accent-color:#e90079}
+.cxmusic-lengths,.cxmusic-actions,.cxmusic-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.cxmusic-actions button{flex:1;min-width:120px}
+.cxmusic-primary{background:#e90079;color:white;border-color:#e90079}
+.cxmusic-ghost{background:#f9f4fa;color:#8e1754}
+.cxmusic-credits{font-size:11px;line-height:1.5;color:#625767;overflow-wrap:anywhere}
+.cxmusic-links a{font-size:11px;color:#9c1769;text-decoration:underline}
+.cxmusic-hint,.cxmusic-empty{font-size:11px;color:#746b7b;padding:0 18px}
+.cxmusic-status{margin:0;padding:7px 19px 16px;font-size:12px;color:#7d2257;min-height:34px}
+@media (max-width:500px){.cxmusic-modal{border-radius:24px 24px 0 0;position:fixed;margin:0 0 0 auto;left:0;right:0;bottom:0;width:100vw;max-width:none;max-height:calc(100dvh - env(safe-area-inset-top) - 10px);padding-bottom:env(safe-area-inset-bottom)}.cxmusic-head h2{font-size:21px}.cxmusic-list{max-height:24dvh}}
+@media (prefers-reduced-motion:no-preference){.cxmusic-modal[open]{animation:cxmusic-arrive .2s ease-out}@keyframes cxmusic-arrive{from{transform:translateY(22px);opacity:.7}to{transform:translateY(0);opacity:1}}}
+@media (prefers-color-scheme:dark){.cxmusic-modal{background:#181522;color:#f6f0fa}.cxmusic-search,.cxmusic-close,.cxmusic-genres button,.cxmusic-saved,.cxmusic-lengths button{background:#272235;color:#f6f0fa;border-color:#423a4c}.cxmusic-track.is-selected{background:#38233b}.cxmusic-head p,.cxmusic-meta,.cxmusic-trackinfo span,.cxmusic-credits,.cxmusic-hint,.cxmusic-empty{color:#bfb5ca}.cXmusic-trigger{background:#3c2447;color:#fff}.cxmusic-control{color:#f6f0fa}.cxmusic-genres .cxmusic-active,.cxmusic-lengths .cxmusic-active{background:#e90079}.cxmusic-ghost{background:#3d2b40;color:#f9c4df}}

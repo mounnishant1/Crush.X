@@ -16,8 +16,8 @@
       "source": "registry",
       "dependencies": {
         "com.unity.burst": "1.8.17",
-        "com.unity.nuget.mono-cecil": "1.11.4",
         "com.unity.test-framework": "1.4.5",
+        "com.unity.nuget.mono-cecil": "1.11.4",
         "com.unity.test-framework.performance": "3.0.3"
       },
       "url": "https://packages.unity.com"
@@ -38,7 +38,7 @@
     },
     "com.unity.inputsystem": {
       "version": "1.11.2",
-      "depth": 1,
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.uielements": "1.0.0"
@@ -217,9 +217,21 @@
       "source": "builtin",
       "dependencies": {}
     },
+    "com.unity.modules.audio": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
     "com.unity.modules.hierarchycore": {
       "version": "1.0.0",
       "depth": 3,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.imageconversion": {
+      "version": "1.0.0",
+      "depth": 0,
       "source": "builtin",
       "dependencies": {}
     },
@@ -246,6 +258,14 @@
       "depth": 2,
       "source": "builtin",
       "dependencies": {}
+    },
+    "com.unity.modules.screencapture": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.imageconversion": "1.0.0"
+      }
     },
     "com.unity.modules.subsystems": {
       "version": "1.0.0",
@@ -311,6 +331,22 @@
         "com.unity.modules.physics": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0",
         "com.unity.modules.subsystems": "1.0.0"
+      }
+    },
+    "com.unity.modules.inputlegacy": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {}
+    },
+    "com.unity.modules.video": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0"
       }
     }
   }

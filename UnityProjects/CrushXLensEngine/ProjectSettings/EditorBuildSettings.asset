@@ -8,6 +8,11 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/CrushXStartup.unity
     guid: ada184613a2e93d44a4773b3fb30eef1
+  - enabled: 1
+    path: Assets/SCENES/CrushXNativeAR.unity
+    guid: 4c165fc50f9c3224d887d2028c309923
   m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 2b6fbd33af2c3064da92566cc4db0bc9, type: 2}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: d3965facfb94fc24e809d6b3216d1c8c, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 3436267a35e2b1845ac0631754d061a4, type: 2}
   m_UseUCBPForAssetBundles: 0

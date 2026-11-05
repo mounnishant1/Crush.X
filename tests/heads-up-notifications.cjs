@@ -1,0 +1,97 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+assert.match(html, /heads-up-notifications\.css/);
+assert.match(html, /heads-up-notifications\.js/);
+const listeners = {}, nodes = [], nav = [], dispatched = [];
+class Node {
+  constructor(tag) { this.tagName = tag; this.children = []; this.className = ''; this.events = {}; this.attributes = {}; this.classList = { add: () => {}, remove: () => {} }; this.dataset = {}; this.isConnected = true; }
+  append(...items) { this.children.push(...items); }
+  replaceChildren(...items) { this.children = items; }
+  setAttribute(k, v) { this.attributes[k] = v; }
+  addEventListener(n, fn) { this.events[n] = fn; }
+  remove() { this.removed = true; this.isConnected = false; }
+  closest() { return null; }
+}
+const doc = {
+  body: { append(n) { nodes.push(n); } }, hidden: false, createElement: tag => new Node(tag),
+  createTextNode: text => ({ text }), querySelectorAll: () => [],
+  addEventListener: (n, fn) => { listeners[n] = fn; },
+  dispatchEvent(e) { dispatched.push(e); return !e.defaultPrevented; }
+};
+const state = { currentUserId: 'me', users: [{ id: 'u1', username: 'riya', avatar: 'https://example.com/riya.png' }], reels: [], socialMutedIds: [] };
+const scheduled = new Map(); let nextTimer = 1;
+const ctx = vm.createContext({
+  document: doc, window: {}, Date, URL, Set, String, CustomEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); this.defaultPrevented = false; } },
+  setTimeout(fn, delay) { const id = nextTimer++; scheduled.set(id, {fn, delay}); return id; },
+  clearTimeout(id) { scheduled.delete(id); },
+  getState() { return state; }, navigate(tab, user) { nav.push([tab, user]); }
+});
+vm.runInContext(fs.readFileSync(path.join(root, 'heads-up-notifications.js'), 'utf8'), ctx);
+const notify = ctx.window.CrushXHeadsUp.notify;
+const payload = { id: 'm1', type: 'reel', senderId: 'u1', recipientId: 'me', reelId: 'r1', text: 'Watch this!', thumbnail: 'https://example.com/r1.jpg' };
+assert.equal(notify(payload), true);
+assert.equal(notify(payload), false, 'duplicate event should not appear');
+assert.equal(nodes.length, 1);
+let panel = nodes[0].children[0];
+assert.match(panel.children[0].children[1].children[0].children[1].text, /sent you a reel/);
+assert.equal(panel.children[0].children[1].children[1].textContent, 'Watch this!');
+assert.equal([...scheduled.values()][0].delay, 3900);
+panel.children[0].events.click();
+assert.deepEqual(nav[0], ['messages', 'u1']);
+for(const task of [...scheduled.values()].filter(t => t.delay === 290)) task.fn();
+assert.equal(notify({ ...payload, id: 'm2', type: 'message', text: '<script>alert(1)</script>' }), true);
+panel = nodes[0].children[0];
+assert.equal(panel.children[0].children[1].children[1].textContent, '<script>alert(1)</script>', 'plain text, never HTML');
+assert.equal(notify({ ...payload, id: 'other', recipientId: 'not-me' }), false);
+state.socialMutedIds = ['u1'];
+assert.equal(notify({ ...payload, id: 'muted' }), false);
+state.socialMutedIds = [];
+assert.equal(notify({ ...payload, id: 'badtype', type: 'magic' }), false);
+// Session-only notification privacy: banner off still deduplicates and accepts the event.
+const prefs=ctx.window.CrushXHeadsUp;
+assert.equal(prefs.getPreferences().banners, true);
+prefs.setPreferences({banners:false});
+assert.equal(prefs.getPreferences().banners, false);
+assert.equal(notify({...payload,id:'muted-banner',text:'Very private'}),true);
+assert.equal(notify({...payload,id:'muted-banner',text:'Very private'}),false, 'hidden events still deduplicated');
+prefs.setPreferences({banners:true,previewText:false});
+assert.equal(notify({...payload,id:'redacted-banner',text:'Private text',thumbnail:'https://example.com/private.png'}),true);
+panel=nodes[0].children[0];
+assert.equal(panel.children[0].children[1].children[1].textContent,'Preview hidden in this browser');
+assert.doesNotMatch(panel.children[0].attributes['aria-label'],/Private text/);
+assert.equal(panel.children[0].children.some(child=>child.className==='cx-heads-up-media'),false,'Media is also private');
+listeners['crushx:session-ended']();
+assert.equal(prefs.getPreferences().banners,true,'logout restores default session preference');
+assert.equal(prefs.getPreferences().previewText,true,'logout restores preview defaults');
+assert.equal(nodes[0].children[0].removed, true);
+// Foreground popup stays hidden in the conversation currently visible to the user.
+const priorPanel = nodes[0].children[0];
+state.activeTab = 'messages'; state.chatUserId = 'u1';
+assert.equal(notify({ ...payload, id: 'same-chat', type: 'message', conversationId: 'thread-1' }), true);
+assert.equal(nodes[0].children[0], priorPanel, 'no new banner in the active chat');
+assert.equal(dispatched.some(e => e.type === 'crushx:heads-up-accepted' && e.detail.id === 'same-chat'), false,
+  'active chat does not increment the sample unread banner counter');
+
+// The same sender should still appear on Home, and the actual thread ID is forwarded to the router.
+state.activeTab = 'home'; state.chatUserId = null;
+assert.equal(notify({ ...payload, id: 'outside-chat', type: 'message', conversationId: 'thread-1' }), true);
+panel = nodes[0].children[0];
+assert.equal(panel.removed, undefined);
+panel.children[0].events.click();
+const openEvent = dispatched.filter(e => e.type === 'crushx:open-incoming-notification').at(-1);
+assert.equal(openEvent.detail.conversationId, 'thread-1', 'real router receives the exact thread ID');
+assert.deepEqual(nav.at(-1), ['messages', 'u1']);
+
+// A conversation-opened event clears a still-visible popup for that chat.
+for(const task of [...scheduled.values()].filter(t => t.delay === 290)) task.fn();
+state.activeTab = 'home';
+assert.equal(notify({ ...payload, id: 'switch-to-chat', type: 'message' }), true);
+panel = nodes[0].children[0];
+state.activeTab = 'messages'; state.chatUserId = 'u1';
+const exitsBefore = new Set([...scheduled.entries()].filter(([, task]) => task.delay === 290).map(([id]) => id));
+listeners['crushx:conversation-opened']();
+assert.equal([...scheduled.entries()].some(([id, task]) => task.delay === 290 && !exitsBefore.has(id)), true,
+  'opening the conversation schedules a new dismissal for its active popup');
+console.log('Heads-up: reel, message, dedupe, open-chat suppression, thread routing, 3.9s timing, tap navigation, escaped rendering, recipient/mute checks, session cleanup PASS');
