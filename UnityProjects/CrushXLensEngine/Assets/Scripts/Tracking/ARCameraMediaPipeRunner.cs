@@ -24,9 +24,10 @@ namespace CrushX.LensEngine
         private readonly object gate = new object();
         private byte[] convertedFrame;
         private float lastCaptureAt = -999f;
-        private bool conversionPending;
+        private volatile bool conversionPending;
         private bool initializationAttempted;
-        private bool stopped;
+        private volatile bool stopped;
+        private bool started;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         private AndroidJavaObject native;
@@ -34,6 +35,19 @@ namespace CrushX.LensEngine
 
         private void Start()
         {
+            started = true;
+            StartNative();
+        }
+
+        private void OnEnable()
+        {
+            if (started) StartNative();
+        }
+
+        private void StartNative()
+        {
+            stopped = false;
+            initializationAttempted = false;
             if (CameraManager == null) CameraManager = FindFirstObjectByType<ARCameraManager>();
             if (Engine == null) Engine = FindFirstObjectByType<LensEngineBootstrap>();
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -165,6 +179,7 @@ namespace CrushX.LensEngine
         {
             if (stopped) return;
             stopped = true;
+            initializationAttempted = false;
             lock (gate) convertedFrame = null;
             if (Engine != null) Engine.SetPreciseTrackingAvailable(false);
 #if UNITY_ANDROID && !UNITY_EDITOR
