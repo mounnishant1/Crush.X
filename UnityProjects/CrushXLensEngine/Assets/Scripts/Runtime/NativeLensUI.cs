@@ -26,6 +26,7 @@ namespace CrushX.LensEngine
     public sealed class NativeLensUI : MonoBehaviour
     {
         private LensEngineBootstrap engine;
+        private LensCameraProductionUI toolkitUI;
         private Vector2 pointerDown;
         private int activeTouchId = -1;
         private bool mousePressed;
@@ -37,10 +38,17 @@ namespace CrushX.LensEngine
 
         private void OnEnable() { EnhancedTouchSupport.Enable(); }
         private void OnDisable() { EnhancedTouchSupport.Disable(); }
-        private void Start() { engine = FindFirstObjectByType<LensEngineBootstrap>(); }
+        private void Start()
+        {
+            engine = FindFirstObjectByType<LensEngineBootstrap>();
+            toolkitUI = FindFirstObjectByType<LensCameraProductionUI>();
+        }
 
         private void Update()
         {
+            if (toolkitUI == null)
+                toolkitUI = FindFirstObjectByType<LensCameraProductionUI>();
+            if (toolkitUI != null && toolkitUI.IsReady) return;
             if (engine == null) return;
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -123,6 +131,7 @@ namespace CrushX.LensEngine
 
         private void OnGUI()
         {
+            if (toolkitUI != null && toolkitUI.IsReady) return;
             if (engine == null) return;
             EnsureStyles();
             float u = Mathf.Max(.6f, Mathf.Min(Screen.width / 440f, Screen.height / 900f));
