@@ -184,9 +184,8 @@ namespace CrushX.LensEngine
         {
             bool showing = TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
-            if (effect != null)
-                effect.gameObject.SetActive(faceWarp == null ||
-                    !faceWarp.HasFreshFrame(Time.realtimeSinceStartup));
+            // Keep fallback procedural effects visible until the actual URP
+            // renderer pass and camera alignment have been device verified.
             if (!showing) return;
             FaceSample face = tracking.Current;
             effectRoot.position = face.Position;
