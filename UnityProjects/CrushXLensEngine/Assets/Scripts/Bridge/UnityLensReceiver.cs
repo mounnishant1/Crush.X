@@ -73,6 +73,21 @@ namespace CrushX.LensEngine
             }
         }
 
+        public void CalibrateFaceCamera(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            // Short, explicit format: 0,false | 90,true | 180,false | 270,true
+            string[] parts = value.Split(',');
+            int rotation;
+            bool mirror;
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0].Trim(), out rotation) ||
+                !bool.TryParse(parts[1].Trim(), out mirror)) return;
+            LensEngineBootstrap e = GetEngine();
+            if (e != null && !e.SetCameraAlignment(rotation, mirror))
+                Debug.LogWarning("Rejected face-camera orientation calibration");
+        }
+
         public void TakePhoto(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
