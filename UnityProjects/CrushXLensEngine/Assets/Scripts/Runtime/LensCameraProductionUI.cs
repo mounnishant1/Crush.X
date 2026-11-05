@@ -11,7 +11,10 @@ namespace CrushX.LensEngine
         // legacy camera swipe and always returns at most one step.
         public static int Direction(Vector2 start, Vector2 end, float width)
         {
-            if (width <= 0f || float.IsNaN(width)) return 0;
+            if (width <= 0f || float.IsNaN(width) ||
+                float.IsInfinity(width) || float.IsNaN(start.x) ||
+                float.IsNaN(start.y) || float.IsNaN(end.x) ||
+                float.IsNaN(end.y)) return 0;
             Vector2 delta = end - start;
             if (Mathf.Abs(delta.x) < width * .16f ||
                 Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * .70f)
@@ -41,6 +44,8 @@ namespace CrushX.LensEngine
         private Label sectionInfo, selectedLens, trackingStatus, gameStatus;
         private Button favoriteButton, microphoneButton, browseButton;
         private Slider intensitySlider;
+        private readonly Dictionary<string, Button> voiceModes =
+            new Dictionary<string, Button>(StringComparer.Ordinal);
         private readonly Dictionary<string, Button> categories =
             new Dictionary<string, Button>(StringComparer.Ordinal);
         private bool browseOpen;
@@ -239,6 +244,7 @@ namespace CrushX.LensEngine
                 voiceButton.style.minWidth = 70;
                 voiceButton.style.marginRight = 5;
                 voiceStrip.Add(voiceButton);
+                voiceModes.Add(selected, voiceButton);
             }
             microphoneButton = MakeButton("Start Mic",
                 "Tap to request microphone permission for local funny voice preview",
@@ -439,6 +445,10 @@ namespace CrushX.LensEngine
                     "Remove lens from favorites" : "Add lens to favorites";
                 microphoneButton.text = Engine.VoicePreviewRunning ?
                     "Stop Mic" : "Start Mic";
+                foreach (var entry in voiceModes)
+                    entry.Value.style.backgroundColor =
+                        entry.Key == Engine.ActiveVoiceMode.ToString() ?
+                            Selected : Neutral;
                 trackingStatus.text = Engine.TrackingActive ?
                     "Face active" : "Camera";
                 sectionInfo.text = Engine.VisibleLensCount == 0 ?
