@@ -96,7 +96,7 @@ class LatestLensCollectionPort(unittest.TestCase):
         layout = content("Scripts/Runtime/NativeCameraLayout.cs")
         self.assertIn("waitForAllReleased", gesture)
         self.assertIn("ui.BlocksCameraGestures", gesture)
-        self.assertIn("ui.HidesCarousel", content("Scripts/Runtime/CrushXSmartCarousel.cs"))
+        self.assertIn("nativeUi.HidesCarousel", content("Scripts/Runtime/CrushXSmartCarousel.cs"))
         self.assertIn("Screen.safeArea", layout)
         self.assertIn("NativeCameraLayout.Current", layout)
 
