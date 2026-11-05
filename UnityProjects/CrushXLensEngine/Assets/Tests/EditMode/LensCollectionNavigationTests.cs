@@ -148,6 +148,24 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
+        public void ProductionPreviewSwipeIgnoresTapVerticalAndDiagonalGestures()
+        {
+            UnityEngine.Vector2 start = new UnityEngine.Vector2(220f, 440f);
+            Assert.AreEqual(1, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 440f), 440f));
+            Assert.AreEqual(-1, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(350f, 440f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(205f, 440f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(220f, 280f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 330f), 440f));
+            Assert.AreEqual(0, LensPreviewSwipe.Direction(start,
+                new UnityEngine.Vector2(100f, 440f), 0f));
+        }
+
+        [Test]
         public void ResetClearsBothCollectionsButDoesNotDeleteTheLensCatalog()
         {
             prefs.ToggleFavorite("dragon");
