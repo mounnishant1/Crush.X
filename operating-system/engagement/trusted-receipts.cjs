@@ -10,7 +10,7 @@ const RECEIPT_FIELDS=['version','issuer','audience','subject','eventId','content
 const validId=x=>typeof x==='string'&&ID.test(x);
 const validEvent=e=>!!e&&typeof e==='object'&&!Array.isArray(e)&&
   validId(e.eventId)&&e.eventId.length>=8&&validId(e.contentId)&&
-  ACTIONS.has(e.action)&&Number.isFinite(e.at)&&
+  ACTIONS.has(e.action)&&Number.isSafeInteger(e.at)&&
   (e.watchFraction===undefined||(Number.isFinite(e.watchFraction)&&e.watchFraction>=0&&e.watchFraction<=1));
 function payload(subject,event,issuer,audience,issuedAt){
  return [1,issuer,audience,subject,event.eventId,event.contentId,event.action,
