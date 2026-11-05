@@ -39,7 +39,9 @@ function createVerifiedEngagementIngestor({authenticateWorker,readAttestedEvent,
    ...(stored.watchFraction===undefined?{}:{watchFraction:stored.watchFraction})});
   // Consent and catalog visibility are independently checked in both
   // receiptStore.save and contentStore.recordTrustedEvent.
-  const signed=receiptService.signTrustedEvent({subject,event});
+  // Stable authenticated event time makes retries sign identically.
+  // Never sign using a fresh retry timestamp for the same event ID.
+  const signed=receiptService.signTrustedEvent({subject,event,issuedAt:event.at});
   await receiptStore.save({receipt:signed});
   const result=await contentStore.recordTrustedEvent({subject,event});
   // Audit metadata only. Never audit credentials, user messages or raw media.
