@@ -29,6 +29,7 @@ namespace CrushX.LensEngine
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
         public float WarpIntensity { get { return faceWarp != null ? faceWarp.Intensity : 0f; } }
+        public float BeautyIntensity { get { return faceWarp != null ? faceWarp.BeautyIntensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
         public bool PreciseTrackingActive { get { return preciseTrackingAvailable; } }
 
@@ -163,6 +164,11 @@ namespace CrushX.LensEngine
         public void SetWarpIntensity(float value)
         {
             if (faceWarp != null) faceWarp.SetIntensity(value);
+        }
+
+        public void SetBeautyIntensity(float value)
+        {
+            if (faceWarp != null) faceWarp.SetBeautyIntensity(value);
         }
 
         public void ClearWarpTracking()
