@@ -4,22 +4,26 @@ const {randomUUID}=require('node:crypto');
 const fs=require('node:fs'),path=require('node:path');
 const {createPostgresContentStore}=require('../storage/postgres-content-store.cjs');
 const {createTrustedReceiptService}=require('../engagement/trusted-receipts.cjs');
+const {createPostgresReceiptStore}=require('../storage/postgres-trusted-receipts.cjs');
 test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {skip:!process.env.POSTGRES_TEST_URL},async()=>{
  const {Pool}=require(process.env.PG_MODULE||'pg');
  const pool=new Pool({connectionString:process.env.POSTGRES_TEST_URL,max:2});
  const suffix=randomUUID().replaceAll('-','').slice(0,16),subject='qa_'+suffix;
  const ids=['recipe_','hidden_','other_'].map(x=>x+suffix),now=Date.now();
- const signedReceipts=new Map();
+ let receiptStore;
  const receiptService=createTrustedReceiptService({key:Buffer.alloc(32,64),now:()=>now,
-  readSignedReceipt:async({subject:who,eventId})=>signedReceipts.get(who+':'+eventId)});
+  readSignedReceipt:({subject:who,eventId})=>receiptStore.read({subject:who,eventId})});
+ receiptStore=createPostgresReceiptStore({pool,now:()=>now,
+  validateReceipt:receiptService.verifyIssuedReceipt});
  const store=createPostgresContentStore({pool,now:()=>now,
   verifyTrustedEvent:receiptService.verifyTrustedEvent});
- const record=event=>{
-  signedReceipts.set(subject+':'+event.eventId,receiptService.signTrustedEvent({subject,event}));
+ const record=async event=>{
+  await receiptStore.save({receipt:receiptService.signTrustedEvent({subject,event})});
   return store.recordTrustedEvent({subject,event});
  };
  try{
   await pool.query(fs.readFileSync(path.join(__dirname,'..','storage','migrations','001_content_intelligence.sql'),'utf8'));
+  await pool.query(fs.readFileSync(path.join(__dirname,'..','storage','migrations','002_trusted_engagement_receipts.sql'),'utf8'));
   assert.equal(await store.checkConsent({subject,scope:'content:read'}),false);
   const add=async(id,visibility,creator)=>pool.query('INSERT INTO cx_content_catalog '+
    '(content_id,creator_subject,kind,status,moderation,visibility,caption,topics,published_at) '+
@@ -43,17 +47,20 @@ test('real PostgreSQL: consent, ACL, idempotency, negative feedback, erasure', {
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),false);
   assert.equal((await store.readEngagementEvents({subject})).some(x=>x.action==='not_interested'),true);
   await store.eraseHistory({subject});
+  assert.equal(await receiptStore.read({subject,eventId:like.eventId}),null);
   assert.equal((await store.readEngagementEvents({subject})).length,0);
   assert.deepEqual(await store.readExplicitInterests({subject}),[]);
   assert.equal(await store.authorizeContent({subject,id:ids[0],kind:'reel'}),true);
   await record({...like,eventId:'extra_evt_'+suffix});
   await store.setPreferences({subject,read:true,analyze:false,personalize:false,topics:[]});
+  assert.equal(await receiptStore.read({subject,eventId:'extra_evt_'+suffix}),null);
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM cx_content_events WHERE subject=$1',[subject])).rows[0].n,0);
   await assert.rejects(record({...like,eventId:'third_evt_'+suffix}),/PERSONALIZATION_CONSENT_REQUIRED/);
   await assert.rejects(store.setPreferences({subject,read:true,analyze:true,personalize:true,topics:['religion']}),/TOPICS_INVALID/);
  }finally{
   try{
    await pool.query('DELETE FROM cx_content_events WHERE subject=$1',[subject]);
+   await pool.query('DELETE FROM cx_trusted_event_receipts WHERE subject=$1',[subject]);
    await pool.query('DELETE FROM cx_content_hides WHERE subject=$1',[subject]);
    await pool.query('DELETE FROM cx_content_preferences WHERE subject=$1',[subject]);
    await pool.query('DELETE FROM cx_content_catalog WHERE content_id=ANY($1::text[])',[ids]);
