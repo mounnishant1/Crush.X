@@ -177,6 +177,35 @@ class LensSafetyChecks(unittest.TestCase):
                          "LimitsPreventUnbounded", "SnapshotsCannotBeUsed"):
             self.assertIn(required, test)
 
+    def test_every_lens_can_save_into_private_custom_folders(self):
+        ui = (SRC / "Runtime" / "LensCameraProductionUI.cs").read_text()
+        sheet = (SRC / "Runtime" /
+                 "LensCameraProductionUI.QuickSave.cs").read_text()
+        engine = (SRC / "Runtime" / "LensEngineBootstrap.cs").read_text()
+        store = (SRC / "Runtime" / "LensCustomCollections.cs").read_text()
+        tests = (ROOT / "Assets" / "Tests" / "EditMode" /
+                 "LensCustomCollectionsTests.cs").read_text()
+        self.assertIn('MakeButton("Save to",', ui)
+        self.assertIn("BuildQuickSaveSheet();", ui)
+        self.assertIn("quickSaveOpen", ui)
+        self.assertIn("IsQuickSaveTargetCurrent()", ui)
+        self.assertIn("quickSaveSheet.style.paddingBottom", ui)
+        self.assertIn("OpenQuickSave()", sheet)
+        self.assertIn("quickSaveLensId = Engine.ActiveId", sheet)
+        self.assertIn("Engine.AccountScopeRevision", sheet)
+        self.assertIn("Engine.IsLensInCustomCollection(", sheet)
+        self.assertIn("Engine.AddLensToCustomCollection(", sheet)
+        self.assertIn("Engine.RemoveLensFromCustomCollection(", sheet)
+        self.assertIn("CreateCollectionForCurrentLens()", sheet)
+        self.assertIn("Saved to collection.", sheet)
+        self.assertIn("CreateCustomCollectionWithLens(", engine)
+        self.assertIn("AccountScopeRevision++", engine)
+        self.assertIn("TryCreateWithLens(string name, string lensId,", store)
+        self.assertIn("public bool ContainsLens(string id, string lensId)", store)
+        self.assertIn("PerLensQuickSaveCreatesFolderAndMembershipInOneWrite", tests)
+        self.assertIn("PerLensMembershipCanBeSavedAcrossMultipleFolders", tests)
+        self.assertIn("QuickSaveMembershipRemainsIsolatedDuringAccountChanges", tests)
+
     def test_games_group_comedy_and_opt_in_voice(self):
         data = (SRC / "Lenses" / "FunnyLensGames.cs").read_text()
         self.assertIn("rearmed = false;", data)
