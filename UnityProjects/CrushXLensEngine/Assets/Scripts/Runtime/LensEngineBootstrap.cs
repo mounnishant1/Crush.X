@@ -13,6 +13,9 @@ namespace CrushX.LensEngine
         private Transform effectRoot;
         private LensPersonalization personalization;
         private List<LensManifest> ranking;
+        private List<LensManifest> visible;
+        private LensTrendFeed trendFeed;
+        private string collection = "All";
         private string activeId;
         private float startAt;
         private bool usingMock;
@@ -21,11 +24,13 @@ namespace CrushX.LensEngine
         private GameObject demoFace;
 
         public string ActiveId { get { return activeId; } }
+        public string ActiveCollection { get { return collection; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
 
         private void Awake()
         {
             personalization = new LensPersonalization();
+            trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
             ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
@@ -66,8 +71,8 @@ namespace CrushX.LensEngine
             effectRoot = new GameObject("LensRoot").transform;
             effectRoot.SetParent(transform, false);
             if (usingMock) CreateDemoFace();
-            ranking = personalization.Ranked();
-            SelectLens(ranking[0].Id);
+            RefreshVisible();
+            if (visible.Count > 0) SelectLens(visible[0].Id);
         }
 
         private void CreateDemoFace()
@@ -85,9 +90,44 @@ namespace CrushX.LensEngine
             }
         }
 
+        private void RefreshVisible()
+        {
+            ranking = personalization.Ranked();
+            visible = LensDiscovery.Browse(collection, ranking, trendFeed, DateTimeOffset.UtcNow);
+        }
+
+        public bool SetCollection(string name)
+        {
+            if (!LensDiscovery.IsCollection(name)) return false;
+            collection = name;
+            RefreshVisible();
+            if (visible.Count == 0) { Say("No lenses available"); return false; }
+            if (visible.FindIndex(l => l.Id == activeId) < 0) SelectLens(visible[0].Id);
+            return true;
+        }
+
+        // This endpoint accepts only an allow-listed ranking, not executable lens assets.
+        // The native host must authenticate/authorize the source of the JSON first.
+        public bool ApplyTrustedTrendingFeed(string json)
+        {
+            if (!trendFeed.TryApplyTrustedSnapshot(json, DateTimeOffset.UtcNow)) return false;
+            if (collection == "Trending")
+            {
+                RefreshVisible();
+                if (visible.Count > 0 && visible.FindIndex(l => l.Id == activeId) < 0)
+                    SelectLens(visible[0].Id);
+            }
+            return true;
+        }
+
         public bool SelectLens(string id)
         {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
+            if (visible != null && visible.FindIndex(l => l.Id == id) < 0)
+            {
+                collection = "All";
+                RefreshVisible();
+            }
             if (effect != null) Destroy(effect.gameObject);
             var go = new GameObject("Lens-" + id);
             go.transform.SetParent(effectRoot, false);
@@ -96,26 +136,28 @@ namespace CrushX.LensEngine
             activeId = id;
             startAt = Time.unscaledTime;
             personalization.RecordUsage(id);
-            ranking = personalization.Ranked();
+            // Keep the carousel order stable while swiping; refresh on tab/favorite change.
             return true;
         }
 
         public void Step(int amount)
         {
             // Use current ordering; recompute only after selection to avoid unexpected mid-step jumping.
-            int index = ranking.FindIndex(l => l.Id == activeId);
+            if (visible == null || visible.Count == 0) return;
+            int index = visible.FindIndex(l => l.Id == activeId);
             if (index < 0) index = 0;
-            SelectLens(ranking[(index + amount + ranking.Count) % ranking.Count].Id);
+            int next = ((index + amount) % visible.Count + visible.Count) % visible.Count;
+            SelectLens(visible[next].Id);
         }
         public void ToggleFavorite()
         {
             personalization.ToggleFavorite(activeId);
-            ranking = personalization.Ranked();
+            RefreshVisible();
             Say(personalization.IsFavorite(activeId) ? "Saved to favorites" : "Removed from favorites");
         }
         public void ResetRanking()
         {
-            personalization.Reset(); ranking = personalization.Ranked(); Say("Local ranking reset");
+            personalization.Reset(); RefreshVisible(); Say("Local ranking reset");
         }
         public void Say(string message) { notice = message; noticeUntil = Time.unscaledTime + 3; }
 
@@ -143,7 +185,7 @@ namespace CrushX.LensEngine
             GUI.Box(new Rect(18, 20, w - 36, 84), "CrushX Lens Engine v0.2 | " + (usingMock ? "MOCK TRACKING" : tracking.ProviderName));
             GUI.Label(new Rect(35, 58, w - 55, 27), TrackingActive ? "Tracking: active" : "Tracking: unavailable (configure AR face provider)");
             LensManifest? selected = LensCatalog.Find(activeId);
-            GUI.Box(new Rect(18, h - 140, w - 36, 123), selected.HasValue ? selected.Value.DisplayName : "No lens");
+            GUI.Box(new Rect(18, h - 140, w - 36, 123), selected.HasValue ? collection + " | " + selected.Value.DisplayName : "No lens");
             float buttonY = h - 103;
             float buttonW = Mathf.Max(65, (w - 80) / 4);
             if (GUI.Button(new Rect(28, buttonY, buttonW, 55), "< Previous")) Step(-1);
