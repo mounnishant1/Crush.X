@@ -25,6 +25,7 @@ namespace CrushX.LensEngine
         private static readonly string[] OfflineHighlights =
         {
             "trend-hearts", "trend-pixels", "trend-disco", "trend-starlight",
+            "funny-big-eyes", "funny-jumbo-mouth", "funny-party-clown",
             "beauty-glow", "alien-classic"
         };
 
