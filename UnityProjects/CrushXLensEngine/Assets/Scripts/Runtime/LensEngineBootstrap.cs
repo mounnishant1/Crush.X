@@ -16,6 +16,20 @@ namespace CrushX.LensEngine
         private LensEffect effect;
         private Transform effectRoot;
         private LensPersonalization personalization;
+        private LensCustomCollections collectionStore;
+        public LensCustomCollections CollectionStore { get { return collectionStore; } }
+        public int CollectionAccountEpoch { get; private set; }
+
+        // Host must supply a stable authenticated user ID (not a display
+        // name) at sign-in/account switch, and empty at sign-out.
+        // This scopes custom folders without changing legacy v02 consent.
+        public bool ConfigureLensCollectionAccountScope(string authenticatedId)
+        {
+            if (collectionStore == null || !collectionStore.ConfigureAccountScope(authenticatedId))
+                return false;
+            CollectionAccountEpoch++;
+            return true;
+        }
         private List<LensManifest> ranking;
         private string activeId;
         private float startAt;
@@ -60,6 +74,7 @@ namespace CrushX.LensEngine
             if (GetComponent<LensWorkflowBridge>() == null) gameObject.AddComponent<LensWorkflowBridge>();
             if (GetComponent<LensPerformanceMonitor>() == null) gameObject.AddComponent<LensPerformanceMonitor>();
             personalization = new LensPersonalization();
+            collectionStore = new LensCustomCollections();
             recentLensIds.AddRange(personalization.RecentIds());
             tracking = gameObject.AddComponent<FaceTrackingManager>();
 #if UNITY_ANDROID && !UNITY_EDITOR
