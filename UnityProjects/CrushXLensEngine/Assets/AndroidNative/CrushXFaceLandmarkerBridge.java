@@ -14,6 +14,7 @@ import com.google.mediapipe.tasks.vision.core.RunningMode;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult;
 import org.json.JSONObject;
+import org.json.JSONArray;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -32,6 +33,7 @@ public final class CrushXFaceLandmarkerBridge {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicBoolean busy = new AtomicBoolean(false);
     private final AtomicReference<String> latest = new AtomicReference<>();
+    private final AtomicReference<String> latestFaces = new AtomicReference<>();
     private volatile boolean ready = false;
     private volatile boolean closed = false;
     private FaceLandmarker landmarker; // owned by the single worker thread
@@ -55,7 +57,7 @@ public final class CrushXFaceLandmarkerBridge {
                         FaceLandmarker.FaceLandmarkerOptions.builder()
                         .setBaseOptions(base)
                         .setRunningMode(RunningMode.VIDEO)
-                        .setNumFaces(1)
+                        .setNumFaces(3)
                         .setMinFaceDetectionConfidence(0.6f)
                         .setMinFacePresenceConfidence(0.6f)
                         .setMinTrackingConfidence(0.6f)
@@ -120,12 +122,15 @@ public final class CrushXFaceLandmarkerBridge {
                         String packet = makePacket(result, ++nextSequence,
                                 SystemClock.uptimeMillis() - receivedAt);
                         latest.set(packet);
+                        latestFaces.set(makeMultiPacket(result, nextSequence,
+                                SystemClock.uptimeMillis() - receivedAt));
                     } finally {
                         if (oriented != source) oriented.recycle();
                         source.recycle();
                     }
                 } catch (Exception inferenceError) {
                     latest.set(noFace(++nextSequence));
+                    latestFaces.set(noFace(nextSequence));
                     Log.w(TAG, "Face inference stopped for this frame: " +
                             inferenceError.getClass().getSimpleName());
                 } finally {
@@ -141,6 +146,37 @@ public final class CrushXFaceLandmarkerBridge {
 
     // Poll is non-blocking. JSON is a short packet, with no image/video content.
     public String pollLatest() { return latest.getAndSet(null); }
+    public String pollLatestFaces() { return latestFaces.getAndSet(null); }
+
+    // Secondary display-only packet: no biometrics stored and no persistent
+    // identity IDs. Per-frame slots can reorder when faces cross.
+    private static String makeMultiPacket(FaceLandmarkerResult result,
+            int sequence, long ageMs) throws Exception {
+        JSONArray faces = new JSONArray();
+        List<List<NormalizedLandmark>> all = result.faceLandmarks();
+        int max = Math.min(3, all.size());
+        for (int i = 0; i < max; i++) {
+            List<NormalizedLandmark> p = all.get(i);
+            if (p.size() < 468) continue;
+            float cx = (p.get(33).x() + p.get(263).x()) * .5f;
+            float cy = (p.get(10).y() + p.get(152).y()) * .5f;
+            float width = Math.abs(p.get(33).x() - p.get(263).x());
+            if (!Float.isFinite(cx) || !Float.isFinite(cy) ||
+                    !Float.isFinite(width) || width < .025f ||
+                    cx < 0 || cx > 1 || cy < 0 || cy > 1) continue;
+            JSONObject face = new JSONObject();
+            face.put("x", cx);
+            face.put("y", 1f - cy);
+            face.put("size", clamp(width * 1.5f, .07f, .30f));
+            faces.put(face);
+        }
+        JSONObject packet = new JSONObject();
+        packet.put("sequence", sequence);
+        packet.put("hasFace", faces.length() > 0);
+        packet.put("ageMilliseconds", Math.max(0, ageMs));
+        packet.put("faces", faces);
+        return packet.toString();
+    }
 
     private static String noFace(int sequence) {
         return "{\"sequence\":" + sequence + ",\"hasFace\":false}";
@@ -224,6 +260,7 @@ public final class CrushXFaceLandmarkerBridge {
         ready = false;
         closed = true;
         latest.set(null);
+        latestFaces.set(null);
         worker.execute(() -> {
             if (landmarker != null) {
                 landmarker.close();
