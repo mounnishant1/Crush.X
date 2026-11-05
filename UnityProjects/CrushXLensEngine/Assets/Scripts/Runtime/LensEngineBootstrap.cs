@@ -9,6 +9,7 @@ namespace CrushX.LensEngine
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
         private FaceTrackingManager tracking;
+        private FaceWarpFrameSource faceWarp;
         private LensEffect effect;
         private Transform effectRoot;
         private LensPersonalization personalization;
@@ -30,6 +31,7 @@ namespace CrushX.LensEngine
         private void Awake()
         {
             personalization = new LensPersonalization();
+            faceWarp = gameObject.AddComponent<FaceWarpFrameSource>();
             trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
@@ -120,6 +122,22 @@ namespace CrushX.LensEngine
             return true;
         }
 
+        public bool PushFaceWarpFrame(string json)
+        {
+            return faceWarp != null &&
+                faceWarp.TryApplyJson(json, Time.realtimeSinceStartup);
+        }
+
+        public void SetWarpIntensity(float value)
+        {
+            if (faceWarp != null) faceWarp.SetIntensity(value);
+        }
+
+        public void ClearWarpTracking()
+        {
+            if (faceWarp != null) faceWarp.Invalidate();
+        }
+
         public bool SelectLens(string id)
         {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
@@ -128,6 +146,7 @@ namespace CrushX.LensEngine
                 collection = "All";
                 RefreshVisible();
             }
+            if (faceWarp != null) faceWarp.SetLens(id);
             if (effect != null) Destroy(effect.gameObject);
             var go = new GameObject("Lens-" + id);
             go.transform.SetParent(effectRoot, false);
@@ -165,6 +184,9 @@ namespace CrushX.LensEngine
         {
             bool showing = TrackingActive;
             if (effectRoot != null) effectRoot.gameObject.SetActive(showing);
+            if (effect != null)
+                effect.gameObject.SetActive(faceWarp == null ||
+                    !faceWarp.HasFreshFrame(Time.realtimeSinceStartup));
             if (!showing) return;
             FaceSample face = tracking.Current;
             effectRoot.position = face.Position;
