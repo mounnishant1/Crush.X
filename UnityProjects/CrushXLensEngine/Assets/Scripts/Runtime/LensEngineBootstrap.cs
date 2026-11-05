@@ -44,6 +44,13 @@ namespace CrushX.LensEngine
                 if (frontCamera != null)
                     frontCamera.requestedFacingDirection = UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
                 tracking.SetProvider(deviceProvider);
+                // Coarse on-device ARCore face-mesh fallback for image warping.
+                // A precise MediaPipe landmark source can replace this later.
+                var warpDriver = gameObject.AddComponent<ARFaceMeshWarpDriver>();
+                warpDriver.FaceManager = faceManager;
+                warpDriver.PreviewCamera = frontCamera != null ?
+                    frontCamera.GetComponent<Camera>() : Camera.main;
+                warpDriver.Engine = this;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
             else
