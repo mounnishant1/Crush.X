@@ -14,6 +14,7 @@ namespace CrushX.LensEngine
         private CrushXCameraPermissionGate cameraPermission;
         private CrushXSmartCarousel carousel;
         private NativeMediaCapture capture;
+        private LensCollectionSheet collectionSheet;
         private GUIStyle header, status, button, small, input;
         private Texture2D dark, shutter;
         private bool searchVisible, microphone;
@@ -42,10 +43,10 @@ namespace CrushX.LensEngine
                 return area;
             }
         }
-        public bool HidesCarousel { get { return capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
+        public bool HidesCarousel { get { return (collectionSheet != null && collectionSheet.IsOpen) || capture != null && (capture.SuppressUi || capture.CurrentState == MediaCaptureState.Preview); } }
         public bool BlocksCameraGestures
         {
-            get { return gamePanel.IsOpen || (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
+            get { return (collectionSheet != null && collectionSheet.IsOpen) || gamePanel.IsOpen || (cameraPermission != null && !cameraPermission.Granted) || captureAt >= 0 || (capture != null && capture.CurrentState != MediaCaptureState.Idle && capture.CurrentState != MediaCaptureState.Error); }
         }
 
         private void Start() { ResolveDependencies(); }
@@ -61,6 +62,8 @@ namespace CrushX.LensEngine
             if (carousel == null) carousel = GetComponent<CrushXSmartCarousel>();
             if (carousel == null) carousel = gameObject.AddComponent<CrushXSmartCarousel>();
             if (engine != null && capture == null) capture = NativeMediaCapture.GetOrCreate(engine);
+            if (engine != null && engine.CollectionStore != null && collectionSheet == null)
+                collectionSheet = new LensCollectionSheet(engine.CollectionStore);
         }
 
         private void Update()
@@ -68,6 +71,9 @@ namespace CrushX.LensEngine
             if (engine == null || capture == null || carousel == null) ResolveDependencies();
             if (engine == null) return;
             gamePanel.Update(Time.realtimeSinceStartupAsDouble, engine);
+            if (collectionSheet != null && collectionSheet.IsOpen &&
+                !collectionSheet.Matches(engine.ActiveId,
+                    engine.CollectionAccountEpoch)) collectionSheet.Close();
             bool back = false;
 #if ENABLE_INPUT_SYSTEM
             back = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
@@ -113,6 +119,8 @@ namespace CrushX.LensEngine
 
         private void Back()
         {
+            if (collectionSheet != null && collectionSheet.IsOpen)
+            { collectionSheet.Close(); return; }
             if (gamePanel.Back()) return;
             if (shutterGesture.IsHeld) { EndShutter(true); return; }
             if (captureAt >= 0) { captureAt = -1; return; }
@@ -128,13 +136,14 @@ namespace CrushX.LensEngine
         {
             gamePanel.FocusChanged(!paused, Time.realtimeSinceStartupAsDouble);
             if (!paused) return;
+            if (collectionSheet != null) collectionSheet.Close();
             if (capture != null && capture.WaitingForMicrophonePermission) return;
             captureAt = -1;
             EndShutter(true);
         }
 
-        private void OnDisable() { captureAt = -1; EndShutter(true); gamePanel.ClosePanel(); }
-        private void OnApplicationFocus(bool focused) { gamePanel.FocusChanged(focused, Time.realtimeSinceStartupAsDouble); if (!focused) { captureAt = -1; EndShutter(true); } }
+        private void OnDisable() { captureAt = -1; EndShutter(true); gamePanel.ClosePanel(); if (collectionSheet != null) collectionSheet.Close(); }
+        private void OnApplicationFocus(bool focused) { gamePanel.FocusChanged(focused, Time.realtimeSinceStartupAsDouble); if (!focused) { captureAt = -1; EndShutter(true); if (collectionSheet != null) collectionSheet.Close(); } }
 
         private void EnsureStyles()
         {
@@ -172,6 +181,16 @@ namespace CrushX.LensEngine
             GUI.color = Color.white;
             if (engine == null || capture == null || carousel == null)
                 GUI.Label(new Rect(12, 62, layout.Width - 24, 70), "Preparing camera controls…", status);
+            else if (collectionSheet != null && collectionSheet.IsOpen)
+            {
+                collectionSheet.Draw(layout, engine.ActiveId,
+                    engine.CollectionAccountEpoch, header, status,
+                    button, input, id =>
+                    {
+                        if (carousel != null && carousel.SetCustomCollection(id))
+                            engine.Say("Opened your lens collection");
+                    });
+            }
             else if (gamePanel.IsOpen)
                 gamePanel.Draw(layout, header, status, button, small, engine != null && engine.TrackingActive);
             else if (cameraPermission != null && !cameraPermission.Granted)
@@ -262,7 +281,18 @@ namespace CrushX.LensEngine
                 if (remember != engine.PersonalizationEnabled) { engine.SetPersonalizationEnabled(remember); carousel.Refresh(); }
             }
             LensManifest? selected = LensCatalog.Find(engine.ActiveId);
-            GUI.Label(layout.LensTitle, selected.HasValue ? selected.Value.DisplayName : "Choose a lens", header);
+            Rect nameRect = layout.LensTitle;
+            nameRect.width = Mathf.Max(50f, nameRect.width - 116f);
+            GUI.Label(nameRect,
+                selected.HasValue ? selected.Value.DisplayName : "Choose a lens", header);
+            if (selected.HasValue && collectionSheet != null &&
+                GUI.Button(new Rect(layout.LensTitle.xMax - 110,
+                    layout.LensTitle.y - 5, 108, 44), "Save to", button))
+            {
+                carousel.CancelDrag();
+                if (!collectionSheet.Open(engine.ActiveId, engine.CollectionAccountEpoch))
+                    engine.Say("Collection storage unavailable");
+            }
             if (GUI.Button(layout.Favorite, engine.IsFavorite(engine.ActiveId) ? "★ Saved" : "☆ Favorite", button))
             { engine.ToggleFavorite(); carousel.Refresh(); }
             if (GUI.Button(layout.Timer, timerSeconds == 0 ? "Timer off" : "Timer " + timerSeconds + "s", button))
