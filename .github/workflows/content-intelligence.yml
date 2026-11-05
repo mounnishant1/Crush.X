@@ -24,6 +24,9 @@ jobs:
           node --check content-api-client.js
           node --test tests/content-api-client.test.cjs
           node --check operating-system/storage/postgres-content-store.cjs
+          node --check operating-system/storage/postgres-trusted-receipts.cjs
+          node --check operating-system/engagement/trusted-receipts.cjs
+          node --check operating-system/engagement/verified-ingestor.cjs
           node --check operating-system/integration/content-postgres.integration.cjs
           node --check operating-system/tests/content-http.test.cjs
           node --test operating-system/tests/content-http.test.cjs
