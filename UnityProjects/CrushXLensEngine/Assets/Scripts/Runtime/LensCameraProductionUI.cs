@@ -33,7 +33,7 @@ namespace CrushX.LensEngine
     /// platform-specific mouse/touch mirroring or manually synthesize clicks.
     /// </summary>
     [RequireComponent(typeof(UIDocument))]
-    public sealed class LensCameraProductionUI : MonoBehaviour
+    public sealed partial class LensCameraProductionUI : MonoBehaviour
     {
         public LensEngineBootstrap Engine;
         public bool IsReady { get; private set; }
@@ -153,16 +153,7 @@ namespace CrushX.LensEngine
             categoryStrip.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             categoryStrip.contentContainer.style.flexDirection = FlexDirection.Row;
             tabsRow.Add(categoryStrip);
-            foreach (string collection in LensDiscovery.Collections)
-            {
-                string chosen = collection;
-                var button = MakeButton(collection, "Open " + collection + " lenses",
-                    () => OpenCollection(chosen));
-                button.style.marginRight = 5;
-                button.style.minWidth = 92;
-                categoryStrip.Add(button);
-                categories.Add(collection, button);
-            }
+            // Dynamic built-in + user-created chips are populated after UI setup.
 
             browseButton = MakeButton("Browse", "Browse all lens categories",
                 ToggleBrowse);
@@ -189,14 +180,7 @@ namespace CrushX.LensEngine
             browsePanel.pickingMode = PickingMode.Position;
             browseList = new ScrollView(ScrollViewMode.Vertical);
             browseList.style.maxHeight = 390;
-            foreach (string collection in LensDiscovery.Collections)
-            {
-                string chosen = collection;
-                var choice = MakeButton(collection, "Choose " + collection,
-                    () => OpenCollection(chosen));
-                choice.style.marginBottom = 4;
-                browseList.Add(choice);
-            }
+            // User folders are included in this Browse list on refresh.
             browsePanel.Add(browseList);
             root.Add(browsePanel);
 
@@ -282,6 +266,8 @@ namespace CrushX.LensEngine
             next.style.flexGrow = 1;
             captureRow.Add(next);
 
+            BuildCustomManager(tabsRow);
+            RebuildCollectionButtons();
             IsReady = true;
             lastUiKey = null;
             lastSafeArea = Rect.zero;
@@ -335,8 +321,7 @@ namespace CrushX.LensEngine
 
         private void OpenCollection(string name)
         {
-            if (Engine == null || !LensDiscovery.IsCollection(name)) return;
-            Engine.SetCollection(name);
+            if (Engine == null || !Engine.SetCollection(name)) return;
             browseOpen = false;
             browsePanel.style.display = DisplayStyle.None;
             browseButton.text = "Browse";
@@ -354,6 +339,9 @@ namespace CrushX.LensEngine
 
         private void OnPreviewDown(PointerDownEvent evt)
         {
+            if (customManagerOverlay != null &&
+                customManagerOverlay.style.display != DisplayStyle.None)
+                return;
             if (browseOpen)
             {
                 ToggleBrowse();
@@ -408,6 +396,13 @@ namespace CrushX.LensEngine
                 if (Engine == null) return;
             }
             UpdateSafeArea();
+            if (lastCollectionRevision != Engine.CollectionRevision)
+            {
+                RebuildCollectionButtons();
+                if (customManagerOverlay != null &&
+                    customManagerOverlay.style.display != DisplayStyle.None)
+                    RefreshCustomManager();
+            }
             if (Time.unscaledTime < nextRefresh) return;
             nextRefresh = Time.unscaledTime + .12f;
             RefreshVisualState(false);
@@ -436,7 +431,8 @@ namespace CrushX.LensEngine
             if (Engine == null || !IsReady) return;
             string active = Engine.ActiveId ?? "";
             bool favorite = Engine.IsCurrentFavorite;
-            string key = Engine.ActiveCollection + "|" + active + "|" +
+            string key = Engine.CollectionRevision + "|" +
+                Engine.ActiveCollection + "|" + active + "|" +
                 Engine.VisibleLensCount + "|" + favorite + "|" +
                 Engine.TrackingActive + "|" + Engine.VoicePreviewRunning + "|" +
                 Engine.ActiveVoiceMode + "|" + Engine.HasActiveGame;
@@ -462,8 +458,10 @@ namespace CrushX.LensEngine
                         "No favorites. Choose All and tap the heart." :
                     Engine.ActiveCollection == "Recent" ?
                         "No recent lenses. Select one from All." :
-                        "No lenses in this category." :
-                    Engine.ActiveCollection + " · " +
+                        Engine.IsCustomCollection(Engine.ActiveCollection) ?
+                            "Folder empty. Use Folders to add a lens." :
+                            "No lenses in this category." :
+                    Engine.CollectionLabel(Engine.ActiveCollection) + " · " +
                         Engine.VisibleLensCount + " lenses";
 
                 var info = LensCatalog.Find(active);
