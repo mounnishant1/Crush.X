@@ -20,7 +20,7 @@ namespace CrushX.LensEngine
         public Vector2 mouthRadius;
     }
 
-    public enum FunnyWarpMode { Off, BigEyes, BigMouth }
+    public enum FunnyWarpMode { Off, BigEyes, BigMouth, BeautyGlow, BeautyBlush }
 
     public sealed class FaceWarpFrameSource : MonoBehaviour
     {
@@ -31,6 +31,7 @@ namespace CrushX.LensEngine
         public static FaceWarpFrameSource Active { get; private set; }
         public FunnyWarpMode Mode { get; private set; }
         public float Intensity { get; private set; } = .72f;
+        public float BeautyIntensity { get; private set; } = .52f;
 
         private int lastSequence;
         private float lastFrameAt = -999f;
@@ -52,7 +53,9 @@ namespace CrushX.LensEngine
         public void SetLens(string id)
         {
             FunnyWarpMode newMode = id == "funny-big-eyes" ? FunnyWarpMode.BigEyes :
-                id == "funny-jumbo-mouth" ? FunnyWarpMode.BigMouth : FunnyWarpMode.Off;
+                id == "funny-jumbo-mouth" ? FunnyWarpMode.BigMouth :
+                id == "beauty-glow" ? FunnyWarpMode.BeautyGlow :
+                id == "beauty-blush" ? FunnyWarpMode.BeautyBlush : FunnyWarpMode.Off;
             if (newMode != Mode)
             {
                 Mode = newMode;
@@ -65,6 +68,50 @@ namespace CrushX.LensEngine
         {
             if (float.IsNaN(value) || float.IsInfinity(value)) return;
             Intensity = Mathf.Clamp01(value);
+        }
+
+        public void SetBeautyIntensity(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return;
+            BeautyIntensity = Mathf.Clamp01(value);
+        }
+
+        public bool TryGetBeautyParameters(float now, out Vector4 face,
+            out Vector4 leftEye, out Vector4 rightEye, out Vector4 mouth,
+            out float intensity, out int mode)
+        {
+            face = leftEye = rightEye = mouth = Vector4.zero;
+            intensity = 0f;
+            mode = 0;
+            if (!HasFreshFrame(now) || BeautyIntensity <= 0f ||
+                (Mode != FunnyWarpMode.BeautyGlow &&
+                 Mode != FunnyWarpMode.BeautyBlush)) return false;
+
+            Vector2 eyeMidpoint = (frame.leftEye + frame.rightEye) * .5f;
+            float eyeSpacing = Vector2.Distance(frame.leftEye, frame.rightEye);
+            float eyeMouth = Vector2.Distance(eyeMidpoint, frame.mouth);
+            if (eyeSpacing < .03f || eyeMouth < .035f) return false;
+
+            // A conservative ellipse: avoid touching camera background.
+            Vector2 center = new Vector2(eyeMidpoint.x,
+                Mathf.Clamp01((eyeMidpoint.y + frame.mouth.y) * .5f));
+            Vector2 radius = new Vector2(
+                Mathf.Clamp(eyeSpacing * .88f, .09f, .38f),
+                Mathf.Clamp(eyeMouth * 1.50f, .10f, .42f));
+            if (center.x - radius.x < 0f || center.x + radius.x > 1f ||
+                center.y - radius.y < 0f || center.y + radius.y > 1f)
+                return false;
+
+            face = new Vector4(center.x, center.y, radius.x, radius.y);
+            leftEye = new Vector4(frame.leftEye.x, frame.leftEye.y,
+                frame.eyeRadius.x, frame.eyeRadius.y);
+            rightEye = new Vector4(frame.rightEye.x, frame.rightEye.y,
+                frame.eyeRadius.x, frame.eyeRadius.y);
+            mouth = new Vector4(frame.mouth.x, frame.mouth.y,
+                frame.mouthRadius.x, frame.mouthRadius.y);
+            intensity = BeautyIntensity;
+            mode = Mode == FunnyWarpMode.BeautyGlow ? 1 : 2;
+            return true;
         }
 
         public void Invalidate()

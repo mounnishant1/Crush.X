@@ -60,6 +60,19 @@ namespace CrushX.LensEngine
             }
         }
 
+        public void SetBeautyIntensity(string rawValue)
+        {
+            float strength;
+            if (float.TryParse(rawValue,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out strength))
+            {
+                LensEngineBootstrap e = GetEngine();
+                if (e != null) e.SetBeautyIntensity(strength);
+            }
+        }
+
         public void TakePhoto(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
