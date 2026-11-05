@@ -41,13 +41,14 @@ namespace CrushX.LensEngine
             tracking = gameObject.AddComponent<FaceTrackingManager>();
             ARFoundationFaceProvider deviceProvider = null;
             ARFaceManager faceManager = FindFirstObjectByType<ARFaceManager>();
+            ARCameraManager frontCamera = FindFirstObjectByType<ARCameraManager>();
+            if (frontCamera != null)
+                frontCamera.requestedFacingDirection =
+                    UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
             if (faceManager != null)
             {
                 deviceProvider = gameObject.AddComponent<ARFoundationFaceProvider>();
                 deviceProvider.FaceManager = faceManager;
-                ARCameraManager frontCamera = FindFirstObjectByType<ARCameraManager>();
-                if (frontCamera != null)
-                    frontCamera.requestedFacingDirection = UnityEngine.XR.ARFoundation.CameraFacingDirection.User;
                 tracking.SetProvider(deviceProvider);
                 // Coarse on-device ARCore face-mesh fallback for image warping.
                 // A precise MediaPipe landmark source can replace this later.
@@ -56,9 +57,6 @@ namespace CrushX.LensEngine
                 warpDriver.PreviewCamera = frontCamera != null ?
                     frontCamera.GetComponent<Camera>() : Camera.main;
                 warpDriver.Engine = this;
-                var mediaPipe = gameObject.AddComponent<ARCameraMediaPipeRunner>();
-                mediaPipe.CameraManager = frontCamera;
-                mediaPipe.Engine = this;
             }
 #if UNITY_EDITOR || UNITY_STANDALONE
             else
@@ -68,6 +66,15 @@ namespace CrushX.LensEngine
                 usingMock = true;
             }
 #endif
+            // MediaPipe camera image inference is independent of ARFaceManager.
+            // Some Android XR camera setups expose camera frames without a 3D
+            // AR face subsystem. Keep 2D image-space beauty/warp available.
+            if (frontCamera != null)
+            {
+                var mediaPipe = gameObject.AddComponent<ARCameraMediaPipeRunner>();
+                mediaPipe.CameraManager = frontCamera;
+                mediaPipe.Engine = this;
+            }
             if (Camera.main == null)
             {
                 var cam = new GameObject("CrushX Demo Camera");
