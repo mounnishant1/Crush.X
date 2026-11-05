@@ -10,6 +10,7 @@ namespace CrushX.LensEngine
     {
         private FaceTrackingManager tracking;
         private FunnyVoiceEffects voice;
+        private MultiFaceFunnyOverlay groupFaces;
         private FaceWarpFrameSource faceWarp;
         private readonly LiveFaceExpressionState expressions = new LiveFaceExpressionState();
         private bool preciseTrackingAvailable;
@@ -43,6 +44,8 @@ namespace CrushX.LensEngine
         {
             personalization = new LensPersonalization();
             voice = gameObject.AddComponent<FunnyVoiceEffects>();
+            groupFaces = gameObject.AddComponent<MultiFaceFunnyOverlay>();
+            groupFaces.Engine = this;
             faceWarp = gameObject.AddComponent<FaceWarpFrameSource>();
             trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
@@ -157,6 +160,13 @@ namespace CrushX.LensEngine
             preciseTrackingAvailable = available;
             expressions.Invalidate();
             if (faceWarp != null) faceWarp.Invalidate();
+            if (groupFaces != null) groupFaces.Invalidate();
+        }
+
+        public bool PushMultiFaceResult(string json)
+        {
+            return preciseTrackingAvailable && groupFaces != null &&
+                groupFaces.Apply(json, Time.realtimeSinceStartup);
         }
 
         public bool PushMediaPipeResult(string json)
