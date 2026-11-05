@@ -14,7 +14,7 @@ namespace CrushX.LensEngine
             if (screenWidth <= 0 || screenHeight <= 0 || scale <= 0) return 0;
             // Input touch coordinates start at lower-left, IMGUI starts at upper-left.
             if (start.y < 215f * scale ||
-                start.y > screenHeight - 185f * scale) return 0;
+                start.y > screenHeight - 255f * scale) return 0;
             Vector2 delta = end - start;
             if (Mathf.Abs(delta.x) < screenWidth * .16f ||
                 Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * .7f) return 0;
@@ -154,6 +154,21 @@ namespace CrushX.LensEngine
                     w - 136, 26), engine.BeautyIntensity, 0f, 1f);
                 if (Mathf.Abs(strength - engine.BeautyIntensity) > .001f)
                     engine.SetBeautyIntensity(strength);
+            }
+
+            if (engine.ActiveId != null &&
+                engine.ActiveId.StartsWith("funny-", System.StringComparison.Ordinal))
+            {
+                GUI.Label(new Rect(16, h - 273, 85, 27), "Voice", status);
+                if (GUI.Button(new Rect(103, h - 279, 66, 35), "Robot", tabButton))
+                    engine.SetVoiceMode("Robot");
+                if (GUI.Button(new Rect(175, h - 279, 60, 35), "Deep", tabButton))
+                    engine.SetVoiceMode("Deep");
+                if (GUI.Button(new Rect(241, h - 279, 64, 35), "Space", tabButton))
+                    engine.SetVoiceMode("Space");
+                if (GUI.Button(new Rect(w - 120, h - 279, 108, 35),
+                    engine.VoicePreviewRunning ? "Stop Mic" : "Start Mic", tabButton))
+                    engine.ToggleVoicePreview();
             }
 
             if (GUI.Button(new Rect(16, h - 138, 82, 68), "‹", button)) engine.Step(-1);
