@@ -9,6 +9,7 @@ namespace CrushX.LensEngine
     public sealed class LensEngineBootstrap : MonoBehaviour
     {
         private FaceTrackingManager tracking;
+        private FunnyVoiceEffects voice;
         private FaceWarpFrameSource faceWarp;
         private readonly LiveFaceExpressionState expressions = new LiveFaceExpressionState();
         private bool preciseTrackingAvailable;
@@ -32,10 +33,13 @@ namespace CrushX.LensEngine
         public float BeautyIntensity { get { return faceWarp != null ? faceWarp.BeautyIntensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
         public bool PreciseTrackingActive { get { return preciseTrackingAvailable; } }
+        public bool VoicePreviewRunning => voice != null && voice.IsPreviewRunning;
+        public FunnyVoiceMode ActiveVoiceMode => voice != null ? voice.Mode : FunnyVoiceMode.Off;
 
         private void Awake()
         {
             personalization = new LensPersonalization();
+            voice = gameObject.AddComponent<FunnyVoiceEffects>();
             faceWarp = gameObject.AddComponent<FaceWarpFrameSource>();
             trendFeed = new LensTrendFeed();
             tracking = gameObject.AddComponent<FaceTrackingManager>();
@@ -183,6 +187,22 @@ namespace CrushX.LensEngine
             if (faceWarp != null) faceWarp.Invalidate();
         }
 
+        public bool SetVoiceMode(string modeName)
+        {
+            return voice != null && voice.SetMode(modeName);
+        }
+
+        public bool ToggleVoicePreview()
+        {
+            if (voice == null) return false;
+            if (voice.IsPreviewRunning)
+            {
+                voice.StopPreview();
+                return false;
+            }
+            return voice.StartPreviewAfterConsent();
+        }
+
         public bool SelectLens(string id)
         {
             if (!LensCatalog.Find(id).HasValue) { Say("Lens not found"); return false; }
@@ -191,6 +211,8 @@ namespace CrushX.LensEngine
                 collection = "All";
                 RefreshVisible();
             }
+            if (voice != null && !id.StartsWith("funny-", StringComparison.Ordinal))
+                voice.StopPreview();
             if (faceWarp != null) faceWarp.SetLens(id);
             if (effect != null) Destroy(effect.gameObject);
             var go = new GameObject("Lens-" + id);
