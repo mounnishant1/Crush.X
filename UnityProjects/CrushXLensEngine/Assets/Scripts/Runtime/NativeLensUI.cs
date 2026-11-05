@@ -33,6 +33,7 @@ namespace CrushX.LensEngine
         private Texture2D dark;
         private Vector2 collectionScroll;
         private bool browseMenuOpen;
+        private bool pointerStartedInCollectionMenu;
 
         private void OnEnable() { EnhancedTouchSupport.Enable(); }
         private void OnDisable() { EnhancedTouchSupport.Disable(); }
@@ -59,10 +60,12 @@ namespace CrushX.LensEngine
                 {
                     activeTouchId = touch.touchId;
                     pointerDown = touch.screenPosition;
+                    pointerStartedInCollectionMenu = browseMenuOpen;
                 }
                 else if (touch.touchId == activeTouchId && touch.ended)
                 {
                     AdvanceIfSwipe(pointerDown, touch.screenPosition);
+                    pointerStartedInCollectionMenu = false;
                     activeTouchId = -1;
                 }
             }
@@ -74,11 +77,13 @@ namespace CrushX.LensEngine
                 if (Mouse.current.leftButton.wasPressedThisFrame)
                 {
                     pointerDown = Mouse.current.position.ReadValue();
+                    pointerStartedInCollectionMenu = browseMenuOpen;
                     mousePressed = true;
                 }
                 if (mousePressed && Mouse.current.leftButton.wasReleasedThisFrame)
                 {
                     AdvanceIfSwipe(pointerDown, Mouse.current.position.ReadValue());
+                    pointerStartedInCollectionMenu = false;
                     mousePressed = false;
                 }
             }
@@ -89,7 +94,7 @@ namespace CrushX.LensEngine
         {
             // The expanded category panel owns gestures; don't advance a
             // lens when the user swipes its options or closes the panel.
-            if (browseMenuOpen) return;
+            if (browseMenuOpen || pointerStartedInCollectionMenu) return;
             float scale = Mathf.Max(.6f, Mathf.Min(Screen.width / 440f, Screen.height / 900f));
             int direction = LensSwipeGesture.Direction(start, end, Screen.width, Screen.height, scale);
             if (direction != 0) engine.Step(direction);
