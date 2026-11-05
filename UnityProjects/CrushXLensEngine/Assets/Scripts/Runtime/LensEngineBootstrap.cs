@@ -26,6 +26,7 @@ namespace CrushX.LensEngine
 
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
+        public float WarpIntensity { get { return faceWarp != null ? faceWarp.Intensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
 
         private void Awake()
