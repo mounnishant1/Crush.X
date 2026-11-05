@@ -28,7 +28,7 @@ namespace CrushX.LensEngine
         void Animate(FaceSample face, float elapsedSeconds);
     }
 
-    public enum LensCategory { Animals, Beauty, SciFi, Fantasy, Funny, Aesthetic }
+    public enum LensCategory { Animals, Beauty, SciFi, Fantasy, Funny, Aesthetic, Alien }
 
     [Serializable]
     public struct LensManifest
