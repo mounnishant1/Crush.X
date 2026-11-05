@@ -151,7 +151,7 @@ function createPostgresContentStore({pool,verifyTrustedEvent,now=Date.now}={}){
     throw Error('PERSONALIZATION_CONSENT_REQUIRED');
    // Verify only after acquiring the consent-row lock: a reset/revoke that
    // erased a receipt can no longer be followed by a stale event insertion.
-   if(await verifyTrustedEvent({subject,event})!==true)
+   if(await verifyTrustedEvent({subject,event,db:client})!==true)
     throw Error('TRUSTED_EVENT_PROOF_REQUIRED');
    const prior=await client.query(
     'SELECT content_id,action FROM cx_content_events WHERE subject=$1 AND event_id=$2',
