@@ -174,6 +174,72 @@ namespace CrushX.LensEngine.Tests
         }
 
         [Test]
+        public void PerLensQuickSaveCreatesFolderAndMembershipInOneWrite()
+        {
+            string folderId;
+            Assert.IsTrue(store.TryCreateWithLens(
+                "My Beauty", "beauty-glow", out folderId));
+            Assert.IsTrue(LensCustomCollections.IsCustomId(folderId));
+            Assert.IsTrue(store.ContainsLens(folderId, "beauty-glow"));
+            Assert.AreEqual(1, store.Get(folderId).lensIds.Count);
+            Assert.AreEqual("beauty-glow", store.Get(folderId).lensIds[0]);
+            Assert.AreEqual(1, store.All().Count);
+            Assert.IsFalse(store.TryCreateWithLens(
+                "My Beauty", "beauty-glow", out folderId),
+                "Duplicate name must never create another folder");
+            Assert.AreEqual(1, store.All().Count);
+            Assert.IsFalse(store.TryCreateWithLens(
+                "Untrusted", "remote-ar-script", out folderId),
+                "Unknown lens must never leave an empty folder behind");
+            Assert.AreEqual(1, store.All().Count);
+        }
+
+        [Test]
+        public void PerLensMembershipCanBeSavedAcrossMultipleFoldersIndependently()
+        {
+            string first, second;
+            Assert.IsTrue(store.TryCreate("My Beauty", out first));
+            Assert.IsTrue(store.TryCreate("Party", out second));
+            Assert.IsTrue(store.AddLens(first, "beauty-glow"));
+            Assert.IsTrue(store.AddLens(second, "beauty-glow"));
+            Assert.IsTrue(store.ContainsLens(first, "beauty-glow"));
+            Assert.IsTrue(store.ContainsLens(second, "beauty-glow"));
+            Assert.IsFalse(store.AddLens(first, "beauty-glow"),
+                "Saved lens must not duplicate when pressed twice");
+            Assert.IsTrue(store.RemoveLens(first, "beauty-glow"));
+            Assert.IsFalse(store.ContainsLens(first, "beauty-glow"));
+            Assert.IsTrue(store.ContainsLens(second, "beauty-glow"));
+            Assert.AreEqual(37, LensCatalog.All.Count);
+        }
+
+        [Test]
+        public void QuickSaveMembershipRemainsIsolatedDuringAccountChanges()
+        {
+            string firstId;
+            Assert.IsTrue(store.TryCreateWithLens(
+                "Private party", "funny-jumbo-mouth", out firstId));
+            string secondAccount = accountName + "-switch";
+            try
+            {
+                Assert.IsTrue(prefs.ConfigureAccountScope(secondAccount));
+                Assert.IsFalse(store.ContainsLens(firstId, "funny-jumbo-mouth"));
+                string secondId;
+                Assert.IsTrue(store.TryCreateWithLens(
+                    "Another party", "funny-jumbo-mouth", out secondId));
+                Assert.IsTrue(store.ContainsLens(secondId, "funny-jumbo-mouth"));
+                Assert.IsTrue(prefs.ConfigureAccountScope(accountName));
+                Assert.IsTrue(store.ContainsLens(firstId, "funny-jumbo-mouth"));
+                Assert.IsFalse(store.ContainsLens(secondId, "funny-jumbo-mouth"));
+            }
+            finally
+            {
+                prefs.ConfigureAccountScope(secondAccount);
+                store.ClearAllCurrentAccountCollections();
+                prefs.ConfigureAccountScope(accountName);
+            }
+        }
+
+        [Test]
         public void SnapshotsCannotBeUsedToMutateStoreWithoutApi()
         {
             string id;
