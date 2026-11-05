@@ -35,6 +35,11 @@ test('ingests server-stored attested event only and audits metadata',async()=>{
  const r=await t.ingestor.ingest({workerCredential:'s'.repeat(40),eventId:t.event.eventId});
  assert.deepEqual({subject:r.subject,recorded:r.recorded},{subject:'alice',recorded:true});
  assert.equal(t.signed.size,1);
+ const before=t.signed.get('alice:'+t.event.eventId);
+ await t.ingestor.ingest({workerCredential:'s'.repeat(40),eventId:t.event.eventId});
+ const after=t.signed.get('alice:'+t.event.eventId);
+ assert.equal(after.signature,before.signature);
+ assert.equal(after.issuedAt,t.event.at);
  assert.equal(JSON.stringify(t.audits).includes('serverVerified'),false);
  assert.equal(JSON.stringify(t.audits).includes('watchFraction'),false);
 });
