@@ -107,7 +107,9 @@ class LensSafetyChecks(unittest.TestCase):
         self.assertIn("Mathf.Abs(delta.x) < width * .16f", toolkit)
         self.assertIn("multiTouchCancelled", toolkit)
         self.assertIn("Length.Percent(100)", toolkit)
-        self.assertIn("LensDiscovery.Collections", toolkit)
+        self.assertIn("RebuildCollectionButtons();", toolkit)
+        self.assertIn("Engine.CollectionKeys()", (SRC / "Runtime" /
+            "LensCameraProductionUI.CustomCollections.cs").read_text())
         self.assertIn("EnsureInstalledForCurrentScene()", editor)
         self.assertIn("new GameObject(\"CrushX Production Camera UI\")", editor)
         self.assertIn("CrushXLensProductionUISetup.EnsureInstalledForCurrentScene()", scene_tools)
@@ -129,6 +131,51 @@ class LensSafetyChecks(unittest.TestCase):
         self.assertIn("ConfigureAccountScope(string authenticatedAccountId)", engine)
         self.assertIn("SetLensAccountScope(string authenticatedAccountId)", receiver)
         self.assertIn("FavoritesAndRecentNeverLeakAcrossAuthenticatedAccounts", unity_tests)
+
+    def test_custom_collections_have_bounded_account_scoped_crud(self):
+        store = (SRC / "Runtime" / "LensCustomCollections.cs").read_text()
+        personalization = (SRC / "Runtime" / "LensPersonalization.cs").read_text()
+        discovery = (SRC / "Runtime" / "LensDiscovery.cs").read_text()
+        engine = (SRC / "Runtime" / "LensEngineBootstrap.cs").read_text()
+        self.assertIn("MaximumCollections = 20", store)
+        self.assertIn("MaximumLenses = 37", store)
+        self.assertIn("MaximumNameLength = 32", store)
+        self.assertIn("IsCustomId(string id)", store)
+        self.assertIn("LensCatalog.Find(lensId).HasValue", store)
+        self.assertIn("TryCreate(string name, out string id)", store)
+        for method in ("Rename", "Delete", "MoveCollection", "AddLens",
+                       "RemoveLens", "MoveLens"):
+            self.assertRegex(store, r"public bool " + method + r"\(")
+        self.assertIn("PlayerPrefs.GetString(owner.CollectionStorageKey", store)
+        self.assertIn("PlayerPrefs.SetString(owner.CollectionStorageKey", store)
+        self.assertIn("CollectionStorageKey", personalization)
+        self.assertIn("CustomCollections { get; private set; }", personalization)
+        self.assertIn("LensCustomCollections.IsCustomId(name)", discovery)
+        self.assertIn("personalization.CustomCollections.Get(name)", discovery)
+        self.assertIn("CreateCustomCollection(string name, out string id)", engine)
+        self.assertIn("CollectionRevision++", engine)
+
+    def test_custom_collections_camera_manager_is_connected(self):
+        ui = (SRC / "Runtime" / "LensCameraProductionUI.cs").read_text()
+        manager = (SRC / "Runtime" /
+                   "LensCameraProductionUI.CustomCollections.cs").read_text()
+        test = (ROOT / "Assets" / "Tests" / "EditMode" /
+                "LensCustomCollectionsTests.cs").read_text()
+        self.assertIn("sealed partial class LensCameraProductionUI", ui)
+        self.assertIn("BuildCustomManager(tabsRow);", ui)
+        self.assertIn("RebuildCollectionButtons();", ui)
+        self.assertIn("Engine.CollectionRevision", ui)
+        self.assertIn("public sealed partial class LensCameraProductionUI", manager)
+        self.assertIn("ToggleCustomManager", manager)
+        self.assertIn("Confirm delete", manager)
+        self.assertIn("CreateCollectionFromInput", manager)
+        self.assertIn("ReorderLensInCustomCollection", manager)
+        self.assertIn("ReorderCustomCollection", manager)
+        self.assertIn("RefreshSearchResults()", manager)
+        self.assertIn("AfterCollectionChange()", manager)
+        for required in ("MalformedStoreFailsClosed", "FolderPersistenceIsPerAccount",
+                         "LimitsPreventUnbounded", "SnapshotsCannotBeUsed"):
+            self.assertIn(required, test)
 
     def test_games_group_comedy_and_opt_in_voice(self):
         data = (SRC / "Lenses" / "FunnyLensGames.cs").read_text()

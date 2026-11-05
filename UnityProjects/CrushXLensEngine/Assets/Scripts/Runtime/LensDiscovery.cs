@@ -98,6 +98,15 @@ namespace CrushX.LensEngine
             return false;
         }
 
+        public static bool IsCollection(string name,
+            LensPersonalization personalization)
+        {
+            return IsCollection(name) ||
+                (personalization != null &&
+                 LensCustomCollections.IsCustomId(name) &&
+                 personalization.CustomCollections.Get(name) != null);
+        }
+
         private static bool FitsCategory(string collection, LensCategory category)
         {
             switch (collection)
@@ -127,7 +136,18 @@ namespace CrushX.LensEngine
             DateTimeOffset nowUtc, LensPersonalization personalization)
         {
             var output = new List<LensManifest>();
-            if (!IsCollection(name) || ranked == null) return output;
+            if (!IsCollection(name, personalization) || ranked == null)
+                return output;
+
+            if (LensCustomCollections.IsCustomId(name))
+            {
+                LensUserCollection folder = personalization.CustomCollections.Get(name);
+                if (folder == null) return output;
+                foreach (string id in folder.lensIds)
+                    foreach (LensManifest item in ranked)
+                        if (item.Id == id) { output.Add(item); break; }
+                return output;
+            }
 
             if (name == "Trending")
             {

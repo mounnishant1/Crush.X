@@ -16,6 +16,13 @@ namespace CrushX.LensEngine
         private const string Prefix = "crushx.lens.v03.";
         private const int MaximumRecent = 12;
         private string scope = "guest";
+        public LensCustomCollections CustomCollections { get; private set; }
+        internal string CollectionStorageKey { get { return Key("custom.collections"); } }
+
+        public LensPersonalization()
+        {
+            CustomCollections = new LensCustomCollections(this);
+        }
 
         public bool ConfigureAccountScope(string accountId)
         {
@@ -93,6 +100,8 @@ namespace CrushX.LensEngine
                 .ToList();
         }
 
+        // Clears only recent/favorites/ranking for this account; intentionally
+        // preserves explicitly saved custom folders until separately deleted.
         // Clears the CURRENT account scope only. Never clears other users.
         public void Reset()
         {
