@@ -31,6 +31,9 @@ namespace CrushX.LensEngine
 
         public string ActiveId { get { return activeId; } }
         public string ActiveCollection { get { return collection; } }
+        public int VisibleLensCount => visible != null ? visible.Count : 0;
+        public bool IsCurrentFavorite => personalization != null &&
+            !string.IsNullOrEmpty(activeId) && personalization.IsFavorite(activeId);
         public float WarpIntensity { get { return faceWarp != null ? faceWarp.Intensity : 0f; } }
         public float BeautyIntensity { get { return faceWarp != null ? faceWarp.BeautyIntensity : 0f; } }
         public bool TrackingActive { get { return tracking != null && tracking.IsTracking; } }
@@ -128,7 +131,8 @@ namespace CrushX.LensEngine
         private void RefreshVisible()
         {
             ranking = personalization.Ranked();
-            visible = LensDiscovery.Browse(collection, ranking, trendFeed, DateTimeOffset.UtcNow);
+            visible = LensDiscovery.Browse(collection, ranking, trendFeed, DateTimeOffset.UtcNow,
+                personalization);
         }
 
         public bool SetCollection(string name)
@@ -136,8 +140,17 @@ namespace CrushX.LensEngine
             if (!LensDiscovery.IsCollection(name)) return false;
             collection = name;
             RefreshVisible();
-            if (visible.Count == 0) { Say("No lenses available"); return false; }
-            if (visible.FindIndex(l => l.Id == activeId) < 0) SelectLens(visible[0].Id);
+            if (visible.Count == 0)
+            {
+                // Keep a working camera preview without silently leaving the
+                // selected empty collection or switching to a different tab.
+                Say(name == "Favorites" ? "Save a lens with the heart button" :
+                    name == "Recent" ? "Select any lens to fill Recent" :
+                    "No lenses in this collection");
+                return true;
+            }
+            if (visible.FindIndex(l => l.Id == activeId) < 0)
+                SelectLens(visible[0].Id);
             return true;
         }
 
@@ -264,9 +277,16 @@ namespace CrushX.LensEngine
         }
         public void ToggleFavorite()
         {
+            if (string.IsNullOrEmpty(activeId)) return;
             personalization.ToggleFavorite(activeId);
+            bool saved = personalization.IsFavorite(activeId);
             RefreshVisible();
-            Say(personalization.IsFavorite(activeId) ? "Saved to favorites" : "Removed from favorites");
+            if (collection == "Favorites" && !saved && visible.Count > 0 &&
+                visible.FindIndex(l => l.Id == activeId) < 0)
+                SelectLens(visible[0].Id);
+            Say(saved ? "Saved to favorites" :
+                collection == "Favorites" && visible.Count == 0 ?
+                    "Favorites empty — select All to browse" : "Removed from favorites");
         }
         public void ResetRanking()
         {

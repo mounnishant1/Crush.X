@@ -79,20 +79,59 @@ namespace CrushX.LensEngine
 
     public static class LensDiscovery
     {
+        // One canonical set for UI + Android receiver + search logic.
+        // Trending, Favorites and Recent are dynamic collections,
+        // not separate items added to the 37-lens source catalog.
+        public static readonly IReadOnlyList<string> Collections =
+            Array.AsReadOnly(new[] {
+                "All", "Beauty", "Alien", "Funny", "Trending",
+                "Animals", "Sci-Fi", "Fantasy", "Aesthetic",
+                "Favorites", "Recent"
+            });
+
         public static bool IsCollection(string name)
         {
-            return name == "All" || name == "Beauty" ||
-                   name == "Alien" || name == "Funny" || name == "Trending";
+            if (string.IsNullOrEmpty(name)) return false;
+            foreach (var collection in Collections)
+                if (string.Equals(collection, name, StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        private static bool FitsCategory(string collection, LensCategory category)
+        {
+            switch (collection)
+            {
+                case "Beauty": return category == LensCategory.Beauty;
+                case "Alien": return category == LensCategory.Alien;
+                case "Funny": return category == LensCategory.Funny;
+                case "Animals": return category == LensCategory.Animals;
+                case "Sci-Fi": return category == LensCategory.SciFi;
+                case "Fantasy": return category == LensCategory.Fantasy;
+                case "Aesthetic": return category == LensCategory.Aesthetic;
+                default: return false;
+            }
+        }
+
+        // Existing caller signature remains available; only the engine passes
+        // its local personalization instance for Favorites/Recent.
+        public static List<LensManifest> Browse(string name,
+            IReadOnlyList<LensManifest> ranked, LensTrendFeed trends,
+            DateTimeOffset nowUtc)
+        {
+            return Browse(name, ranked, trends, nowUtc, null);
         }
 
         public static List<LensManifest> Browse(string name,
-            IReadOnlyList<LensManifest> ranked, LensTrendFeed trends, DateTimeOffset nowUtc)
+            IReadOnlyList<LensManifest> ranked, LensTrendFeed trends,
+            DateTimeOffset nowUtc, LensPersonalization personalization)
         {
             var output = new List<LensManifest>();
-            if (!IsCollection(name)) return output;
+            if (!IsCollection(name) || ranked == null) return output;
 
             if (name == "Trending")
             {
+                if (trends == null) return output;
                 foreach (string id in trends.CurrentIds(nowUtc))
                 {
                     foreach (LensManifest item in ranked)
@@ -101,12 +140,21 @@ namespace CrushX.LensEngine
                 return output;
             }
 
+            if (name == "Recent")
+            {
+                if (personalization == null) return output;
+                foreach (string id in personalization.RecentIds())
+                    foreach (LensManifest item in ranked)
+                        if (item.Id == id) { output.Add(item); break; }
+                return output;
+            }
+
             foreach (LensManifest item in ranked)
             {
                 if (name == "All" ||
-                    (name == "Beauty" && item.Category == LensCategory.Beauty) ||
-                    (name == "Alien" && item.Category == LensCategory.Alien) ||
-                    (name == "Funny" && item.Category == LensCategory.Funny))
+                    (name == "Favorites" && personalization != null &&
+                        personalization.IsFavorite(item.Id)) ||
+                    FitsCategory(name, item.Category))
                     output.Add(item);
             }
             return output;
