@@ -63,6 +63,33 @@ class LensSafetyChecks(unittest.TestCase):
         self.assertIn("MaximumFrameAgeSeconds = .18f", body)
         self.assertIn("incoming.sequence <= lastSequence", body)
 
+    def test_all_seven_lens_categories_exist_in_camera_navigation(self):
+        discovery = (SRC / "Runtime" / "LensDiscovery.cs").read_text()
+        ui = (SRC / "Runtime" / "NativeLensUI.cs").read_text()
+        all_categories = [
+            "All", "Beauty", "Alien", "Funny", "Trending",
+            "Animals", "Sci-Fi", "Fantasy", "Aesthetic",
+            "Favorites", "Recent"
+        ]
+        for name in all_categories:
+            self.assertIn('"' + name + '"', discovery)
+        self.assertIn("LensDiscovery.Collections", ui)
+        self.assertIn("GUI.BeginScrollView", ui)
+        self.assertIn("browseMenuOpen", ui)
+        self.assertIn("pointerStartedInCollectionMenu", ui)
+        self.assertIn("visible.Count == 0", (SRC / "Runtime" / "LensEngineBootstrap.cs").read_text())
+
+    def test_favorites_and_recent_are_local_and_bounded(self):
+        prefs = (SRC / "Runtime" / "LensPersonalization.cs").read_text()
+        discovery = (SRC / "Runtime" / "LensDiscovery.cs").read_text()
+        self.assertIn("MaximumRecent = 12", prefs)
+        self.assertIn("RecentIds()", prefs)
+        self.assertIn("PlayerPrefs.DeleteKey(RecentKey)", prefs)
+        self.assertIn('name == "Favorites"', discovery)
+        self.assertIn('name == "Recent"', discovery)
+        self.assertTrue((ROOT / "Assets" / "Tests" / "EditMode" /
+                         "LensCollectionNavigationTests.cs").exists())
+
     def test_games_group_comedy_and_opt_in_voice(self):
         data = (SRC / "Lenses" / "FunnyLensGames.cs").read_text()
         self.assertIn("rearmed = false;", data)
