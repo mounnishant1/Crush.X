@@ -57,6 +57,16 @@ namespace CrushX.LensEngine
             {
                 IsTracking = initialized && Time.unscaledTime - lastGoodAt < TrackingTimeout;
                 if (!IsTracking) { initialized = false; Current = default; }
+                else
+                {
+                    // Short pose grace is useful for a smooth preview, but do not
+                    // replay stale mouth/blink events while the tracker has no frame.
+                    FaceSample held = Current;
+                    held.Valid = false;
+                    held.MouthOpen = 0;
+                    held.Blink = 0;
+                    Current = held;
+                }
             }
         }
     }
