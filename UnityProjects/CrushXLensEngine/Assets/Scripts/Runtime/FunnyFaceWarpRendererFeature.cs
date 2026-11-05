@@ -76,7 +76,12 @@ namespace CrushX.LensEngine
         {
             private readonly Material material;
             private RenderTextureDescriptor descriptor;
-            internal FunnyWarpPass(Material material) { this.material = material; }
+            internal FunnyWarpPass(Material material)
+            {
+                this.material = material;
+                // Force an intermediate target so a camera backbuffer is never sampled.
+                requiresIntermediateTexture = true;
+            }
 
             public override void RecordRenderGraph(RenderGraph renderGraph,
                 ContextContainer frameData)
