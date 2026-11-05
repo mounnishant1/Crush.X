@@ -67,13 +67,23 @@ namespace CrushX.LensEngine
         public static string NormalizeName(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return null;
-            string cleaned = name.Trim().Normalize(NormalizationForm.FormC);
+            string cleaned;
+            try { cleaned = name.Trim().Normalize(NormalizationForm.FormC); }
+            catch (ArgumentException) { return null; }
             if (cleaned.Length < 1 || cleaned.Length > MaximumNameLength) return null;
-            foreach (char c in cleaned)
+            for (int i = 0; i < cleaned.Length; i++)
             {
-                // Reject controls, invalid surrogate fragments, and misleading
-                // bidi overrides/isolate controls in collection labels.
-                if (char.IsControl(c) || char.IsSurrogate(c) ||
+                char c = cleaned[i];
+                // Permit valid emoji pairs, reject malformed surrogate
+                // fragments and invisible bidi overrides in visible names.
+                if (char.IsHighSurrogate(c))
+                {
+                    if (i + 1 >= cleaned.Length ||
+                        !char.IsLowSurrogate(cleaned[i + 1])) return null;
+                    i++;
+                    continue;
+                }
+                if (char.IsLowSurrogate(c) || char.IsControl(c) ||
                     (c >= '\u202A' && c <= '\u202E') ||
                     (c >= '\u2066' && c <= '\u2069'))
                     return null;
