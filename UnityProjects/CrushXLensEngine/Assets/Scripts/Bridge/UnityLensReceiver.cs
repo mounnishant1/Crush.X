@@ -22,6 +22,19 @@ namespace CrushX.LensEngine
             LensEngineBootstrap e = GetEngine();
             if (e != null) e.SelectLens(id);
         }
+        public void SetCollection(string collection)
+        {
+            LensEngineBootstrap e = GetEngine();
+            if (e != null) e.SetCollection(collection);
+        }
+        // The Android host must validate backend authorization before calling this method.
+        // The receiver itself cannot authenticate arbitrary UnitySendMessage senders.
+        public void ApplyTrendingFeed(string trustedJson)
+        {
+            LensEngineBootstrap e = GetEngine();
+            if (e != null && !e.ApplyTrustedTrendingFeed(trustedJson))
+                Debug.LogWarning("Rejected invalid or stale lens trend feed");
+        }
         public void TakePhoto(string ignored)
         {
             LensEngineBootstrap e = GetEngine();
