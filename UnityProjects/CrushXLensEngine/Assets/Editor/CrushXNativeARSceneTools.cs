@@ -12,10 +12,20 @@ namespace CrushX.LensEngine.Editor
 {
     public static class CrushXNativeARSceneTools
     {
+        // CI may generate this scene ONLY from an explicitly isolated checkout.
+        public static void CreateForIsolatedCI()
+        {
+            if (Environment.GetEnvironmentVariable("CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP") != "1")
+                throw new InvalidOperationException(
+                    "CRUSHX_ALLOW_DEBUG_AR_SCENE_SETUP=1 is required.");
+            CreateNativeAndroidScene();
+        }
+
         [MenuItem("CrushX/Lens Engine/Create Native Android AR Scene")]
         public static void CreateNativeAndroidScene()
         {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            if (!Application.isBatchMode &&
+                !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             // AR Foundation editor menu constructs XR Origin, camera, tracked-pose driver and AR background correctly.
             if (!EditorApplication.ExecuteMenuItem("GameObject/XR/AR Session"))
