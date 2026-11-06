@@ -101,7 +101,9 @@ function createDurableAdvisoryQueue({store,permissions,audit,consents,modelProvi
   if(!job||job.subject!==subject)throw Error('JOB_NOT_FOUND');
   // A previously finished suggestion must also disappear from API responses
   // after consent withdrawal, even before its TTL-based deletion.
-  const mayRead=job.status==='completed'&&
+  // Do not expose retained results after the requested retention window,
+  // even if a best-effort database cleanup worker has not yet purged them.
+  const mayRead=job.status==='completed'&&now()<job.expiresAt&&
     await consents.check({subject,scope:'ai:'+job.workflow})===true;
   return Object.freeze({...receipt(job),
    result:mayRead?{suggestion:decryptResult(job),workflow:job.workflow,
