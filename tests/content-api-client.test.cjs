@@ -57,3 +57,15 @@ test('client masks unexpected server errors and does not leak raw bodies',async(
    status:500,ok:false,text:async()=>JSON.stringify({error:'SECRET_INTERNAL_ERROR',details:'do not disclose'})})});
  await assert.rejects(client.getPreferences(),/CONTENT_REQUEST_FAILED/);
 });
+
+test('credential-provider errors are masked and no API request is attempted',async()=>{
+ let called=false;
+ const client=createContentApiClient({apiOrigin:origin,approvedOrigins:[origin],
+  getAccessToken:()=>{throw Error('PRIVATE_REFRESH_TOKEN_DETAILS');},
+  fetchImpl:async()=>{called=true;}});
+ await assert.rejects(client.getPreferences(),err=>{
+  assert.equal(err.message,'CONTENT_AUTH_REQUIRED');
+  return true;
+ });
+ assert.equal(called,false);
+});

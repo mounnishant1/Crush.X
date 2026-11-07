@@ -18,14 +18,23 @@
   if(typeof fetchImpl!=='function'||typeof getToken!=='function'||typeof enabled!=='function'||
    typeof now!=='function'||typeof sleep!=='function'||basePath!=='/v1/aura')
    throw TypeError('REMOTE_CLIENT_TRUSTED_CONFIG_REQUIRED');
+  const ACCESS_TOKEN=/^[A-Za-z0-9._-]{32,8192}$/;
   function configured(){
-   try{return enabled()===true&&typeof getToken()==='string'&&getToken().length>=32;}
-   catch{return false;}
+   try{
+    if(enabled()!==true)return false;
+    const token=getToken();
+    return typeof token==='string'&&ACCESS_TOKEN.test(token);
+   }catch{return false;}
   }
   async function request(path,{method='GET',data,signal}={}){
-   if(!configured())throw Error('AURA_BACKEND_NOT_CONFIGURED');
-   const token=getToken();
-   if(typeof token!=='string'||!/^[A-Za-z0-9._-]{32,8192}$/.test(token))
+   let active=false;
+   try{active=enabled()===true;}catch{/* fail closed */}
+   if(!active)throw Error('AURA_BACKEND_NOT_CONFIGURED');
+   // Read the access token exactly once for this request. A rotating token
+   // provider must not cause authorization checks and fetch to use different values.
+   let token;
+   try{token=getToken();}catch{throw Error('AURA_SESSION_REQUIRED');}
+   if(typeof token!=='string'||!ACCESS_TOKEN.test(token))
     throw Error('AURA_SESSION_REQUIRED');
    const headers={authorization:'Bearer '+token};
    if(data!==undefined)headers['content-type']='application/json';

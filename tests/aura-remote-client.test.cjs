@@ -58,3 +58,33 @@ test('server errors are sanitized and cannot inject confidential exception text'
   fetchImpl:async()=>({ok:false,json:async()=>({error:'secret user prompt and token'})})});
  await assert.rejects(client.grant('editor'),/AURA_API_UNAVAILABLE/);
 });
+
+test('single stable access token per request even if provider rotates',async()=>{
+ let reads=0;const sent=[];
+ const client=createClient({
+  enabled:()=>true,now:()=>1900000000000,
+  getToken:()=>{reads++;return reads===1?token:'expired';},
+  fetchImpl:async(_url,opts)=>{
+   sent.push(opts.headers.authorization);
+   return {ok:true,json:async()=>({granted:true,scope:'ai:editor',expiresAt:1900000900000})};
+  }
+ });
+ const result=await client.grant('editor');
+ assert.equal(result.granted,true);
+ assert.equal(reads,1,'each request must capture its access token once');
+ assert.deepEqual(sent,['Bearer '+token]);
+});
+test('invalid and throwing token providers fail closed without network access',async()=>{
+ let calls=0;
+ const fetchImpl=async()=>{calls++;throw Error('must not send');};
+ const invalid=createClient({enabled:()=>true,getToken:()=> 'x'.repeat(31),fetchImpl});
+ assert.equal(invalid.configured(),false);
+ await assert.rejects(invalid.status('editor'),/AURA_SESSION_REQUIRED/);
+ const throwing=createClient({enabled:()=>true,getToken:()=>{throw Error('private token provider error');},fetchImpl});
+ assert.equal(throwing.configured(),false);
+ await assert.rejects(throwing.grant('editor'),/AURA_SESSION_REQUIRED/);
+ const disabled=createClient({enabled:()=>{throw Error('private browser error');},getToken:()=>token,fetchImpl});
+ assert.equal(disabled.configured(),false);
+ await assert.rejects(disabled.status('editor'),/AURA_BACKEND_NOT_CONFIGURED/);
+ assert.equal(calls,0);
+});
