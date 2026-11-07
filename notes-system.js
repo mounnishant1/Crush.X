@@ -44,7 +44,7 @@
         </span><small>${note?'Your note':'Leave a note'}</small></button></div>
       <p class="cxn-disclaimer">Local preview only · Notes are not visible to other accounts yet.</p>
     </section>`;
-    return html.replace('<main>','<main>'+bar);
+    return html.replace(/<main\b[^>]*>/i, mainOpen => mainOpen + bar);
   };
 
   let dialog=null,draft=null,panel='',selected=[],priorFocus=null,sound=null,toastTimer=null;

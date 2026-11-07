@@ -1,0 +1,70 @@
+name: Crush.X whole-app mock feature audit
+on:
+  push:
+    branches:
+      - audit/whole-app-mock-smoke-20261107
+    paths:
+      - index.html
+      - '*.js'
+      - '*.css'
+      - 'operating-system/**'
+      - tests/whole-app-mock-smoke-browser.cjs
+      - .github/workflows/whole-app-mock.yml
+  pull_request:
+    paths:
+      - index.html
+      - '*.js'
+      - '*.css'
+      - 'operating-system/**'
+      - tests/whole-app-mock-smoke-browser.cjs
+      - .github/workflows/whole-app-mock.yml
+permissions:
+  contents: read
+jobs:
+  source-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate mock audit and real source tests
+        run: |
+          node --check tests/whole-app-mock-smoke-browser.cjs
+          node --test operating-system/tests/account-lifecycle.test.cjs
+          node --test tests/auth-android-inputs.test.cjs
+          node --test tests/dp-photo-viewer.test.cjs
+          node --test tests/notes-system.test.js
+          node tests/home-ui.cjs
+          node tests/experience-flows.cjs
+          node tests/social-interactions.cjs
+          node tests/social-advanced.cjs
+  preview-mock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated Playwright Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/crushx-whole-mock" --no-save --package-lock=false playwright@1.58.2
+          "$RUNNER_TEMP/crushx-whole-mock/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Start local preview HTTP server
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/whole-mock-http.log" 2>&1 &
+          curl --retry 10 --retry-delay 1 --retry-connrefused --fail --silent --show-error http://127.0.0.1:8000/ -o /dev/null
+      - name: Run all feature mocks and generate FAIL/BLOCKED/UNTESTED matrix
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-whole-mock/node_modules/playwright
+        run: node tests/whole-app-mock-smoke-browser.cjs
+      - name: Upload full evidence including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crushx-whole-app-mock-audit
+          path: mock-audit-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
