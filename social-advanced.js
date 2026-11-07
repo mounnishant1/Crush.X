@@ -146,7 +146,7 @@ function advancedHiddenManager(){
 }
 function advancedProfileModal(userId){
   const s=getState(),u=userById(s,userId);if(!u)return;
-  appDialog('@'+u.username+' · sample',`<div class="advanced-profile"><img src="${safeMediaUrl(u.avatar)}" alt=""><div><strong>@${escapeHTML(u.username)}</strong><p>${escapeHTML(u.fullName)}</p><small>${escapeHTML(u.info)}</small></div></div>
+  appDialog('@'+u.username+' · sample',`<div class="advanced-profile"><img data-cx-dp data-cx-dp-label="Photo of @${escapeHTML(u.username)}" src="${safeMediaUrl(u.avatar)}" alt=""><div><strong>@${escapeHTML(u.username)}</strong><p>${escapeHTML(u.fullName)}</p><small>${escapeHTML(u.info)}</small></div></div>
     <p class="social-disclaimer">Sample profile; not a remote account.</p>
     ${userId!==s.currentUserId?`<div class="social-item-actions"><button data-advanced-follow>${u.following?'Unfollow':'Follow'}</button><button data-advanced-dm>Open DM draft</button></div>`:''}
     <div class="advanced-collection-list">${[...s.posts,...s.reels].filter(p=>p.userId===userId).map(p=>`<button data-advanced-profile-item="${escapeHTML(p.id)}">${escapeHTML(p.caption.slice(0,80))}</button>`).join('')||'<p>No sample posts.</p>'}</div>`,dialog=>{

@@ -167,7 +167,7 @@ renderMessages = function(state) {
       '<p class="cx-message-warning">Local drafts only. Message delivery, calls and offline P2P are not connected.</p>' +
       '<div class="cx-chat-list">' + state.users.filter(item => item.id !== state.currentUserId).map(item =>
         '<button data-chat-user="' + escapeHTML(item.id) + '" class="cx-chat-row" type="button">' +
-        '<img src="' + safeMediaUrl(item.avatar) + '" alt="" loading="lazy"><span><strong>@' +
+        '<img data-cx-dp data-cx-dp-label="Photo of @' + escapeHTML(item.username) + '" src="' + safeMediaUrl(item.avatar) + '" alt="" loading="lazy"><span><strong>@' +
         escapeHTML(item.username) + '</strong><small>Open local draft</small></span></button>').join('') + '</div></main>';
   }
   const voiceUrl = cxVoiceDrafts.get(user.id);
@@ -414,7 +414,7 @@ renderDiscover = function(state) {
     <label class="explore-search"><i data-lucide="search" aria-hidden="true">⌕</i><input id="searchInput" value="${escapeHTML(state.searchQuery)}" maxlength="200" placeholder="Search people, posts, hashtags…" aria-label="Search local sample content"></label>
     <nav class="explore-filters" aria-label="Explore filters">${categories.map(([id,label])=>`<button data-explore-filter="${id}" aria-pressed="${appExploreFilter===id}">${label}</button>`).join('')}</nav>
     ${showTags?`<section class="explore-tags" aria-label="Sample hashtags"><h2>Hashtags</h2><div>${visibleTags.map(tag=>`<button data-explore-tag="${escapeHTML(tag)}">#${escapeHTML(tag)}</button>`).join('')||'<p>No matching hashtags in sample captions.</p>'}</div></section>`:''}
-    ${showPeople?`<section class="explore-people" aria-label="People"><h2>People</h2>${users.length?users.slice(0,appExploreFilter==='all'?5:30).map(user=>`<article><img src="${safeMediaUrl(user.avatar)}" alt=""><div><button class="cx-creator-link" data-profile-user="${escapeHTML(user.id)}" aria-label="Open ${escapeHTML(user.username)} sample profile">@${escapeHTML(user.username)}</button><small>${escapeHTML(user.fullName)}</small></div>${user.id===state.currentUserId?'<span>Sample persona</span>':`<button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${user.following}">${user.following?'Following':'Follow'}</button>`}</article>`).join(''):'<p>No matching sample people.</p>'}</section>`:''}
+    ${showPeople?`<section class="explore-people" aria-label="People"><h2>People</h2>${users.length?users.slice(0,appExploreFilter==='all'?5:30).map(user=>`<article><img data-cx-dp data-cx-dp-label="Photo of @${escapeHTML(user.username)}" src="${safeMediaUrl(user.avatar)}" alt=""><div><button class="cx-creator-link" data-profile-user="${escapeHTML(user.id)}" aria-label="Open ${escapeHTML(user.username)} sample profile">@${escapeHTML(user.username)}</button><small>${escapeHTML(user.fullName)}</small></div>${user.id===state.currentUserId?'<span>Sample persona</span>':`<button data-follow-user="${escapeHTML(user.id)}" aria-pressed="${user.following}">${user.following?'Following':'Follow'}</button>`}</article>`).join(''):'<p>No matching sample people.</p>'}</section>`:''}
     ${showMedia?`<section class="explore-media" aria-label="Explore media"><h2>${appExploreFilter==='reels'?'Reels':appExploreFilter==='posts'?'Posts':'Media'}</h2><div class="explore-grid">${media.map(item=>{
       const src=safeMediaUrl(item.source||item.image),video=item.mediaType==='video'||item.contentType?.startsWith('video/')||/\.(mp4|webm)(?:[?#]|$)/i.test(item.source||'');
       return `<button data-open-local-item="${escapeHTML(item.id)}"${cxGridTileAttributes(item, item.kind)} aria-label="Open sample ${item.kind}">${video?cxGridVideoMarkup(item, src):`<img src="${src}" alt="Sample ${item.kind} thumbnail">`}<span>${item.kind==='reel'?'Reel':'Post'}</span></button>`;
@@ -464,7 +464,7 @@ renderProfile = function(state) {
     return `<main class="cx-public-profile" aria-label="Profile of ${escapeHTML(user.username)}">
       <header class="cx-profile-toolbar"><button type="button" data-profile-back aria-label="Back to previous screen">← Back</button><h1>@${escapeHTML(user.username)}</h1></header>
       <section class="cx-public-overview">
-        <img class="cx-public-avatar" src="${safeMediaUrl(user.avatar)}" alt="" loading="lazy">
+        <img data-cx-dp data-cx-dp-label="Photo of @${escapeHTML(user.username)}" class="cx-public-avatar" src="${safeMediaUrl(user.avatar)}" alt="" loading="lazy">
         <div class="cx-public-info">
           <h2>${escapeHTML(user.fullName)}</h2>
           <p>@${escapeHTML(user.username)}</p>
@@ -508,7 +508,7 @@ renderReels = function(state) {
       </div>
       <div class="reel-repost-toast" data-repost-feedback="${id}" role="status" aria-live="polite" hidden></div>
       ${video?`<input class="reel-progress" data-reel-progress="${id}" aria-label="Reel playback position" type="range" min="0" max="1000" value="0" step="1">`:''}
-      <div class="reel-details"><div class="reel-creator"><img src="${safeMediaUrl(creator.avatar)}" alt=""><button data-profile-user="${escapeHTML(creator.id)}" aria-label="Open ${escapeHTML(creator.username)} sample profile">@${escapeHTML(creator.username)}</button>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
+      <div class="reel-details"><div class="reel-creator"><img data-cx-dp data-cx-dp-label="Photo of @${escapeHTML(creator.username)}" src="${safeMediaUrl(creator.avatar)}" alt=""><button data-profile-user="${escapeHTML(creator.id)}" aria-label="Open ${escapeHTML(creator.username)} sample profile">@${escapeHTML(creator.username)}</button>${creator.id!==state.currentUserId?`<button data-follow-user="${escapeHTML(creator.id)}" aria-pressed="${creator.following}">${creator.following?'Following':'Follow'}</button>`:''}</div>
       <p class="reel-caption">${formatText(reel.caption)}</p>
       ${reel.id==='reel_1'?`<div class="reel-content-controls"><button type="button" data-content-why="${id}" data-content-kind="reel">Why this Reel?</button><button type="button" data-content-hide="${id}" data-content-kind="reel">Not interested</button></div>`:''}
       <button data-reel-audio="${id}" class="reel-audio" aria-label="Audio details">${glyph('music-2','♫')} ${escapeHTML(reel.artist||'Original Audio')} · ${escapeHTML(reel.song||'Original Audio')}</button>
