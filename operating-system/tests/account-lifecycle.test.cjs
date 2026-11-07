@@ -10,6 +10,7 @@ const key=n=>'request_key_'+String(n).padStart(8,'0');
 function fixture(){
  let time=Date.UTC(2026,10,7,7,0,0);
  const store=createMemoryAccountStore();
+ store.provision('mod1',time);store.provision('safety1',time);
  const now=()=>time;
  const user={subject:'alice',roles:['user'],stepUpAt:time,mfaAt:null};
  const mod={subject:'mod1',roles:['moderator'],stepUpAt:time,mfaAt:time};
@@ -192,4 +193,25 @@ test('private API gate rejects JWT older than account restriction and mismatch',
  }}});
  await assert.rejects(guard.authorize({authorization:'Bearer '+token}),/ACCOUNT_RESTRICTED/);
  await assert.rejects(guard.authorize({authorization:'Bearer wrong'}),/UNAUTHENTICATED/);
+});
+
+test('restricted moderator is denied even with role and MFA',async()=>{
+ const f=fixture();await f.store.provision('alice',f.now());
+ await f.service.suspend({actor:f.safety,target:'mod1',kind:'temporary',
+  reasonCode:'policy_other',durationHours:1,idempotencyKey:key(31)});
+ await assert.rejects(f.service.suspend({actor:f.mod,target:'alice',
+  kind:'temporary',reasonCode:'spam',durationHours:1,idempotencyKey:key(32)}),
+  /MODERATOR_ACCOUNT_RESTRICTED/);
+});
+test('overlapping suspensions cannot silently reset an existing appeal',async()=>{
+ const f=fixture();await f.store.provision('alice',f.now());
+ await f.service.suspend({actor:f.mod,target:'alice',kind:'temporary',reasonCode:'spam',
+  durationHours:5,idempotencyKey:key(33)});
+ await f.service.appeal({actor:f.user,
+  text:'This case needs independent review; I want to contest it.',
+  idempotencyKey:key(34)});
+ await assert.rejects(f.service.suspend({actor:f.mod,target:'alice',
+  kind:'temporary',reasonCode:'harassment',durationHours:6,idempotencyKey:key(35)}),
+  /ALREADY_RESTRICTED/);
+ assert.equal((await f.service.status({actor:f.user})).suspension.appealStatus,'pending');
 });
