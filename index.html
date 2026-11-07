@@ -546,7 +546,7 @@
          durationMs: Number.isFinite(Number(story.durationMs)) && Number(story.durationMs) >= 2000 && Number(story.durationMs) <= 60000 ? Number(story.durationMs) : 0
       })));
       state.darkMode = raw.darkMode === true;
-      state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile'].includes(raw.activeTab) ? raw.activeTab : 'home';
+      state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile', 'camera'].includes(raw.activeTab) ? raw.activeTab : 'home';
       state.searchQuery = localText(raw.searchQuery, 200);
       state.currentUserId = 'me'; // Fixed sample persona; never a Cognito subject.
       state.chatUserId = localId(raw.chatUserId) && raw.chatUserId !== 'me' && userExists(raw.chatUserId) ? raw.chatUserId : null;
