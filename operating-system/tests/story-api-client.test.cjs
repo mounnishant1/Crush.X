@@ -49,3 +49,21 @@ test('Story client fails closed with no credentials, no backend, or explicit API
   fetchImpl:async()=>({ok:false,json:async()=>({error:'ACCESS_DENIED'})})});
  await assert.rejects(denied.read(storyId),/ACCESS_DENIED/);
 });
+
+test('Story client rejects malformed successful responses and masks credential provider failures',async()=>{
+ const bad=createClient({baseUrl:'https://api.crushx.in',getAccessToken:()=>token,
+  fetchImpl:async()=>({ok:true,json:async()=>null})});
+ await assert.rejects(bad.read(storyId),/STORY_INVALID_RESPONSE/);
+ const array=createClient({baseUrl:'https://api.crushx.in',getAccessToken:()=>token,
+  fetchImpl:async()=>({ok:true,json:async()=>([])})});
+ await assert.rejects(array.markViewed(storyId),/STORY_INVALID_RESPONSE/);
+ let sent=false;
+ const throwing=createClient({baseUrl:'https://api.crushx.in',
+  getAccessToken:()=>{throw Error('PRIVATE_CREDENTIAL_PROVIDER_DETAIL');},
+  fetchImpl:async()=>{sent=true;}});
+ await assert.rejects(throwing.read(storyId),err=>{
+  assert.equal(err.message,'STORY_AUTH_REQUIRED');
+  return true;
+ });
+ assert.equal(sent,false);
+});
