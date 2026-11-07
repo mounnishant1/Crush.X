@@ -19,8 +19,8 @@ const checks=[
   const user=page.locator('#usernameInput'),pass=page.locator('#passwordInput');
   assert.equal(await user.count(),1);assert.equal(await pass.count(),1);
   assert.equal(await user.isVisible(),true);
-  const css=await user.evaluate(e=>getComputedStyle(e));
-  assert.equal(css.boxShadow,'none','Auth fields must not have extra pink rings');
+  const shadow=await user.evaluate(e=>getComputedStyle(e).boxShadow);
+  assert.equal(shadow,'none','Auth fields must not have extra pink rings');
   await page.locator('#switchAuthButton').click();
   assert.equal(await page.locator('#emailInput').isVisible(),true);
   await page.locator('#switchAuthButton').click();
