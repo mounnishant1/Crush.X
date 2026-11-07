@@ -67,16 +67,18 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
   const dark=await user.evaluate(e=>{
    document.documentElement.classList.add('dark');
    document.body.classList.add('dark');
-   return {color:getComputedStyle(e).backgroundColor,
-    matches:e.matches('.dark #authOverlay .cx-auth-input'),
-    htmlClass:document.documentElement.className,
-    bodyClass:document.body.className,
-    styles:[...document.styleSheets].flatMap(s=>{
-      try{return [...s.cssRules].filter(r=>r.selectorText?.includes('.dark #authOverlay .cx-auth-input')).map(r=>r.cssText);}
-      catch{return [];}
-    })};
+   const style=getComputedStyle(e);
+   return {background:style.backgroundColor,boxShadow:style.boxShadow,
+    autofilled:e.matches(':-webkit-autofill'),
+    textFill:style.webkitTextFillColor};
   });
-  assert.equal(dark.color,'rgb(20, 30, 48)','Dark login field is neutral: '+JSON.stringify(dark));
+  // Chromium may report the UA autofill background as white even when the
+  // visible 1000px dark inset shadow correctly paints over the input.
+  assert.ok(dark.background==='rgb(20, 30, 48)'||
+   dark.boxShadow.includes('rgb(20, 30, 48)'),
+   'Dark input needs a neutral painted surface: '+JSON.stringify(dark));
+  assert.equal(dark.textFill,'rgb(248, 250, 252)',
+   'Dark input text must remain readable: '+JSON.stringify(dark));
   await page.evaluate(()=>{
    document.documentElement.classList.remove('dark');
    document.body.classList.remove('dark');
