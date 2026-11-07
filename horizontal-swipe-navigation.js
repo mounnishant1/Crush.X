@@ -8,6 +8,7 @@
   const ORDER = Object.freeze(['home','reels','messages','discover','profile']);
   const THRESHOLD = 72;
   let gesture = null;
+  let lastGesture = 'never';
   let stream = null;
   let facing = 'user';
   let cameraToken = 0;
@@ -58,7 +59,10 @@
   }
   function start(event) {
     gesture = null;
-    if (!authenticated() || event.touches.length !== 1 || !safeTarget(event.target)) return;
+    if (!authenticated() || event.touches.length !== 1 || !safeTarget(event.target)) {
+      lastGesture = 'start blocked: authenticated=' + authenticated() + ',touches=' + event.touches.length + ',safe=' + safeTarget(event.target) + ',target=' + event.target.tagName;
+      return;
+    }
     const touch = event.touches[0];
     // Native video timeline controls own touches near the bottom of a video.
     const video = event.target.closest('video[controls]');
@@ -68,6 +72,7 @@
     const tab = getState().activeTab;
     if (!ORDER.includes(tab) && tab !== 'camera') return;
     gesture = {x:touch.clientX,y:touch.clientY,id:touch.identifier,tab,at:Date.now()};
+    lastGesture = 'started '+tab+' at '+touch.clientX;
   }
   function move(event) {
     if (!gesture) return;
@@ -76,15 +81,19 @@
   function end(event) {
     const g=gesture;
     gesture=null;
-    if (!g || !authenticated() || event.changedTouches.length !== 1) return;
+    if (!g || !authenticated() || event.changedTouches.length !== 1) {
+      lastGesture = 'end blocked: gesture='+Boolean(g)+',auth='+authenticated()+',changed='+event.changedTouches.length;
+      return;
+    }
     const touch=event.changedTouches[0];
     if (touch.identifier !== g.id || Date.now()-g.at > 1600) return;
     const dx=touch.clientX-g.x,dy=touch.clientY-g.y;
-    if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy)*1.5) return;
+    if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy)*1.5) {lastGesture='too small '+dx+' '+dy;return;}
     // User may have navigated by click / browser back during the gesture.
-    if (getState().activeTab !== g.tab) return;
+    if (getState().activeTab !== g.tab) {lastGesture='tab changed '+getState().activeTab;return;}
     const next=nextTab(g.tab,dx);
-    if (!next) return;
+    if (!next) {lastGesture='no next '+g.tab+' '+dx;return;}
+    lastGesture = 'navigating '+g.tab+'->'+next;
     // This updates the single existing router and history. No duplicate screens.
     navigate(next);
     if (next === 'camera') void activateCamera();
@@ -226,5 +235,5 @@
   root.document.addEventListener('crushx:session-ended',stopCamera);
   root.addEventListener('pagehide',stopCamera);
   root.CrushXSwipeCamera=Object.freeze({render:renderCamera,activate:activateCamera,stop:stopCamera});
-  root.CrushXHorizontalTabs=Object.freeze({nextTab,order:ORDER});
+  root.CrushXHorizontalTabs=Object.freeze({nextTab,order:ORDER,debug:()=>lastGesture});
 })(window);
