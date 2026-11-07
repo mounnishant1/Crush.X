@@ -1,0 +1,141 @@
+/*
+ * Crush.X — Android-friendly authentication fields.
+ * One input = one border; no extra pink focus halo or pink autofill rectangle.
+ * Keeps real autofill, keyboard navigation and the original auth input IDs intact.
+ */
+#authOverlay {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#authOverlay .cx-auth-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  outline: none;
+  box-shadow: none;
+  background-color: #fff;
+  background-image: none;
+  color: #0f172a;
+  caret-color: #0f172a;
+  font: 500 16px/1.35 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: normal;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+/* JS toggles .hidden on signup/reset fields; keep that contract exact. */
+#authOverlay .cx-auth-input.hidden {
+  display: none;
+}
+
+#authOverlay .cx-auth-input::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+#authOverlay .cx-auth-input:focus,
+#authOverlay .cx-auth-input:focus-visible {
+  border: 2px solid #475569;
+  outline: none;
+  box-shadow: none;
+}
+
+/* A keyboard focus indicator, without a second colored rectangle. */
+@media (hover: hover) and (pointer: fine) {
+  #authOverlay .cx-auth-input:focus-visible {
+    border-color: #334155;
+  }
+}
+
+#authOverlay .cx-auth-input:disabled,
+#authOverlay .cx-auth-input[readonly] {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+/* Android Chrome/WebView autofill should not draw a pink or yellow overlay.
+ * Preserve password-manager and browser autofill functionality. */
+#authOverlay .cx-auth-input:-webkit-autofill,
+#authOverlay .cx-auth-input:-webkit-autofill:focus,
+#authOverlay .cx-auth-input:-webkit-autofill:hover {
+  -webkit-text-fill-color: #0f172a;
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  caret-color: #0f172a;
+  border-color: #64748b;
+}
+
+/* Dark mode uses matching surfaces rather than an extra bright box. */
+.dark #authOverlay .cx-auth-input {
+  background-color: #141e30;
+  color: #f8fafc;
+  border-color: #475569;
+  caret-color: #f8fafc;
+}
+
+.dark #authOverlay .cx-auth-input::placeholder {
+  color: #bdc6d6;
+}
+
+.dark #authOverlay .cx-auth-input:focus,
+.dark #authOverlay .cx-auth-input:focus-visible {
+  border-color: #b7c3d7;
+  box-shadow: none;
+  outline: none;
+}
+
+.dark #authOverlay .cx-auth-input:-webkit-autofill,
+.dark #authOverlay .cx-auth-input:-webkit-autofill:focus,
+.dark #authOverlay .cx-auth-input:-webkit-autofill:hover {
+  -webkit-text-fill-color: #f8fafc;
+  -webkit-box-shadow: 0 0 0 1000px #141e30 inset !important;
+  box-shadow: 0 0 0 1000px #141e30 inset !important;
+  caret-color: #f8fafc;
+}
+
+/* Avoid the automatic zoom that Android WebView and mobile browsers can
+ * apply to small font-size auth inputs. Scroll instead of clipping behind IME. */
+@media (max-width: 640px) {
+  #authOverlay {
+    padding: max(12px, env(safe-area-inset-top))
+             max(12px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom))
+             max(12px, env(safe-area-inset-left));
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  #authOverlay > .glass-strong {
+    margin: auto;
+    width: 100%;
+    padding: 22px 18px;
+    border-radius: 22px;
+  }
+
+  #authOverlay .cx-auth-input {
+    font-size: 16px;
+  }
+}
+
+@supports (height: 100dvh) {
+  #authOverlay {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #authOverlay .cx-auth-input { transition: none; }
+}
