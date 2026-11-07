@@ -138,14 +138,20 @@ test('Dynamo transaction couples state, audit, outbox and idempotency records',a
  assert.equal(requests[1].input.TransactItems.length,4);
  assert.equal(requests[1].input.TransactItems[0].Update.ConditionExpression,'#v = :oldVersion');
 });
+function fakeJWT(subject){
+ const b64=s=>Buffer.from(JSON.stringify(s)).toString('base64url');
+ return b64({alg:'RS256'})+'.'+b64({sub:subject,iat:Math.floor(Date.now()/1000)-30})+
+  '.'+'a'.repeat(48);
+}
+const ALICE_TOKEN=fakeJWT('alice'), MOD_TOKEN=fakeJWT('mod1');
 function apiFixture(f){
  return createAccountLambdaHandler({service:f.service,
-  verifyCredential:async token=>token==='a'.repeat(50)?{verified:true,subject:'alice'}:
-   token==='b'.repeat(50)?{verified:true,subject:'mod1'}:{verified:false},
+  verifyCredential:async token=>token===ALICE_TOKEN?{verified:true,subject:'alice'}:
+   token===MOD_TOKEN?{verified:true,subject:'mod1'}:{verified:false},
   getSecurityContext:async ({subject})=>subject==='alice'?f.refresh(f.user):f.refresh(f.mod),
   rateLimit:async()=>true,allowedOrigins:['https://crushx.in']});
 }
-function event(path,method='GET',body={},token='a'.repeat(50),headers={}){
+function event(path,method='GET',body={},token=ALICE_TOKEN,headers={}){
  return {rawPath:path,requestContext:{http:{method}},
   headers:{authorization:'Bearer '+token,...headers,...(method==='POST'?
    {'content-type':'application/json','idempotency-key':key(11)}:{})},
@@ -156,7 +162,7 @@ test('HTTP auth, origin allowlist, trusted subject and action route',async()=>{
  const api=apiFixture(f);
  assert.equal((await api.handle(event('/v1/account/status'))).statusCode,200);
  assert.equal((await api.handle(event('/v1/account/status','GET',{},'invalid'))).statusCode,401);
- assert.equal((await api.handle(event('/v1/account/status','GET',{},'a'.repeat(50),
+ assert.equal((await api.handle(event('/v1/account/status','GET',{},ALICE_TOKEN,
   {origin:'https://evil.example'}))).statusCode,403);
  const resp=await api.handle(event('/v1/account/deactivate','POST',{}));
  assert.equal(resp.statusCode,200);
