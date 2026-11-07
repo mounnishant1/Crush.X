@@ -1,0 +1,33 @@
+/* Account lifecycle — high contrast, responsive, reduced-motion aware. */
+.cx-account-overlay{position:fixed;inset:0;z-index:950;background:#f8f8fc;color:#151528;
+ display:flex;flex-direction:column;overflow:hidden;padding-top:env(safe-area-inset-top);
+ padding-bottom:env(safe-area-inset-bottom);}
+.dark .cx-account-overlay{background:#101220;color:#f9f6ff}
+.cx-account-overlay button,.cx-account-overlay input,.cx-account-overlay textarea{font:inherit}
+.cx-account-head{display:flex;align-items:center;gap:1rem;padding:1rem;
+ border-bottom:1px solid rgba(120,120,140,.3);min-height:64px;}
+.cx-account-head strong{font-size:1.02rem}
+.cx-account-body{overflow:auto;overscroll-behavior:contain;flex:1;
+ padding:1rem 1rem 3rem;display:flex;justify-content:center;}
+.cx-account-section{width:100%;max-width:620px;display:flex;flex-direction:column;gap:1rem;}
+.cx-account-section h2{font-size:1.45rem;font-weight:800;margin:.4rem 0;}
+.cx-account-status{font-weight:850;font-size:1.12rem;letter-spacing:.05em}
+.cx-account-notice{line-height:1.6;padding:1rem;border-radius:1rem;
+ background:rgba(130,100,180,.07);border:1px solid rgba(120,100,160,.3);}
+.cx-account-error{line-height:1.5;color:#b91c1c;}
+.dark .cx-account-error{color:#ffa2a2}
+.cx-account-action{cursor:pointer;text-align:center;border-radius:.9rem;min-height:46px;
+ padding:.65rem 1rem;border:1px solid rgba(110,110,130,.35);
+ background:#6925bd;color:white;font-weight:750;transition:transform .14s ease,opacity .14s ease;}
+.cx-account-head .cx-account-action{background:transparent;color:inherit}
+.cx-account-action:hover:not(:disabled){transform:translateY(-1px)}
+.cx-account-action:disabled{opacity:.55;cursor:not-allowed}
+.cx-account-action:focus-visible,.cx-account-overlay textarea:focus-visible,.cx-account-overlay input:focus-visible{
+ outline:3px solid #dd37ac;outline-offset:3px;}
+.cx-account-confirm{display:flex;align-items:center;gap:.5rem;line-height:1.5}
+.cx-account-confirm input{height:20px;width:20px}
+.cx-account-appeal-label{display:flex;flex-direction:column;gap:.7rem;font-weight:700}
+.cx-account-appeal{resize:vertical;width:100%;max-width:100%;border-radius:.9rem;
+ padding:.8rem;border:1px solid #777;background:#fff;color:#181827;font-weight:400}
+.dark .cx-account-appeal{background:#1f2130;color:#fff;border-color:#81849e}
+@media(prefers-reduced-motion:reduce){.cx-account-overlay *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
