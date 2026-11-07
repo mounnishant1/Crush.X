@@ -72,6 +72,7 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     });
     await page.waitForFunction(()=>CrushXReelOptions.status().activeReelId==='cx_hide_5',null,{timeout:4000});
     const fifth=slides.nth(4);
+    await page.waitForFunction(()=>{const e=document.querySelector('.reel-slide[data-reel-slide="cx_hide_5"] [data-reel-mute]');return e&&getComputedStyle(e).visibility==='visible'&&e.getBoundingClientRect().height>0;},null,{timeout:2500});
     assert.equal(await fifth.locator('[data-reel-mute]').isVisible(),true);
     await page.waitForFunction(()=>getComputedStyle(document.querySelector('.reel-slide[data-reel-slide="cx_hide_5"] [data-reel-speed]')).visibility==='hidden',null,{timeout:5000});
     assert.equal(await fifth.locator('[data-reel-mute]').isVisible(),false);
