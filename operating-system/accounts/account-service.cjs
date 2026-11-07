@@ -65,6 +65,19 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
    err('ACCESS_DENIED',403);
   return publicStatus(await read(who),now());
  }
+ async function reviewCase({actor,target}){
+  if(!isObject(actor)||!Array.isArray(actor.roles)||
+   !actor.roles.some(r=>['moderator','safety_admin'].includes(r)))err('ACCESS_DENIED',403);
+  validateActor(actor,now(),{mfa:true});
+  if(!validSubject(target))err('INVALID_ACCOUNT');
+  const account=await read(target);
+  if(!account)err('ACCOUNT_NOT_FOUND',404);
+  const m=account.moderation;
+  return {subject:target,status:effectiveStatus(account,now()),caseId:m.caseId,
+   kind:m.kind,reasonCode:m.reasonCode,appliedAt:m.appliedAt,expiresAt:m.expiresAt,
+   appeal:m.appeal?{id:m.appeal.id,text:m.appeal.text,submittedAt:m.appeal.submittedAt,
+    status:m.appeal.status,reviewedAt:m.appeal.reviewedAt||null}:null};
+ }
  async function requireActive({subject,issuedAt}){
   const account=await read(subject);
   if(!account||effectiveStatus(account,now())!=='ACTIVE')err('ACCOUNT_RESTRICTED',403);
@@ -200,7 +213,7 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
     return {revoke:false,caseId};
    }});
  }
- return Object.freeze({status,requireActive,deactivate,reactivate,suspend,appeal,reinstate,
+ return Object.freeze({status,reviewCase,requireActive,deactivate,reactivate,suspend,appeal,reinstate,
   rejectAppeal,newAccount,publicStatus});
 }
 module.exports=Object.freeze({createAccountService,newAccount,publicStatus,effectiveStatus,AccountError});
