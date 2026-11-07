@@ -104,7 +104,7 @@ const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
   for(let i=0;i<6;i++){
     const slide=slides.nth(i);
     assert.equal(await slide.locator('.reel-rail').count(),1,'Action rail missing on Reel '+(i+1));
-    for(const sel of ['[data-like]','[data-comment-focus]','[data-share]','[data-repost]','[data-save]']){
+    for(const sel of ['[data-like]','[data-advanced-comments]','[data-social-share]','[data-repost]','[data-save]']){
       assert.equal(await slide.locator('.reel-rail '+sel).count(),1,sel+' missing on Reel '+(i+1));
     }
     assert.equal(await slide.locator('.reel-rail').evaluate(e=>getComputedStyle(e).visibility),'visible');
