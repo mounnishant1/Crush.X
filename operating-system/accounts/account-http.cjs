@@ -69,11 +69,13 @@ function createAccountLambdaHandler({service,verifyCredential,getSecurityContext
      return response(200,await service.appeal({actor,text:data.text,idempotencyKey}));
     throw new AccountError('NOT_FOUND',404);
    }
-   const match=/^\/v1\/moderation\/accounts\/([A-Za-z0-9._:@-]{2,160})\/(status|suspend|reinstate|reject-appeal)$/.exec(path);
+   const match=/^\/v1\/moderation\/accounts\/([A-Za-z0-9._:@-]{2,160})\/(status|review|suspend|reinstate|reject-appeal)$/.exec(path);
    if(!match)throw new AccountError('NOT_FOUND',404);
    const target=match[1],action=match[2];
    if(method==='GET'&&action==='status')
     return response(200,await service.status({actor,target}));
+   if(method==='GET'&&action==='review')
+    return response(200,await service.reviewCase({actor,target}));
    if(method!=='POST')throw new AccountError('METHOD_NOT_ALLOWED',405);
    if(action==='suspend')
     return response(200,await service.suspend({actor,target,kind:data.kind,
