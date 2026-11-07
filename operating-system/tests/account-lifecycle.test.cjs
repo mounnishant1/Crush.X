@@ -5,6 +5,7 @@ const {createAccountService}=require('../accounts/account-service.cjs');
 const {createMemoryAccountStore}=require('../accounts/memory-store.cjs');
 const {createDynamoAccountStore}=require('../accounts/dynamo-store.cjs');
 const {createAccountLambdaHandler}=require('../accounts/account-http.cjs');
+const {createAccountAccessGuard}=require('../accounts/account-guard.cjs');
 const key=n=>'request_key_'+String(n).padStart(8,'0');
 function fixture(){
  let time=Date.UTC(2026,10,7,7,0,0);
@@ -165,4 +166,30 @@ test('HTTP admin operation cannot be self-issued with body role spoofing',async(
  const res=await api.handle(event('/v1/moderation/accounts/alice/suspend','POST',
   {kind:'temporary',reasonCode:'spam',durationHours:2,role:'safety_admin'}));
  assert.equal(res.statusCode,403);
+});
+
+test('moderator can read submitted case with MFA but ordinary users cannot',async()=>{
+ const f=fixture();await f.store.provision('alice',f.now());
+ await f.service.suspend({actor:f.mod,target:'alice',kind:'temporary',reasonCode:'spam',
+  durationHours:2,idempotencyKey:key(19)});
+ await f.service.appeal({actor:f.user,text:'I believe this suspension was a mistake, please review.',
+  idempotencyKey:key(20)});
+ const review=await f.service.reviewCase({actor:f.mod,target:'alice'});
+ assert.equal(review.appeal.status,'pending');
+ assert.equal(review.appeal.text.includes('mistake'),true);
+ await assert.rejects(f.service.reviewCase({actor:f.user,target:'alice'}),/ACCESS_DENIED/);
+});
+test('private API gate rejects JWT older than account restriction and mismatch',async()=>{
+ const iat=Math.floor(Date.now()/1000)-60;
+ const encode=s=>Buffer.from(JSON.stringify(s)).toString('base64url');
+ const token=encode({alg:'RS256'})+'.'+encode({sub:'alice',iat})+'.'+
+  'fake-signature-long-enough-for-this-isolated-test';
+ const guard=createAccountAccessGuard({verifyCredential:async input=>({
+  verified:input===token,subject:'alice',expiresAt:Date.now()+3600000
+ }),accountService:{requireActive:async ({subject,issuedAt})=>{
+  assert.equal(subject,'alice');assert.equal(issuedAt,iat*1000);
+  throw Error('ACCOUNT_RESTRICTED');
+ }}});
+ await assert.rejects(guard.authorize({authorization:'Bearer '+token}),/ACCOUNT_RESTRICTED/);
+ await assert.rejects(guard.authorize({authorization:'Bearer wrong'}),/UNAUTHENTICATED/);
 });
