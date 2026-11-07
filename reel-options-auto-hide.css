@@ -1,0 +1,50 @@
+/* Crush.X Reels: optional controls are briefly introduced then disappear.
+   Principal Like / Comment / Share / Save actions stay reachable. */
+.reel-slide .reel-rail [data-cx-reel-extra] {
+  opacity:1;
+  visibility:visible;
+  max-height:70px;
+  transition:opacity .2s ease, max-height .2s ease, visibility .2s ease;
+}
+.reel-slide.cx-reel-extra-hidden .reel-rail [data-cx-reel-extra] {
+  opacity:0;
+  visibility:hidden;
+  max-height:0;
+  height:0;
+  min-height:0;
+  padding-block:0;
+  margin-block:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.reel-slide .reel-rail .cx-reel-more-trigger {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  min-height:44px;
+  width:53px;
+  gap:0;
+  color:#fff;
+  background:transparent;
+  font-size:11px;
+  text-shadow:0 1px 5px #000;
+}
+.reel-slide .cx-reel-more-trigger span:first-child {
+  display:block;
+  font-size:24px;
+  font-weight:700;
+  letter-spacing:1px;
+  line-height:19px;
+}
+.reel-slide .cx-reel-more-trigger:focus-visible {
+  outline:2px solid #fff;
+  outline-offset:-2px;
+  border-radius:10px;
+}
+@media (prefers-reduced-motion:reduce) {
+  .reel-slide .reel-rail [data-cx-reel-extra] {
+    transition:none;
+  }
+}
