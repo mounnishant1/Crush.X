@@ -115,7 +115,8 @@
 
 /* Dark mode uses matching surfaces rather than an extra bright box. */
 .dark #authOverlay .cx-auth-input {
-  background-color: #141e30;
+  background-color: #141e30 !important;
+  background-image: none !important;
   color: #f8fafc;
   border-color: #475569;
   caret-color: #f8fafc;
