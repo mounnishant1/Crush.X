@@ -234,10 +234,24 @@ const assets = Object.fromEntries(['https://cdn.tailwindcss.com', 'https://unpkg
     await page.locator('main video').evaluate(video => video.pause());
     // Step 4: reel scrub, global mute, and non-destructive hold controls.
     assert.equal(await page.locator('[data-reel-progress="video_test"]').count(), 1);
+    if (!(await page.locator('[data-reel-mute="video_test"]').isVisible())) {
+      await page.locator('[data-reel-slide="video_test"] [data-cx-reel-more]').click();
+      await page.waitForFunction(() => {
+        const control=document.querySelector('[data-reel-mute="video_test"]');
+        return !!control && getComputedStyle(control).visibility==='visible' && control.getBoundingClientRect().height>0;
+      });
+    }
     await page.locator('[data-reel-mute="video_test"]').click();
     assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), false, 'Unmute should enable video sound');
     await page.evaluate(() => renderApp());
     assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), false, 'Re-render preserves sound choice');
+    if (!(await page.locator('[data-reel-mute="video_test"]').isVisible())) {
+      await page.locator('[data-reel-slide="video_test"] [data-cx-reel-more]').click();
+      await page.waitForFunction(() => {
+        const control=document.querySelector('[data-reel-mute="video_test"]');
+        return !!control && getComputedStyle(control).visibility==='visible' && control.getBoundingClientRect().height>0;
+      });
+    }
     await page.locator('[data-reel-mute="video_test"]').click();
     assert.equal(await page.locator('[data-reel-video="video_test"]').evaluate(v => v.muted), true, 'Re-mute affects all reel videos');
     await page.evaluate(() => {

@@ -3,12 +3,15 @@ on:
   push:
     branches:
       - audit/whole-app-mock-smoke-20261107
+      - feature/horizontal-tab-camera-reel-controls-20261107
     paths:
       - index.html
       - '*.js'
       - '*.css'
       - 'operating-system/**'
       - tests/whole-app-mock-smoke-browser.cjs
+      - tests/horizontal-nav-browser.cjs
+      - tests/reel-options-auto-hide-browser.cjs
       - .github/workflows/whole-app-mock.yml
   pull_request:
     paths:
@@ -17,6 +20,8 @@ on:
       - '*.css'
       - 'operating-system/**'
       - tests/whole-app-mock-smoke-browser.cjs
+      - tests/horizontal-nav-browser.cjs
+      - tests/reel-options-auto-hide-browser.cjs
       - .github/workflows/whole-app-mock.yml
 permissions:
   contents: read
@@ -32,6 +37,10 @@ jobs:
       - name: Validate mock audit and real source tests
         run: |
           node --check tests/whole-app-mock-smoke-browser.cjs
+          node --check tests/horizontal-nav-browser.cjs
+          node --check tests/reel-options-auto-hide-browser.cjs
+          node --check reel-options-auto-hide.js
+          node --check horizontal-swipe-navigation.js
           node --test operating-system/tests/account-lifecycle.test.cjs
           node --test tests/auth-android-inputs.test.cjs
           node --test tests/dp-photo-viewer.test.cjs
@@ -59,7 +68,10 @@ jobs:
       - name: Run all feature mocks and generate FAIL/BLOCKED/UNTESTED matrix
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-whole-mock/node_modules/playwright
-        run: node tests/whole-app-mock-smoke-browser.cjs
+        run: |
+          node tests/whole-app-mock-smoke-browser.cjs
+          node tests/horizontal-nav-browser.cjs
+          node tests/reel-options-auto-hide-browser.cjs
       - name: Upload full evidence including failures
         if: always()
         uses: actions/upload-artifact@v4

@@ -9,6 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="./app-experience.css" />
+  <link rel="stylesheet" href="./horizontal-swipe-navigation.css" />
+  <link rel="stylesheet" href="./reel-options-auto-hide.css" />
   <link rel="stylesheet" href="./search-reference-flow.css" />
   <link rel="stylesheet" href="./unified-player.css" />
   <link rel="stylesheet" href="./monochrome-player-icons.css" />
@@ -544,7 +546,7 @@
          durationMs: Number.isFinite(Number(story.durationMs)) && Number(story.durationMs) >= 2000 && Number(story.durationMs) <= 60000 ? Number(story.durationMs) : 0
       })));
       state.darkMode = raw.darkMode === true;
-      state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile'].includes(raw.activeTab) ? raw.activeTab : 'home';
+      state.activeTab = ['home', 'messages', 'create', 'discover', 'reels', 'profile', 'camera'].includes(raw.activeTab) ? raw.activeTab : 'home';
       state.searchQuery = localText(raw.searchQuery, 200);
       state.currentUserId = 'me'; // Fixed sample persona; never a Cognito subject.
       state.chatUserId = localId(raw.chatUserId) && raw.chatUserId !== 'me' && userExists(raw.chatUserId) ? raw.chatUserId : null;
@@ -1401,6 +1403,7 @@
       if (state.activeTab === 'discover') view = renderDiscover(state);
       if (state.activeTab === 'reels') view = renderReels(state);
       if (state.activeTab === 'profile') view = renderProfile(state);
+      if (state.activeTab === 'camera') view = window.CrushXSwipeCamera?.render() || '<main><p>Camera preview is unavailable.</p></main>';
 
       document.getElementById('app').innerHTML = `
         <div class="app-shell mx-auto max-w-screen-2xl px-3 pb-28 pt-3 sm:px-5">
@@ -1638,7 +1641,7 @@
       } catch (error) { hideLoader(); showAuthMessage(error.message); }
     }
 
-    const validTabs = ['home', 'messages', 'create', 'discover', 'reels', 'profile'];
+    const validTabs = ['home', 'messages', 'create', 'discover', 'reels', 'profile', 'camera'];
     function navigate(tab, chatUserId = null, push = true) {
       if (!validTabs.includes(tab)) tab = 'home';
       const state = getState();
@@ -1752,5 +1755,7 @@
   <script src="./monochrome-player-icons.js"></script>
   <script src="./publishing-status.js"></script>
   <script src="./dp-photo-viewer.js"></script>
+  <script src="./horizontal-swipe-navigation.js"></script>
+  <script src="./reel-options-auto-hide.js"></script>
 </body>
 </html>

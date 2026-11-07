@@ -1,0 +1,143 @@
+/* Touch navigation and explicitly permission-gated local Camera preview. */
+.cx-swipe-camera {
+  color:#fff;
+  background:#080a10;
+  min-height:100dvh;
+  width:100%;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  touch-action:pan-y;
+}
+body.cx-camera-route #app .app-shell {
+  max-width:none !important;
+  width:100%;
+  padding:0 !important;
+}
+body.cx-camera-route #app .app-header,
+body.cx-camera-route #app .sample-hint,
+body.cx-camera-route #app #appStatus,
+body.cx-camera-route #app .bottom-nav {
+  display:none !important;
+}
+.cx-swipe-camera-top {
+  position:absolute;
+  top:0;left:0;right:0;
+  z-index:5;
+  min-height:72px;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:linear-gradient(#000b,transparent);
+}
+.cx-swipe-camera-top button {
+  border:1px solid #ffffff55;
+  border-radius:99px;
+  min-width:46px;
+  min-height:44px;
+  padding:6px 12px;
+  background:#0008;
+}
+.cx-swipe-camera-top button:disabled {opacity:.45}
+.cx-swipe-camera-stage {
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:#070a11;
+  touch-action:pan-y;
+}
+.cx-swipe-camera-stage video {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  background:#070a11;
+}
+.cx-swipe-camera-photo {
+  position:absolute;
+  top:calc(env(safe-area-inset-top) + 83px);
+  right:16px;
+  width:80px;
+  max-height:150px;
+  overflow:hidden;
+  border-radius:10px;
+  border:1px solid #ffffff88;
+  pointer-events:none;
+}
+.cx-swipe-camera-photo:empty {display:none}
+.cx-swipe-camera-photo img {display:block;width:100%;height:auto}
+.cx-swipe-camera-note {
+  position:absolute;
+  bottom:205px;
+  left:14px;right:14px;
+  font-size:12px;
+  color:#fffd;
+  text-align:center;
+  text-shadow:0 1px 4px #000;
+  pointer-events:none;
+}
+.cx-swipe-camera-bottom {
+  position:absolute;
+  bottom:0;
+  left:0;right:0;
+  z-index:5;
+  padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,#000f);
+}
+.cx-swipe-camera-bottom [data-cx-camera-status] {
+  font-size:13px;
+  text-align:center;
+  min-height:2.5em;
+  margin-bottom:12px;
+}
+.cx-swipe-camera-actions {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:24px;
+}
+.cx-swipe-camera-actions button {
+  min-height:44px;
+  padding:10px 16px;
+  border:1px solid #ffffff77;
+  border-radius:18px;
+  color:white;
+  background:#232736;
+}
+.cx-swipe-camera-actions [data-cx-camera-shutter] {
+  width:78px;
+  height:78px;
+  min-height:78px;
+  font-size:48px;
+  line-height:1;
+  border:5px solid #fff;
+  background:#fff3;
+  border-radius:50%;
+}
+.cx-swipe-camera-actions button:disabled {opacity:.45}
+.cx-swipe-camera-hint {text-align:center;font-size:12px;color:#fff9;margin-top:15px}
+@media (max-width:639px) {
+  .cx-swipe-camera {min-height:100dvh}
+}
+/* Each Reel owns its controls, including after multiple vertical swipes.
+   No Shop button is fabricated when real commerce is not connected. */
+.reel-slide > .reel-rail {
+  z-index:6;
+  pointer-events:auto;
+}
+.reel-slide > .cx-reel-friend-tabs {
+  z-index:6;
+}
+@media (prefers-reduced-motion:reduce) {
+  .cx-swipe-camera,
+  .cx-swipe-camera-stage {scroll-behavior:auto}
+}
+
+/* Keep the 260ms directional screen slide inside the app's viewport;
+   no horizontal page scrollbar, and no sideways movement of bottom tabs. */
+@media (max-width: 1199px) {
+  #app {overflow-x:clip}
+}
