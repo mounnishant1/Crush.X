@@ -47,7 +47,7 @@ const checks=[
  {feature:'Reels player',level:'browser-mock',run:async({page,openApp})=>{
   await openApp('reels');
   assert.ok(await page.locator('.reel-slide').count()>0);
-  assert.equal(await page.locator('main .reels-deck').count(),1);
+  assert.equal(await page.locator('main.reels-deck').count(),1);
  }},
  {feature:'Explore/search',level:'browser-mock',run:async({page,openApp})=>{
   await openApp('discover');
@@ -120,7 +120,7 @@ const checks=[
   await openApp('home');
   await page.locator('#activityButton').click();
   assert.ok(await page.locator('dialog.app-dialog').count()>0);
-  assert.match(await page.locator('dialog.app-dialog').textContent(),/local activity preview/i);
+  assert.match(await page.locator('dialog.app-dialog').textContent(),/local simulation only.*not connected/i);
  }},
  {feature:'Live sandbox / no broadcast',level:'browser-mock',run:async({page,openApp})=>{
   await openApp('profile');
