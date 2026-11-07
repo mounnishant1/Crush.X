@@ -9,7 +9,7 @@
   const EXTRA_SELECTOR = [
     '[data-reel-speed]', '[data-reel-mute]', '[data-repost]',
     '[data-reel-shop]', '[data-cx-reel-shop]', '[data-shop]',
-    '[data-reel-options]', '[data-cx-reel-optional]'
+    '[data-reel-options]', '[data-advanced-reel-menu]', '[data-cx-reel-optional]'
   ].join(',');
   let deck=null, activeKey='', revealed=true, hideAt=0, timer=null, pendingFrame=null;
 
