@@ -1,0 +1,118 @@
+/* Crush.X fullscreen profile-photo viewer (source UI, not an Android SDK).
+ * Photo tap -> fullscreen, two fingers -> pinch zoom, finger drag -> pan.
+ */
+img[data-cx-dp]{
+ cursor:zoom-in;
+ -webkit-tap-highlight-color:transparent;
+}
+img[data-cx-dp][role="button"]:focus-visible{
+ outline:3px solid #cbd5e1;
+ outline-offset:3px;
+}
+.cx-dp-overlay{
+ position:fixed;
+ inset:0;
+ width:100%;
+ height:100dvh;
+ max-height:100dvh;
+ z-index:10050;
+ display:flex;
+ flex-direction:column;
+ overflow:hidden;
+ background:#080a10;
+ color:#f9fafb;
+ padding-top:env(safe-area-inset-top,0px);
+ padding-bottom:env(safe-area-inset-bottom,0px);
+ box-sizing:border-box;
+ animation:cx-dp-appear .16s ease-out both;
+}
+@keyframes cx-dp-appear{
+ from{opacity:0}
+ to{opacity:1}
+}
+.cx-dp-head{
+ min-height:54px;
+ display:flex;
+ align-items:center;
+ gap:14px;
+ flex:0 0 auto;
+ padding:6px max(12px,env(safe-area-inset-left,12px));
+ border-bottom:1px solid rgba(255,255,255,.14);
+ background:rgba(12,14,22,.98);
+}
+.cx-dp-title{font-size:15px;font-weight:750}
+.cx-dp-control{
+ min-width:44px;
+ min-height:44px;
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ cursor:pointer;
+ padding:8px 13px;
+ font:700 15px/1 system-ui,sans-serif;
+ border-radius:13px;
+ border:1px solid rgba(255,255,255,.3);
+ background:rgba(255,255,255,.1);
+ color:#fff;
+ user-select:none;
+ -webkit-user-select:none;
+}
+.cx-dp-back{font-size:23px;padding:5px 12px;border-color:transparent;background:transparent}
+.cx-dp-control:focus-visible{
+ outline:3px solid #fff;
+ outline-offset:2px;
+}
+.cx-dp-control:active{transform:scale(.96)}
+.cx-dp-stage{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ position:relative;
+ flex:1 1 0;
+ min-height:0;
+ width:100%;
+ overflow:hidden;
+ background:#080a10;
+ touch-action:none;
+ overscroll-behavior:contain;
+ user-select:none;
+ -webkit-user-select:none;
+ cursor:grab;
+}
+.cx-dp-stage[data-scale="1"]{cursor:zoom-in}
+.cx-dp-stage:active{cursor:grabbing}
+.cx-dp-photo{
+ width:100%;
+ height:100%;
+ max-width:100%;
+ max-height:100%;
+ object-fit:contain;
+ display:block;
+ transform-origin:center center;
+ will-change:transform;
+ pointer-events:none;
+ -webkit-user-drag:none;
+ user-select:none;
+ -webkit-user-select:none;
+}
+.cx-dp-photo[hidden],.cx-dp-error[hidden]{display:none}
+.cx-dp-error{font:500 14px/1.6 system-ui,sans-serif;text-align:center}
+.cx-dp-footer{
+ flex:0 0 auto;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:12px;
+ padding:12px max(12px,env(safe-area-inset-right,12px));
+ border-top:1px solid rgba(255,255,255,.13);
+ background:rgba(12,14,22,.99);
+}
+.cx-dp-level{font-size:13px;font-variant-numeric:tabular-nums;min-width:54px;text-align:center}
+@media(max-width:380px){
+ .cx-dp-footer{gap:8px}
+ .cx-dp-control{min-width:42px;padding-inline:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .cx-dp-overlay{animation:none}
+ .cx-dp-control:active{transform:none}
+}
