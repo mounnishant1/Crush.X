@@ -30,7 +30,7 @@ def aws_read(service, action, *, profile, region, options=()):
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {}, type(exc).__name__
     if completed.returncode:
-        match = re.search(r"\\(([A-Za-z][A-Za-z0-9]+)\\) when calling", completed.stderr)
+        match = re.search(r"\(([A-Za-z][A-Za-z0-9]+)\) when calling", completed.stderr)
         return {}, match.group(1) if match else "AWS_COMMAND_FAILED"
     try:
         result = json.loads(completed.stdout)
@@ -138,7 +138,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     values = (args.profile, args.region, args.account, args.api_id, args.lambda_name)
-    if not all(SAFE_ID.fullmatch(v) for v in values) or not re.fullmatch(r"\\d{12}", args.account):
+    if not all(SAFE_ID.fullmatch(v) for v in values) or not re.fullmatch(r"\d{12}", args.account):
         parser.error("Invalid AWS identifier")
     result = evaluate(profile=args.profile, region=args.region, account=args.account,
                       api_id=args.api_id, lambda_name=args.lambda_name)
