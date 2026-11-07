@@ -57,6 +57,22 @@
     }
     return true;
   }
+  function animateSlide(dx) {
+    const main=root.document.querySelector('#app main');
+    if (!main || typeof main.animate!=='function') return;
+    if (root.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    // A real directional screen transition: finger left -> next screen enters
+    // from the right; finger right -> screen enters from the left.
+    // Do not animate the whole app shell: headers/menus stay interactive.
+    const from=dx<0?'100%':'-100%';
+    try {
+      main.animate([
+        {transform:'translate3d('+from+',0,0)',opacity:0.85},
+        {transform:'translate3d(0,0,0)',opacity:1}
+      ],{duration:260,easing:'cubic-bezier(.22,1,.36,1)',fill:'none'});
+    } catch { /* Web Animations unavailable: keep navigation functional. */ }
+  }
+
   function start(event) {
     gesture = null;
     if (!authenticated() || event.touches.length !== 1 || !safeTarget(event.target)) {
@@ -96,6 +112,7 @@
     lastGesture = 'navigating '+g.tab+'->'+next;
     // This updates the single existing router and history. No duplicate screens.
     navigate(next);
+    animateSlide(dx);
     if (next === 'camera') void activateCamera();
   }
 
