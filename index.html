@@ -1401,6 +1401,7 @@
       if (state.activeTab === 'discover') view = renderDiscover(state);
       if (state.activeTab === 'reels') view = renderReels(state);
       if (state.activeTab === 'profile') view = renderProfile(state);
+      if (state.activeTab === 'camera') view = window.CrushXSwipeCamera?.render() || '<main><p>Camera preview is unavailable.</p></main>';
 
       document.getElementById('app').innerHTML = `
         <div class="app-shell mx-auto max-w-screen-2xl px-3 pb-28 pt-3 sm:px-5">
@@ -1638,7 +1639,7 @@
       } catch (error) { hideLoader(); showAuthMessage(error.message); }
     }
 
-    const validTabs = ['home', 'messages', 'create', 'discover', 'reels', 'profile'];
+    const validTabs = ['home', 'messages', 'create', 'discover', 'reels', 'profile', 'camera'];
     function navigate(tab, chatUserId = null, push = true) {
       if (!validTabs.includes(tab)) tab = 'home';
       const state = getState();
@@ -1752,5 +1753,7 @@
   <script src="./monochrome-player-icons.js"></script>
   <script src="./publishing-status.js"></script>
   <script src="./dp-photo-viewer.js"></script>
+  <script src="./horizontal-swipe-navigation.js"></script>
+  <link rel="stylesheet" href="./horizontal-swipe-navigation.css" />
 </body>
 </html>
