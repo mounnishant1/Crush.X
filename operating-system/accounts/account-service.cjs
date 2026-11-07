@@ -57,18 +57,22 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
   if(!validSubject(subject))err('INVALID_ACCOUNT');
   return store.get(subject);
  }
+ async function requireModerator(actor,{mfa=false}={}){
+  if(!isObject(actor)||!validSubject(actor.subject)||!Array.isArray(actor.roles)||
+   !actor.roles.some(r=>['moderator','safety_admin'].includes(r)))err('ACCESS_DENIED',403);
+  if(mfa)validateActor(actor,now(),{mfa:true});
+  const account=await read(actor.subject);
+  if(!account||effectiveStatus(account,now())!=='ACTIVE')
+   err('MODERATOR_ACCOUNT_RESTRICTED',403);
+ }
  async function status({actor,target}){
   if(!isObject(actor)||!validSubject(actor.subject))err('UNAUTHENTICATED',401);
   const who=target||actor.subject;
-  if(who!==actor.subject&&!Array.isArray(actor.roles))err('ACCESS_DENIED',403);
-  if(who!==actor.subject&&!actor.roles.some(r=>['moderator','safety_admin'].includes(r)))
-   err('ACCESS_DENIED',403);
+  if(who!==actor.subject)await requireModerator(actor);
   return publicStatus(await read(who),now());
  }
  async function reviewCase({actor,target}){
-  if(!isObject(actor)||!Array.isArray(actor.roles)||
-   !actor.roles.some(r=>['moderator','safety_admin'].includes(r)))err('ACCESS_DENIED',403);
-  validateActor(actor,now(),{mfa:true});
+  await requireModerator(actor,{mfa:true});
   if(!validSubject(target))err('INVALID_ACCOUNT');
   const account=await read(target);
   if(!account)err('ACCOUNT_NOT_FOUND',404);
@@ -109,7 +113,7 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
     version:next.version,requestHash:fingerprint};
    const outbox={eventId:response.eventId,at,subject:target,
     actions:outcome.revoke?['REVOKE_SESSIONS','ACCOUNT_STATUS_NOTICE']:['ACCOUNT_STATUS_NOTICE'],
-    status:response.status};
+    status:response.status,version:next.version};
    try{
     await store.commit({target,expectedVersion:original.version,next,audit,outbox,
      idempotencyKey,fingerprint,response});
@@ -142,9 +146,7 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
  }
  async function suspend({actor,target,kind,reasonCode,durationHours,idempotencyKey,approvalId}){
   if(!isObject(actor)||target===actor.subject)err('SELF_MODERATION_DENIED',403);
-  if(!Array.isArray(actor.roles)||!actor.roles.includes('moderator')&&!actor.roles.includes('safety_admin'))
-   err('ACCESS_DENIED',403);
-  validateActor(actor,now(),{mfa:true});
+  await requireModerator(actor,{mfa:true});
   if(!REASONS.has(reasonCode)||!['temporary','permanent'].includes(kind))err('INVALID_SUSPENSION');
   if(kind==='temporary'&&(!Number.isInteger(durationHours)||durationHours<1||durationHours>720))
    err('INVALID_DURATION');
@@ -157,7 +159,7 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
   return mutate({target,actor,idempotencyKey,operation:'moderation.suspend',
    payload:{kind,reasonCode,durationHours:kind==='temporary'?durationHours:null,approvalId:approvalId||null},
    plan:(a,at)=>{
-    if(a.moderation.kind==='permanent')err('ALREADY_BANNED',409);
+    if(moderationActive(a,at))err('ALREADY_RESTRICTED',409);
     const caseId=randomUUID();
     a.moderation={kind,caseId,reasonCode,appliedAt:at,
      expiresAt:kind==='temporary'?at+durationHours*3600000:null,appeal:null};
@@ -180,10 +182,8 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
    }});
  }
  async function reinstate({actor,target,caseId,decision,idempotencyKey}){
-  validateActor(actor,now(),{mfa:true});
-  if(target===actor.subject)err('SELF_MODERATION_DENIED',403);
-  if(!Array.isArray(actor.roles)||!actor.roles.some(r=>['moderator','safety_admin'].includes(r)))
-   err('ACCESS_DENIED',403);
+  if(target===actor?.subject)err('SELF_MODERATION_DENIED',403);
+  await requireModerator(actor,{mfa:true});
   if(!['appeal_accepted','moderator_reversal'].includes(decision)||typeof caseId!=='string')
    err('INVALID_REINSTATEMENT');
   return mutate({target,actor,idempotencyKey,operation:'moderation.reinstate',
@@ -201,9 +201,8 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
    }});
  }
  async function rejectAppeal({actor,target,caseId,idempotencyKey}){
-  validateActor(actor,now(),{mfa:true});
-  if(target===actor.subject||!Array.isArray(actor.roles)||
-   !actor.roles.some(r=>['moderator','safety_admin'].includes(r)))err('ACCESS_DENIED',403);
+  if(target===actor?.subject)err('ACCESS_DENIED',403);
+  await requireModerator(actor,{mfa:true});
   return mutate({target,actor,idempotencyKey,operation:'moderation.reject_appeal',payload:{caseId},
    plan:(a,at)=>{
     if(a.moderation.caseId!==caseId||a.moderation.appeal?.status!=='pending')
