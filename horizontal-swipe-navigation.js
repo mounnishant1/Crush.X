@@ -31,7 +31,11 @@
   function safeTarget(target) {
     if (!(target instanceof root.Element)) return false;
     if (!target.closest('#app main')) return false;
-    if (root.document.querySelector('dialog[open], [aria-modal="true"]')) return false;
+    // Login overlays can keep aria-modal=true while display:none; only a VISIBLE modal owns gestures.
+    if ([...root.document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(modal => {
+      const cs=root.getComputedStyle(modal);
+      return cs.display!=='none' && cs.visibility!=='hidden' && modal.getClientRects().length>0;
+    })) return false;
     // Let controls, Stories, gallery carousels, horizontal scrollers and media
     // editors own their gestures. A horizontal swipe on blank Reel visual is OK.
     if (target.closest([
