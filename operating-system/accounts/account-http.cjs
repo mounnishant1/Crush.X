@@ -2,12 +2,14 @@
 // AWS HTTP API v2 Lambda handler factory; credentials and step-up evidence are server-derived.
 // This file does not deploy routes or change Cognito settings.
 const {AccountError}=require('./account-service.cjs');
+const {createAccountAccessGuard}=require('./account-guard.cjs');
 const ID=/^[A-Za-z0-9._:@-]{2,160}$/;
 function createAccountLambdaHandler({service,verifyCredential,getSecurityContext,rateLimit,allowedOrigins=[]}={}){
  if(!service||typeof verifyCredential!=='function'||typeof getSecurityContext!=='function'||
  typeof rateLimit!=='function'||!Array.isArray(allowedOrigins))
   throw TypeError('ACCOUNT_HTTP_ADAPTERS_REQUIRED');
  const methods='GET,POST,OPTIONS',allowHeaders='authorization,content-type,idempotency-key';
+ const accessGuard=createAccountAccessGuard({verifyCredential,accountService:service});
  const respond=(status,data,origin)=>({
   statusCode:status,headers:{'content-type':'application/json; charset=utf-8',
    'cache-control':'no-store','x-content-type-options':'nosniff',
@@ -35,6 +37,9 @@ function createAccountLambdaHandler({service,verifyCredential,getSecurityContext
    const verified=await verifyCredential(auth[1]);
    if(verified?.verified!==true||!ID.test(verified.subject||''))
     throw new AccountError('UNAUTHENTICATED',401);
+   // Restricted moderators and stale pre-restriction JWTs cannot use admin routes.
+   if(path.startsWith('/v1/moderation/accounts/'))
+    await accessGuard.authorize({authorization:hdr.authorization});
    const security=await getSecurityContext({subject:verified.subject,principal:verified});
    // This adapter MUST use server-stored session/MFA challenge results, not request fields.
    const actor={subject:verified.subject,roles:security?.roles||[],
