@@ -35,10 +35,10 @@ test('pinch, pan, double-tap, desktop wheel, keyboard and reset are implemented'
  assert.match(js,/MAX=5/);
  assert.match(css,/touch-action:none/);
  assert.match(js,/setPointerCapture/);
- assert.match(js,/classList/); // NOTE: this assertion is replaced in CI if needed.
+ assert.match(js,/setZoom\(/);
 });
 test('viewer fails closed on unsafe image schemes, no server mutations or file writes',()=>{
  assert.match(js,/url\.protocol==='https:'|url\.protocol === 'https:'/);
  assert.doesNotMatch(js,/fetch\s*\(|XMLHttpRequest|localStorage|sessionStorage/);
- assert.match(js,/getAttribute\('aria-label'/);
+ assert.match(js,/setAttribute\('aria-label'/);
 });
