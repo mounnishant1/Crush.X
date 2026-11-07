@@ -1,0 +1,38 @@
+name: Account lifecycle isolated checks
+on:
+  push:
+    branches:
+      - feature/account-suspend-reactivate-appeals-20261107
+    paths:
+      - 'operating-system/accounts/**'
+      - 'operating-system/tests/account-lifecycle.test.cjs'
+      - 'account-lifecycle-panel.*'
+      - 'app-os-integration.*'
+      - '.github/workflows/account-lifecycle-ci.yml'
+  pull_request:
+    paths:
+      - 'operating-system/accounts/**'
+      - 'operating-system/tests/account-lifecycle.test.cjs'
+      - 'account-lifecycle-panel.*'
+      - 'app-os-integration.*'
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: |
+          node --check operating-system/accounts/account-service.cjs
+          node --check operating-system/accounts/memory-store.cjs
+          node --check operating-system/accounts/dynamo-store.cjs
+          node --check operating-system/accounts/account-http.cjs
+          node --check account-lifecycle-panel.js
+          node --check app-os-integration.js
+      - name: Run lifecycle security regressions
+        run: node --test operating-system/tests/account-lifecycle.test.cjs
