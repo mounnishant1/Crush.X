@@ -128,10 +128,10 @@ function createAccountService({store,now=Date.now,verifySecondApproval}={}){
    }});
  }
  async function suspend({actor,target,kind,reasonCode,durationHours,idempotencyKey,approvalId}){
-  validateActor(actor,now(),{mfa:true});
-  if(target===actor.subject)err('SELF_MODERATION_DENIED',403);
+  if(!isObject(actor)||target===actor.subject)err('SELF_MODERATION_DENIED',403);
   if(!Array.isArray(actor.roles)||!actor.roles.includes('moderator')&&!actor.roles.includes('safety_admin'))
    err('ACCESS_DENIED',403);
+  validateActor(actor,now(),{mfa:true});
   if(!REASONS.has(reasonCode)||!['temporary','permanent'].includes(kind))err('INVALID_SUSPENSION');
   if(kind==='temporary'&&(!Number.isInteger(durationHours)||durationHours<1||durationHours>720))
    err('INVALID_DURATION');
