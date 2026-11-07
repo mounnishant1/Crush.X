@@ -46,7 +46,7 @@ function socialOpenFriends(id){
   const s=getState(),item=socialItem(s,id);if(!item)return;
   const friends=socialFriends(s,id);
   appDialog('Sample friends who liked',`<p class="social-disclaimer">Demo activity only, not verified real friend likes.</p>
-    <div class="social-friend-list">${friends.map(u=>`<div class="social-friend-row"><img src="${safeMediaUrl(u.avatar)}" alt=""><div><strong>@${escapeHTML(u.username)}</strong><small>Sample like</small></div><button type="button" data-social-friend-reply="${escapeHTML(u.id)}">Reply</button></div>`).join('')||'<p>No followed sample friends for this item.</p>'}</div>`,dialog=>{
+    <div class="social-friend-list">${friends.map(u=>`<div class="social-friend-row"><img data-cx-dp data-cx-dp-label="Photo of @${escapeHTML(u.username)}" src="${safeMediaUrl(u.avatar)}" alt=""><div><strong>@${escapeHTML(u.username)}</strong><small>Sample like</small></div><button type="button" data-social-friend-reply="${escapeHTML(u.id)}">Reply</button></div>`).join('')||'<p>No followed sample friends for this item.</p>'}</div>`,dialog=>{
     dialog.querySelectorAll('[data-social-friend-reply]').forEach(b=>b.addEventListener('click',()=>{const user=b.dataset.socialFriendReply;dialog.close();socialFriendReply(id,user);}));
   });
 }
