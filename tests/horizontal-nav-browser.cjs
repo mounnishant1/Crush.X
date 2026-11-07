@@ -50,7 +50,7 @@ const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
   },{dx,dy,targetSelector});
 
   // On Home, swipe LEFT must open Camera. Never pretend native Unity AR is running.
-  assert.equal((await swipe(-174)).tab,'camera');
+  assert.equal((await swipe(-174)).tab,'camera',await page.evaluate(()=>CrushXHorizontalTabs.debug()));
   assert.equal(await page.locator('main.cx-swipe-camera').count(),1);
   assert.match(await page.locator('[data-cx-camera-status]').textContent(),/denied|requesting/i);
   assert.equal(await page.evaluate(()=>window.__cameraRequests),1,'Camera permission requested by deliberate swipe');
