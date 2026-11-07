@@ -57,10 +57,12 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     assert.equal(await toggle.isVisible(),true,'More must stay visible');
     assert.equal(await toggle.getAttribute('aria-expanded'),'false');
     await toggle.click();
+    await page.waitForFunction(()=>{const e=document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"] [data-reel-speed]');return e&&getComputedStyle(e).visibility==='visible'&&e.getBoundingClientRect().height>0;},null,{timeout:2500});
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),true,'More reopens extra actions');
     assert.equal(await toggle.getAttribute('aria-expanded'),'true');
     await page.waitForFunction(()=>getComputedStyle(document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"] [data-reel-speed]')).visibility==='hidden',null,{timeout:5000});
     await first.locator('.reel-visual').click({position:{x:150,y:220},force:true});
+    await page.waitForFunction(()=>{const e=document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"] [data-reel-speed]');return e&&getComputedStyle(e).visibility==='visible'&&e.getBoundingClientRect().height>0;},null,{timeout:2500});
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),true,'tap on Reel reopens extras');
     // New Reel receives its OWN ~3-second timer; not a permanently visible rail.
     await page.evaluate(()=>{
