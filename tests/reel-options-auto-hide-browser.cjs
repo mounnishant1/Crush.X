@@ -45,7 +45,7 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
       assert.equal(await first.locator(selector).isVisible(),true,selector+' initially visible');
     }
     // On each Reel, secondary actions go INVISIBLE automatically after ~3 seconds.
-    await page.waitForFunction(()=>document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"]')?.classList.contains('cx-reel-extra-hidden'),null,{timeout:5000});
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"] [data-reel-speed]')).visibility==='hidden',null,{timeout:5000});
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),false);
     assert.equal(await first.locator('[data-reel-mute]').isVisible(),false);
     assert.equal(await first.locator('[data-repost]').isVisible(),false);
@@ -59,7 +59,7 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     await toggle.click();
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),true,'More reopens extra actions');
     assert.equal(await toggle.getAttribute('aria-expanded'),'true');
-    await page.waitForFunction(()=>document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"]')?.classList.contains('cx-reel-extra-hidden'),null,{timeout:5000});
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.reel-slide[data-reel-slide="cx_hide_1"] [data-reel-speed]')).visibility==='hidden',null,{timeout:5000});
     await first.locator('.reel-visual').click({position:{x:150,y:220},force:true});
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),true,'tap on Reel reopens extras');
     // New Reel receives its OWN ~3-second timer; not a permanently visible rail.
@@ -71,7 +71,7 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     await page.waitForFunction(()=>CrushXReelOptions.status().activeReelId==='cx_hide_5',null,{timeout:4000});
     const fifth=slides.nth(4);
     assert.equal(await fifth.locator('[data-reel-mute]').isVisible(),true);
-    await page.waitForFunction(()=>document.querySelector('.reel-slide[data-reel-slide="cx_hide_5"]')?.classList.contains('cx-reel-extra-hidden'),null,{timeout:5000});
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.reel-slide[data-reel-slide="cx_hide_5"] [data-reel-speed]')).visibility==='hidden',null,{timeout:5000});
     assert.equal(await fifth.locator('[data-reel-mute]').isVisible(),false);
     assert.equal(await fifth.locator('[data-like]').isVisible(),true);
     assert.deepEqual(errors,[],'No page JS runtime errors');
