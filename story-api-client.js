@@ -19,7 +19,9 @@
     const origin=url.origin;
     const endpoint='/v1/stories';
     async function call(method,path,body){
-      const token=await getAccessToken();
+      // Never expose internal credential-provider errors to UI or telemetry.
+      let token;
+      try{token=await getAccessToken();}catch{throw Error('STORY_AUTH_REQUIRED');}
       if(typeof token!=='string'||!/^[A-Za-z0-9._-]{32,8192}$/.test(token))
         throw Error('STORY_AUTH_REQUIRED');
       let response;
@@ -35,6 +37,8 @@
       }catch{throw Error('STORY_NETWORK_UNAVAILABLE');}
       let result;
       try{result=await response.json();}catch{throw Error('STORY_INVALID_RESPONSE');}
+      if(!result||typeof result!=='object'||Array.isArray(result))
+        throw Error('STORY_INVALID_RESPONSE');
       if(!response.ok){
         const reason=result&&typeof result.error==='string'&&/^[A-Z_]{3,60}$/.test(result.error)?
           result.error:'STORY_REQUEST_FAILED';
