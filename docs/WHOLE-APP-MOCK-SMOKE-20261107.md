@@ -1,9 +1,15 @@
 # Crush.X — Whole-app mock feature smoke, 7 November 2026
 
 ## Strict scope
-Isolated branch \`audit/whole-app-mock-smoke-20261107\`, based on \`feature/dp-fullscreen-pinch-zoom-20261107\`. The branch contains the older **GitHub browser-preview** app, NOT the latest Windows \`F:\CrushX-Step259-Isolated\...\Windows-App-Work\frontend\` React/Capacitor tree. This test is designed to expose regressions in existing preview controls. It does **not** create fake messaging, payment, calling, AI model, camera, deployment, or cloud functionality.
+Isolated branch `audit/whole-app-mock-smoke-20261107`, based on `feature/dp-fullscreen-pinch-zoom-20261107`. The branch contains the older **GitHub browser-preview** app, NOT the latest Windows `F:\CrushX-Step259-Isolated\...\Windows-App-Work\frontend` React/Capacitor tree. This test is designed to expose regressions in existing preview controls. It does **not** create fake messaging, payment, calling, AI model, camera, deployment, or cloud functionality.
 
-Run \`node tests/whole-app-mock-smoke-browser.cjs\` against a localhost static server with Playwright installed via \`PLAYWRIGHT_MODULE\`. CI workflow \`.github/workflows/whole-app-mock.yml\` installs an isolated browser, starts \`python3 -m http.server 8000\`, runs checks and archives \`mock-audit-artifacts/mock-audit.json\` and \`mock-audit-artifacts/mock-gates.csv\` even when tests fail. It uses \`node:24\` for source tests.
+Run `node tests/whole-app-mock-smoke-browser.cjs` against a localhost static server with Playwright installed via `PLAYWRIGHT_MODULE`. CI workflow `.github/workflows/whole-app-mock.yml` installs an isolated browser, starts `python3 -m http.server 8000`, runs checks and archives `mock-audit-artifacts/mock-audit.json` and `mock-audit-artifacts/mock-gates.csv` even when tests fail. It uses `node:24` for source tests.
+
+## CI evidence
+
+The 21-case mock smoke suite completed with **21 Verified, 0 Failed, 13 release-gate Blocked, 3 Untested** on the review branch after the Notes fix. The saved mock artifact carries the exact head SHA; always inspect the newest workflow run before treating this result as current. This result is restricted to the static browser preview.
+
+One genuine browser-preview bug was found and fixed: Notes previously inserted its rail only after literal `<main>`; the current Messages page uses an attributed `<main class="cx-message-screen">`, so the Notes rail disappeared. The insertion now accepts the opening main tag and retains class/attributes. The remaining two initial mock failures were stale test expectations (Reels main selector, Activity label), corrected without changing product behavior.
 
 ## What the checks prove
 Browser smoke cases exercise **actual visible controls in a local preview**:
