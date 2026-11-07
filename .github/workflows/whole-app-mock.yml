@@ -11,6 +11,7 @@ on:
       - 'operating-system/**'
       - tests/whole-app-mock-smoke-browser.cjs
       - tests/horizontal-nav-browser.cjs
+      - tests/reel-options-auto-hide-browser.cjs
       - .github/workflows/whole-app-mock.yml
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - 'operating-system/**'
       - tests/whole-app-mock-smoke-browser.cjs
       - tests/horizontal-nav-browser.cjs
+      - tests/reel-options-auto-hide-browser.cjs
       - .github/workflows/whole-app-mock.yml
 permissions:
   contents: read
@@ -36,6 +38,8 @@ jobs:
         run: |
           node --check tests/whole-app-mock-smoke-browser.cjs
           node --check tests/horizontal-nav-browser.cjs
+          node --check tests/reel-options-auto-hide-browser.cjs
+          node --check reel-options-auto-hide.js
           node --check horizontal-swipe-navigation.js
           node --test operating-system/tests/account-lifecycle.test.cjs
           node --test tests/auth-android-inputs.test.cjs
@@ -67,6 +71,7 @@ jobs:
         run: |
           node tests/whole-app-mock-smoke-browser.cjs
           node tests/horizontal-nav-browser.cjs
+          node tests/reel-options-auto-hide-browser.cjs
       - name: Upload full evidence including failures
         if: always()
         uses: actions/upload-artifact@v4
