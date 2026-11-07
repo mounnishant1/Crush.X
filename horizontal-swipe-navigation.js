@@ -31,10 +31,11 @@
   function safeTarget(target) {
     if (!(target instanceof root.Element)) return false;
     if (!target.closest('#app main')) return false;
+    if (root.document.querySelector('dialog[open], [aria-modal="true"]')) return false;
     // Let controls, Stories, gallery carousels, horizontal scrollers and media
     // editors own their gestures. A horizontal swipe on blank Reel visual is OK.
     if (target.closest([
-      'button','a','input','textarea','select','label','video[controls]',
+      'button','a','input','textarea','select','label',
       '[contenteditable]','[role="button"]','[role="slider"]','dialog',
       '.story-viewer','.story-studio','.cx-dp-viewer','#cxDpViewer',
       '.reel-rail','.reel-progress','.reel-comment-box','.reel-details',
@@ -55,6 +56,9 @@
     gesture = null;
     if (!authenticated() || event.touches.length !== 1 || !safeTarget(event.target)) return;
     const touch = event.touches[0];
+    // Native video timeline controls own touches near the bottom of a video.
+    const video = event.target.closest('video[controls]');
+    if (video && touch.clientY > video.getBoundingClientRect().bottom - 68) return;
     // Do not intercept Android system-back edge gesture.
     if (touch.clientX < 18 || touch.clientX > root.innerWidth - 18) return;
     const tab = getState().activeTab;
@@ -181,7 +185,7 @@
     return '<main class="cx-swipe-camera" aria-label="Camera preview" data-cx-swipe-camera>'+
       '<header class="cx-swipe-camera-top"><button type="button" data-cx-camera-back aria-label="Back to Home">←</button>'+
       '<strong>Camera</strong><button type="button" data-cx-camera-flip disabled aria-label="Flip camera">Flip</button></header>'+
-      '<div class="cx-swipe-camera-stage" data-cx-swipe-lock>'+
+      '<div class="cx-swipe-camera-stage">'+
       '<video data-cx-camera-video autoplay muted playsinline aria-label="Local camera preview"></video>'+
       '<div data-cx-camera-photo class="cx-swipe-camera-photo"></div>'+
       '<p class="cx-swipe-camera-note">Live local camera preview. AR lenses and recorded video require the native app.</p></div>'+
