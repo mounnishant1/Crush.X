@@ -68,7 +68,7 @@
   -webkit-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition: border-color 120ms ease;
 }
 
 /* JS toggles .hidden on signup/reset fields; keep that contract exact. */
