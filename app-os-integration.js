@@ -75,6 +75,7 @@
          '<button type="button" class="cx-os-ai-tile" data-os-ai="'+t.id+'">'+
          '✦ '+t.title+'</button>').join('')+'</div>'+
      '</section>'+
+     '<section class="cx-os-account-control"><button type="button" data-os-account>Account suspend / reactivate & appeals</button><p>Verified server connection required to change account state.</p></section>'+ 
      '<div class="cx-os-aura-zone"><p>AURA-X stays the single AI assistant. It currently gives only local, rule-based help.</p>'+
        '<button type="button" data-os-aura>Open AURA-X</button></div>'+
    '</main>';
@@ -83,6 +84,9 @@
    if(back){close();return;}
    const tile=event.target.closest('[data-os-feature]');
    if(tile){navigateFeature(tile.dataset.osFeature);return;}
+   if(event.target.closest('[data-os-account]')){
+    close();if(root.CrushXAccountLifecycle?.open)root.CrushXAccountLifecycle.open();return;
+   }
    const aiTile=event.target.closest('[data-os-ai]');
    if(aiTile){
     close();
