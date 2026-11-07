@@ -135,3 +135,9 @@ body.cx-camera-route #app .bottom-nav {
   .cx-swipe-camera,
   .cx-swipe-camera-stage {scroll-behavior:auto}
 }
+
+/* Keep the 260ms directional screen slide inside the app's viewport;
+   no horizontal page scrollbar, and no sideways movement of bottom tabs. */
+@media (max-width: 1199px) {
+  #app {overflow-x:clip}
+}
