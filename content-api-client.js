@@ -28,7 +28,10 @@
    throw TypeError('CONTENT_API_ORIGIN_NOT_APPROVED');
   const base=url.origin;
   async function request(method,path,body){
-   const token=await getAccessToken();
+   // Credential adapters may fail while refreshing or reading session state.
+   // Never expose their internal exception text to callers or logs.
+   let token;
+   try{token=await getAccessToken();}catch{throw Error('CONTENT_AUTH_REQUIRED');}
    // A Cognito ACCESS JWT is provided by the host app, verified on the server.
    if(typeof token!=='string'||token.length>8192||
       !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token))
