@@ -46,16 +46,23 @@ const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
     const t2=new Touch({identifier:17,target:node,clientX:(dx<0?295:105)+dx,clientY:375+dy,pageX:(dx<0?295:105)+dx,pageY:375+dy});
     node.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[t1],changedTouches:[t1],targetTouches:[t1]}));
     node.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],changedTouches:[t2],targetTouches:[]}));
-    return {tab:getState().activeTab,hash:location.hash};
+    const entering=document.querySelector('#app main');
+    const motion=entering?.getAnimations().flatMap(a=>a.effect?.getKeyframes?.()||[])
+      .find(k=>String(k.transform||'').startsWith('translate3d('));
+    return {tab:getState().activeTab,hash:location.hash,enterFrom:motion?.transform||null};
   },{dx,dy,targetSelector});
 
   // On Home, swipe LEFT must open Camera. Never pretend native Unity AR is running.
-  assert.equal((await swipe(-174)).tab,'camera',await page.evaluate(()=>CrushXHorizontalTabs.debug()));
+  const enterCamera=await swipe(-174);
+  assert.equal(enterCamera.tab,'camera',await page.evaluate(()=>CrushXHorizontalTabs.debug()));
+  assert.match(enterCamera.enterFrom||'',/translate3d\(100%,0,0\)/,'Camera should visually slide in from right');
   assert.equal(await page.locator('main.cx-swipe-camera').count(),1);
   assert.match(await page.locator('[data-cx-camera-status]').textContent(),/denied|requesting/i);
   assert.equal(await page.evaluate(()=>window.__cameraRequests),1,'Camera permission requested by deliberate swipe');
   assert.equal(await page.locator('[data-cx-camera-shutter]').isDisabled(),true,'No fake capture without a stream');
-  assert.equal((await swipe(180)).tab,'home','Camera swipe RIGHT returns Home');
+  const returnHome=await swipe(180);
+  assert.equal(returnHome.tab,'home','Camera swipe RIGHT returns Home');
+  assert.match(returnHome.enterFrom||'',/translate3d\(-100%,0,0\)/,'Home should visually slide in from left');
   assert.equal(await page.locator('main.cx-swipe-camera').count(),0);
 
   // Forward + reverse: Home -> Reels -> Messages -> Search -> Profile.
