@@ -38,10 +38,10 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     assert.equal(await page.evaluate(()=>CrushXReelOptions.durationMs),2800);
     const first=slides.first();
     assert.equal(await first.locator('[data-cx-reel-more]').count(),1);
-    for(const selector of ['[data-like]','[data-comment-focus]','[data-share]','[data-save]']){
+    for(const selector of ['[data-like]','[data-advanced-comments]','[data-social-share]','[data-save]']){
       assert.equal(await first.locator(selector).isVisible(),true,selector+' should always be visible');
     }
-    for(const selector of ['[data-reel-speed]','[data-reel-mute]','[data-repost]']){
+    for(const selector of ['[data-reel-speed]','[data-reel-mute]','[data-repost]','[data-advanced-reel-menu]']){
       assert.equal(await first.locator(selector).isVisible(),true,selector+' initially visible');
     }
     // On each Reel, secondary actions go INVISIBLE automatically after ~3 seconds.
@@ -49,7 +49,8 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
     assert.equal(await first.locator('[data-reel-speed]').isVisible(),false);
     assert.equal(await first.locator('[data-reel-mute]').isVisible(),false);
     assert.equal(await first.locator('[data-repost]').isVisible(),false);
-    for(const selector of ['[data-like]','[data-comment-focus]','[data-share]','[data-save]']){
+    assert.equal(await first.locator('[data-advanced-reel-menu]').isVisible(),false);
+    for(const selector of ['[data-like]','[data-advanced-comments]','[data-social-share]','[data-save]']){
       assert.equal(await first.locator(selector).isVisible(),true,selector+' vanished after hide');
     }
     const toggle=first.locator('[data-cx-reel-more]');
