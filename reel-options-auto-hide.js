@@ -118,8 +118,8 @@
         button.dataset.cxReelMore='';
         button.setAttribute('aria-expanded','true');
         button.innerHTML='<span aria-hidden="true">···</span><span data-cx-reel-more-label>Less</span>';
-        // Insert before secondary actions; keep principal social buttons intact.
-        rail.insertBefore(button,extras[0]);
+        // A stable More toggle stays after the ordinary Like/Comment/Share/Save rail.
+        rail.append(button);
         button.addEventListener('click',()=>{
           if (slide!==activeSlide()) return;
           if (revealed) hide();
