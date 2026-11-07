@@ -64,10 +64,16 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
    cardHeight:document.querySelector('#authOverlay .glass-strong').getBoundingClientRect().height
   }));
   assert.ok(dimensions.scrollWidth<=dimensions.viewportWidth+1,'No horizontal overflow');
-  await page.evaluate(()=>document.documentElement.classList.add('dark'));
-  const dark=await user.evaluate(e=>getComputedStyle(e).backgroundColor);
+  const dark=await user.evaluate(e=>{
+   document.documentElement.classList.add('dark');
+   document.body.classList.add('dark');
+   return getComputedStyle(e).backgroundColor;
+  });
   assert.equal(dark,'rgb(20, 30, 48)','Dark login field is neutral');
-  await page.evaluate(()=>document.documentElement.classList.remove('dark'));
+  await page.evaluate(()=>{
+   document.documentElement.classList.remove('dark');
+   document.body.classList.remove('dark');
+  });
   const folder=path.join(process.cwd(),'auth-test-artifacts');
   fs.mkdirSync(folder,{recursive:true});
   await page.screenshot({path:path.join(folder,'android-login-360.png')});
