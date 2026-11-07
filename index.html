@@ -203,6 +203,7 @@
     @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
   </style>
   <link rel="stylesheet" href="./music-library.css" />
+  <link rel="stylesheet" href="./auth-inputs-android.css" />
 </head>
 
 <body>
@@ -223,31 +224,34 @@
         </p>
       </div>
 
-      <form id="authForm" novalidate class="mt-6 space-y-3">
+      <form id="authForm" novalidate class="cx-auth-form">
         <input
           aria-label="Username or email" id="usernameInput"
           type="text"
           autocomplete="username"
+          autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
           placeholder="Username or email"
-          class="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          class="cx-auth-input"
         />
 
         <input
           aria-label="Email address" id="emailInput"
           type="email"
           autocomplete="email"
+          autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
           placeholder="Email address"
-          class="hidden w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          class="cx-auth-input hidden"
         />
 
         <input
           aria-label="Password" id="passwordInput"
           type="password"
           autocomplete="current-password"
+          autocapitalize="none" spellcheck="false" enterkeyhint="go"
           placeholder="Password"
-          class="w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-4 focus:ring-pink-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          class="cx-auth-input"
         />
-        <input aria-label="Reset code" id="resetCodeInput" class="hidden w-full rounded-2xl border px-4 py-3" placeholder="Reset code" autocomplete="one-time-code" />
+        <input aria-label="Reset code" id="resetCodeInput" type="text" inputmode="numeric" maxlength="6" class="cx-auth-input hidden" placeholder="Reset code" autocomplete="one-time-code" />
       </form>
 
       <button

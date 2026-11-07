@@ -1,0 +1,61 @@
+name: Android login field regression
+on:
+  push:
+    branches:
+      - fix/android-login-clean-fields-20261107
+    paths:
+      - index.html
+      - auth-inputs-android.css
+      - tests/auth-android-inputs.test.cjs
+      - tests/auth-android-inputs-browser.cjs
+      - .github/workflows/auth-android-inputs.yml
+  pull_request:
+    paths:
+      - index.html
+      - auth-inputs-android.css
+      - tests/auth-android-inputs.test.cjs
+      - tests/auth-android-inputs-browser.cjs
+      - .github/workflows/auth-android-inputs.yml
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Static regression and syntax
+        run: |
+          node --check tests/auth-android-inputs-browser.cjs
+          node --test tests/auth-android-inputs.test.cjs
+  mobile-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated Playwright Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/crushx-auth-check" --no-save --package-lock=false playwright@1.58.2
+          "$RUNNER_TEMP/crushx-auth-check/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Start local preview server
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE" > "$RUNNER_TEMP/auth-http.log" 2>&1 &
+          curl --retry 10 --retry-delay 1 --retry-connrefused --fail --silent --show-error http://127.0.0.1:8000/ -o /dev/null
+      - name: Verify Android viewport and clean fields
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/crushx-auth-check/node_modules/playwright
+        run: node tests/auth-android-inputs-browser.cjs
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-login-browser-preview
+          path: auth-test-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
