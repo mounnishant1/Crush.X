@@ -67,9 +67,16 @@ const BASE=process.env.CRUSHX_TEST_URL||'http://127.0.0.1:8000/';
   const dark=await user.evaluate(e=>{
    document.documentElement.classList.add('dark');
    document.body.classList.add('dark');
-   return getComputedStyle(e).backgroundColor;
+   return {color:getComputedStyle(e).backgroundColor,
+    matches:e.matches('.dark #authOverlay .cx-auth-input'),
+    htmlClass:document.documentElement.className,
+    bodyClass:document.body.className,
+    styles:[...document.styleSheets].flatMap(s=>{
+      try{return [...s.cssRules].filter(r=>r.selectorText?.includes('.dark #authOverlay .cx-auth-input')).map(r=>r.cssText);}
+      catch{return [];}
+    })};
   });
-  assert.equal(dark,'rgb(20, 30, 48)','Dark login field is neutral');
+  assert.equal(dark.color,'rgb(20, 30, 48)','Dark login field is neutral: '+JSON.stringify(dark));
   await page.evaluate(()=>{
    document.documentElement.classList.remove('dark');
    document.body.classList.remove('dark');
